@@ -1,4 +1,8 @@
+from __future__ import annotations
+
+from io import BytesIO
 from pathlib import Path
+from typing import Iterable
 
 import pandas as pd
 import plotly.express as px
@@ -7,18 +11,7 @@ import streamlit as st
 st.set_page_config(page_title="EventWatch Executive Dashboard", layout="wide")
 
 APP_TITLE = "EventWatch Executive Dashboard"
-DEFAULT_WORKBOOK = "EventWatch_Customer_Complaints_2026.xlsx"
-
-# Production data mode
-# --------------------
-# Intended production setup:
-# 1. Agent scans Outlook and prepares approval packages for new complaint/inquiry candidates.
-# 2. After approval, the agent updates a live CSV file in GitHub, with user confirmation.
-# 3. This Streamlit app is deployed once and refreshes from that GitHub CSV URL on page load.
-# 4. The Excel workbook remains the visual/reference baseline and setup fallback, not the primary live database.
-#
-# Configure in Streamlit Community Cloud secrets:
-# GITHUB_CSV_URL = "https://raw.githubusercontent.com/sangrambarger/EventWatch_Customer_Complaints/main/customer_tracker.csv"
+GITHUB_CSV_DEFAULT = "https://raw.githubusercontent.com/sangrambarger/EventWatch_Customer_Complaints/main/customer_tracker.csv"
 
 PAGE_OPTIONS = [
     "Executive Summary",
@@ -36,384 +29,136 @@ PAGE_OPTIONS = [
 ]
 
 PAGE_DESCRIPTIONS = {
-    "Executive Summary": "A leadership-level view of total complaint and inquiry volume, RCA exposure, severity, customer concentration, and the highest-priority automation opportunities.",
-    "SOURCE 01 · Monthly trend": "Shows complaint and inquiry movement by reporting month so leaders can see whether EventWatch quality signals are improving, worsening, or shifting over time.",
-    "SOURCE 02 · Fix status": "Summarizes the current resolution posture across tracked records, including items fixed, clarified, or RCA-shared.",
-    "SOURCE 03 · Severity": "Breaks records by severity to highlight the operational weight of the complaint and inquiry backlog.",
-    "SOURCE 04 · Root cause": "Groups records by People, Process, and Product root-cause themes to show where corrective action should focus.",
-    "SOURCE 05 · Top customers": "Identifies customers most frequently represented in the tracker so account and leadership teams can prioritize follow-up.",
-    "SOURCE 06 · Automation focus": "Connects complaint evidence to standard automation-control categories and highlights the largest improvement opportunities.",
-    "DETAIL · Event workload": "Shows the event-type workload behind complaints, helping teams identify event categories that create repeated service risk.",
-    "Automation urgency": "Ranks automation focus areas by complaint volume so the team can decide which controls to improve first.",
-    "Dynamic Source Discovery": "Displays records tied to source coverage, feed ingestion, keyword detection, vendor monitoring, and event discovery gaps.",
-    "Definitions": "Documents the operating definitions used to classify complaints, inquiries, and automation focus areas consistently.",
-    "Complaint Tracker": "Provides the detailed tracker view used for review, filtering, export, and validation against the live source data.",
+    "Executive Summary": "Leadership cockpit covering volume, customer concentration, misses, RCA exposure, source gaps, and automation priorities.",
+    "SOURCE 01 · Monthly trend": "Complaint and inquiry movement by reporting month.",
+    "SOURCE 02 · Fix status": "Current resolution posture across fixed, clarified, and RCA-shared records.",
+    "SOURCE 03 · Severity": "Operational weight of complaints and inquiries by severity.",
+    "SOURCE 04 · Root cause": "People, Process, and Product themes behind customer pain.",
+    "SOURCE 05 · Top customers": "Customers most frequently represented in the tracker and their complaint patterns.",
+    "SOURCE 06 · Automation focus": "Standard automation-control categories linked to complaint evidence.",
+    "DETAIL · Event workload": "Event types generating repeated service risk.",
+    "Automation urgency": "Prioritized controls ranked by volume, severity, misses, RCA pressure, and customer concentration.",
+    "Dynamic Source Discovery": "Event types, customers, and reasons tied to source coverage or discovery gaps.",
+    "Definitions": "Structured glossary for tracker fields, classification rules, statuses, and automation categories.",
+    "Complaint Tracker": "Filtered operational tracker with export and controlled manual-entry staging.",
 }
 
-DARK_CSS = """
+CSS = """
 <style>
 :root {
-  --bg: #eef2f6;
-  --surface: #ffffff;
-  --surface-2: #f7f9fc;
-  --sidebar: #162235;
-  --sidebar-2: #20324d;
-  --line: #d5dde8;
-  --line-strong: #9fb0c5;
-  --text: #1f2a37;
-  --muted: #64748b;
-  --blue: #2f6fae;
-  --blue-2: #d9e8f7;
-  --teal: #157f7f;
-  --teal-2: #d9f0ee;
-  --amber: #b7791f;
-  --amber-2: #f7ead2;
-  --rose: #b64747;
-  --rose-2: #f5dddd;
-  --green: #2f7d52;
-  --green-2: #ddf0e5;
+  --bg:#eef1f4; --panel:#ffffff; --panel2:#f8fafc; --ink:#202124; --muted:#5f6368;
+  --line:#d7dde4; --line2:#aeb8c4; --blue:#3b6f9f; --blue2:#d8e5f2;
+  --green:#4f7d63; --amber:#a36b22; --red:#9f4b4b; --teal:#427f87;
 }
-html, body, [data-testid="stAppViewContainer"] {
-  background: var(--bg);
-  color: var(--text);
+html, body, [data-testid="stAppViewContainer"] { background:var(--bg); color:var(--ink); }
+.main .block-container { padding-top:.8rem; padding-bottom:2rem; max-width:1440px; }
+[data-testid="stSidebar"] { background:#172638; border-right:1px solid #2d4058; }
+[data-testid="stSidebar"] * { color:#f1f5f9; }
+[data-testid="stSidebar"] label { color:#cbd5e1 !important; }
+[data-testid="stSidebar"] .stRadio > div { gap:10px; }
+[data-testid="stSidebar"] .stRadio div[role="radiogroup"] > label {
+  background:transparent; border:1px solid rgba(255,255,255,.12); border-radius:8px; padding:9px 12px;
+  margin:5px 0; transition:all .15s ease; box-shadow:none;
 }
-.main .block-container {
-  padding-top: 1.2rem;
-  padding-bottom: 2.5rem;
-  max-width: 1500px;
+[data-testid="stSidebar"] .stRadio div[role="radiogroup"] > label:hover { background:rgba(255,255,255,.08); }
+[data-testid="stSidebar"] .stRadio div[role="radiogroup"] > label:has(input:checked) {
+  background:#f1f5f9; border-color:#f1f5f9;
 }
-[data-testid="stSidebar"] {
-  background: linear-gradient(180deg, var(--sidebar), var(--sidebar-2));
-  border-right: 1px solid #33455f;
-}
-[data-testid="stSidebar"] * { color: #eaf1f8; }
-[data-testid="stSidebar"] label { color: #c7d2df !important; }
-[data-testid="stSidebar"] .stRadio label { font-weight: 750; }
-h1, h2, h3, h4, h5, h6, p, span, div { color: var(--text); }
-.page-hero {
-  background: linear-gradient(135deg, #ffffff 0%, #f3f7fb 55%, #e4edf7 100%);
-  border: 1px solid var(--line);
-  border-left: 6px solid var(--blue);
-  padding: 18px 22px;
-  margin-bottom: 16px;
-  box-shadow: 0 8px 20px rgba(31, 42, 55, .08);
-}
-.page-hero h1 {
-  margin: 0 0 8px 0;
-  color: #172033;
-  font-size: 30px;
-}
-.page-hero p {
-  margin: 0;
-  color: #405169;
-  font-size: 15px;
-  line-height: 1.45;
-}
-.filter-panel {
-  background: var(--surface);
-  border: 1px solid var(--line);
-  padding: 14px 16px 8px 16px;
-  margin-bottom: 16px;
-  box-shadow: 0 6px 16px rgba(31, 42, 55, .05);
-}
-.kpi-grid {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(150px, 1fr));
-  gap: 14px;
-  margin: 12px 0 18px 0;
-}
-.kpi {
-  min-height: 128px;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-top: 5px solid var(--accent);
-  padding: 16px 16px 14px 16px;
-  box-shadow: 0 8px 18px rgba(31, 42, 55, .08);
-}
-.kpi-label {
-  font-size: 12px;
-  color: var(--muted);
-  font-weight: 850;
-  text-transform: uppercase;
-  letter-spacing: .04em;
-}
-.kpi-num {
-  font-size: 34px;
-  font-weight: 900;
-  color: var(--text);
-  line-height: 1.1;
-  margin: 8px 0;
-}
-.kpi-foot { font-size: 12px; color: var(--muted); line-height: 1.25; }
-.insight-row {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(220px, 1fr));
-  gap: 14px;
-  margin-bottom: 16px;
-}
-.insight-box, .section-card {
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-left: 5px solid var(--accent, var(--blue));
-  padding: 15px 16px;
-  box-shadow: 0 8px 18px rgba(31, 42, 55, .06);
-}
-.insight-box b { color: #172033; }
-.section-card { margin-bottom: 16px; }
-.section-card h3 { margin-top: 0; color: #172033; }
-.excel-table {
-  width: 100%;
-  border-collapse: collapse;
-  background: var(--surface);
-  color: var(--text);
-  font-size: 13px;
-  table-layout: fixed;
-}
-.excel-table th {
-  background: #315c86;
-  color: #ffffff;
-  border: 1px solid #7694b4;
-  padding: 9px 10px;
-  text-align: center;
-  font-weight: 850;
-}
-.excel-table td {
-  border: 1px solid var(--line);
-  padding: 8px 10px;
-  vertical-align: middle;
-  color: var(--text);
-  background: #ffffff;
-}
-.excel-table tr:nth-child(even) td { background: #f7f9fc; }
-.excel-table td:first-child { text-align: left; word-wrap: break-word; }
-.excel-table td:not(:first-child) { text-align: center; }
-.bar-cell { padding: 0 !important; }
-.bar-box {
-  position: relative;
-  min-height: 34px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  overflow: hidden;
-}
-.bar-box::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: var(--w);
-  background: linear-gradient(90deg, rgba(47,111,174,.45), rgba(47,111,174,.10));
-}
-.bar-box span {
-  position: relative;
-  z-index: 1;
-  color: var(--text);
-  font-weight: 900;
-}
-.definition-box {
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-left: 5px solid var(--teal);
-  padding: 12px 14px;
-  margin-bottom: 10px;
-}
-.stDownloadButton button, .stButton button {
-  background: #315c86;
-  color: white;
-  border: 1px solid #315c86;
-  border-radius: 2px;
-  font-weight: 800;
-}
-[data-testid="stDataFrame"], [data-testid="stTable"] {
-  background: var(--surface);
-  border: 1px solid var(--line);
-}
-@media (max-width: 1200px) {
-  .kpi-grid { grid-template-columns: repeat(2, minmax(180px, 1fr)); }
-  .insight-row { grid-template-columns: 1fr; }
-}
-@media (max-width: 760px) {
-  .kpi-grid { grid-template-columns: 1fr; }
-}
+[data-testid="stSidebar"] .stRadio div[role="radiogroup"] > label:has(input:checked) * { color:#172638 !important; font-weight:800; }
+[data-testid="stSidebar"] .stRadio input { display:none; }
+h1,h2,h3,h4,h5,h6,p,span,div { color:var(--ink); }
+.page-hero { background:var(--panel); border:1px solid var(--line); border-left:5px solid var(--blue); padding:12px 16px; margin-bottom:12px; box-shadow:0 2px 8px rgba(32,33,36,.06); }
+.page-hero h1 { margin:0 0 4px 0; font-size:26px; line-height:1.15; color:var(--ink); }
+.page-hero p { margin:0; font-size:14px; color:var(--muted); }
+.filter-panel { background:var(--panel); border:1px solid var(--line); padding:10px 12px 4px; margin-bottom:12px; box-shadow:0 1px 6px rgba(32,33,36,.05); }
+.kpi-grid { display:grid; grid-template-columns:repeat(5,minmax(140px,1fr)); gap:10px; margin:10px 0 14px; }
+.kpi { min-height:92px; background:var(--panel); border:1px solid var(--line); border-top:4px solid var(--accent); padding:11px 12px; box-shadow:0 2px 8px rgba(32,33,36,.06); }
+.kpi-label { font-size:11px; color:var(--muted); font-weight:800; text-transform:uppercase; letter-spacing:.035em; }
+.kpi-num { font-size:29px; font-weight:900; line-height:1.05; margin:6px 0; color:var(--ink); }
+.kpi-foot { font-size:12px; color:var(--muted); line-height:1.25; }
+.section-card { background:var(--panel); border:1px solid var(--line); border-left:4px solid var(--accent,var(--blue)); padding:12px 14px; margin-bottom:12px; box-shadow:0 2px 8px rgba(32,33,36,.05); }
+.section-card h3 { margin:0 0 10px 0; font-size:22px; color:var(--ink); }
+.section-card h4 { margin:0 0 8px 0; color:var(--ink); }
+.insight-row { display:grid; grid-template-columns:repeat(2,minmax(260px,1fr)); gap:10px; margin-bottom:12px; }
+.insight-box { background:var(--panel); border:1px solid var(--line); border-left:4px solid var(--accent,var(--blue)); padding:11px 12px; box-shadow:0 2px 8px rgba(32,33,36,.05); font-size:14px; }
+.excel-table { width:100%; border-collapse:collapse; background:var(--panel); font-size:13px; table-layout:fixed; }
+.excel-table th { background:#355f87; color:#fff; border:1px solid #7896b4; padding:8px 9px; text-align:center; font-weight:850; }
+.excel-table td { border:1px solid var(--line); padding:7px 9px; vertical-align:middle; background:#fff; color:var(--ink); }
+.excel-table tr:nth-child(even) td { background:#f7f9fb; }
+.excel-table td:first-child { text-align:left; overflow-wrap:anywhere; }
+.excel-table td:not(:first-child) { text-align:center; }
+.bar-cell { padding:0!important; }
+.bar-box { position:relative; min-height:32px; display:flex; align-items:center; justify-content:center; overflow:hidden; }
+.bar-box::before { content:""; position:absolute; inset:0 auto 0 0; width:var(--w); background:linear-gradient(90deg,rgba(59,111,159,.55),rgba(59,111,159,.12)); }
+.bar-box span { position:relative; z-index:1; color:var(--ink); font-weight:900; text-shadow:0 1px 0 rgba(255,255,255,.55); }
+.toolbar { display:flex; gap:8px; flex-wrap:wrap; margin:.2rem 0 .5rem; }
+.definition-group { background:var(--panel); border:1px solid var(--line); border-left:4px solid var(--teal); padding:12px 14px; margin-bottom:12px; }
+[data-testid="stDataFrame"], [data-testid="stTable"] { background:var(--panel); border:1px solid var(--line); }
+.stDownloadButton button, .stButton button, .stFormSubmitButton button { background:#355f87; color:white; border:1px solid #355f87; border-radius:6px; font-weight:800; }
+@media (max-width:1200px){ .kpi-grid{grid-template-columns:repeat(2,minmax(180px,1fr));}.insight-row{grid-template-columns:1fr;} }
+@media (max-width:760px){ .kpi-grid{grid-template-columns:1fr;} }
 </style>
 """
-st.markdown(DARK_CSS, unsafe_allow_html=True)
+st.markdown(CSS, unsafe_allow_html=True)
 
 
-def load_from_github_csv():
-    """Load live tracker rows from a GitHub raw CSV URL when configured."""
-    url = st.secrets.get("GITHUB_CSV_URL", "") if hasattr(st, "secrets") else ""
-    if not url:
-        return None
+def load_data() -> pd.DataFrame:
+    url = st.secrets.get("GITHUB_CSV_URL", GITHUB_CSV_DEFAULT) if hasattr(st, "secrets") else GITHUB_CSV_DEFAULT
     try:
-        return pd.read_csv(url)
-    except Exception as exc:
-        st.sidebar.error(f"GitHub CSV live load failed: {exc}")
-        return None
-
-
-def load_data(uploaded_file=None):
-    live_df = load_from_github_csv()
-    if live_df is not None and not live_df.empty:
+        df = pd.read_csv(url)
         st.sidebar.success("Live GitHub CSV data")
-        df = live_df.copy()
-    else:
-        source = uploaded_file if uploaded_file is not None else Path(DEFAULT_WORKBOOK)
-        if uploaded_file is None and not Path(DEFAULT_WORKBOOK).exists():
-            st.warning(
-                "GitHub CSV live source is not configured yet. Upload the EventWatch workbook on this page, "
-                "or add the workbook/CSV to the repo as the setup fallback."
-            )
-            return pd.DataFrame()
-        st.sidebar.warning("Workbook fallback mode")
-        df = pd.read_excel(source, sheet_name="Data")
+    except Exception as exc:
+        st.error("Live GitHub CSV could not be loaded. This production dashboard does not support workbook upload fallback.")
+        st.caption(f"Data source attempted: {url}")
+        st.caption(f"Load error: {exc}")
+        return pd.DataFrame()
 
     if not df.empty and str(df.columns[0]).startswith("Unnamed"):
         df = df.drop(columns=df.columns[0])
-
     for col in ["Month", "Email/JIRA Date", "Reporting Month"]:
         if col in df.columns:
             df[col] = pd.to_datetime(df[col], errors="coerce")
-
-    if "Month" in df.columns:
-        df["Month Label"] = df["Month"].dt.strftime("%b %Y")
-
+    if "Month Label" not in df.columns:
+        source = "Reporting Month" if "Reporting Month" in df.columns else "Month" if "Month" in df.columns else None
+        if source:
+            df["Month Label"] = df[source].dt.strftime("%b %Y")
     return df
 
 
-def page_header(title):
-    st.markdown(
-        f"<div class='page-hero'><h1>{title}</h1><p>{PAGE_DESCRIPTIONS.get(title, '')}</p></div>",
-        unsafe_allow_html=True,
-    )
+def page_header(title: str):
+    st.markdown(f"<div class='page-hero'><h1>{title}</h1><p>{PAGE_DESCRIPTIONS.get(title,'')}</p></div>", unsafe_allow_html=True)
 
 
-def page_date_filter(df, key_prefix):
+def date_filter(df: pd.DataFrame, key: str) -> pd.DataFrame:
     if df.empty:
         return df
-
-    date_col = "Reporting Month" if "Reporting Month" in df.columns else "Month" if "Month" in df.columns else "Email/JIRA Date" if "Email/JIRA Date" in df.columns else None
+    date_col = next((c for c in ["Reporting Month", "Month", "Email/JIRA Date"] if c in df.columns), None)
     if not date_col:
         return df
-
-    valid_dates = df[date_col].dropna()
-    if valid_dates.empty:
+    dates = df[date_col].dropna()
+    if dates.empty:
         return df
-
-    min_date = valid_dates.min().date()
-    max_date = valid_dates.max().date()
-
+    min_date, max_date = dates.min().date(), dates.max().date()
     st.markdown("<div class='filter-panel'>", unsafe_allow_html=True)
-    left, right, note = st.columns([1, 1, 2])
-    start_date = left.date_input("Start date", value=min_date, min_value=min_date, max_value=max_date, key=f"{key_prefix}_start")
-    end_date = right.date_input("End date", value=max_date, min_value=min_date, max_value=max_date, key=f"{key_prefix}_end")
-    note.caption(f"Date filter uses **{date_col}** and applies only to this page.")
+    a, b, c = st.columns([1, 1, 2])
+    start = a.date_input("Start date", min_date, min_value=min_date, max_value=max_date, key=f"{key}_start")
+    end = b.date_input("End date", max_date, min_value=min_date, max_value=max_date, key=f"{key}_end")
+    c.caption(f"Date filter uses **{date_col}** and applies to this page.")
     st.markdown("</div>", unsafe_allow_html=True)
-
-    if start_date > end_date:
+    if start > end:
         st.warning("Start date is after end date. Showing the full available range.")
         return df
-
-    mask = (df[date_col].dt.date >= start_date) & (df[date_col].dt.date <= end_date)
-    return df[mask].copy()
+    return df[(df[date_col].dt.date >= start) & (df[date_col].dt.date <= end)].copy()
 
 
-def metric_card(label, value, foot="", accent="#2f6fae"):
-    st.markdown(
-        f"""
-        <div class='kpi' style='--accent:{accent}'>
-          <div class='kpi-label'>{label}</div>
-          <div class='kpi-num'>{value}</div>
-          <div class='kpi-foot'>{foot}</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-
-def kpi_grid(metrics):
-    st.markdown("<div class='kpi-grid'>", unsafe_allow_html=True)
-    for label, value, foot, accent in metrics:
-        metric_card(label, value, foot, accent)
-    st.markdown("</div>", unsafe_allow_html=True)
-
-
-def count_table(df, col, issue_type=None, pct_base=None):
-    if df.empty or col not in df.columns:
-        return pd.DataFrame(columns=[col, "Records", "% of Total"])
-    work = df.copy()
-    if issue_type and "Issue Type" in work.columns:
-        work = work[work["Issue Type"].eq(issue_type)]
-    out = work[col].fillna("Blank").astype(str).value_counts().reset_index()
-    out.columns = [col, "Records"]
-    base = pct_base or max(out["Records"].sum(), 1)
-    out["% of Total"] = (out["Records"] / base * 100).round(0).astype(int).astype(str) + "%"
-    return out
-
-
-def excel_bar_table(df, label_col, value_col="Records"):
-    if df.empty:
-        st.info("No data available for this view.")
-        return
-    max_v = max(float(df[value_col].max()), 1)
-    rows = []
-    for _, r in df.iterrows():
-        width = float(r[value_col]) / max_v * 100
-        rows.append(
-            f"<tr>"
-            f"<td>{r[label_col]}</td>"
-            f"<td class='bar-cell'><div class='bar-box' style='--w:{width:.1f}%'><span>{r[value_col]}</span></div></td>"
-            f"<td>{r.get('% of Total','')}</td>"
-            f"</tr>"
-        )
-    st.markdown(
-        "<table class='excel-table'><thead><tr><th>Category</th><th>Records</th><th>% of Total</th></tr></thead><tbody>"
-        + "".join(rows)
-        + "</tbody></table>",
-        unsafe_allow_html=True,
-    )
-
-
-def dark_bar_chart(df, label_col, value_col="Records", title=""):
-    if df.empty:
-        return
-    fig = px.bar(
-        df,
-        x=value_col,
-        y=label_col,
-        orientation="h",
-        text=value_col,
-        title=title,
-        color_discrete_sequence=["#2f6fae"],
-    )
-    fig.update_layout(
-        template="plotly_white",
-        plot_bgcolor="#ffffff",
-        paper_bgcolor="#ffffff",
-        font=dict(color="#1f2a37"),
-        margin=dict(l=10, r=20, t=42, b=10),
-        height=max(340, len(df) * 34),
-        yaxis={"categoryorder": "total ascending", "gridcolor": "#e5eaf1"},
-        xaxis={"gridcolor": "#e5eaf1"},
-        showlegend=False,
-    )
-    fig.update_traces(marker_color="#2f6fae", opacity=.88, textposition="outside", cliponaxis=False)
-    st.plotly_chart(fig, use_container_width=True)
-
-
-def apply_global_filters(df):
+def apply_sidebar_filters(df: pd.DataFrame) -> pd.DataFrame:
     st.sidebar.markdown("---")
-    st.sidebar.markdown("### Optional filters")
+    st.sidebar.markdown("### Filters")
     out = df.copy()
-    for col in ["Customer", "Event type", "Issue Type", "Severity", "Root Cause", "Short Term Fix Status", "RCA Requested", "Standard Automation Focus"]:
+    for col in ["Customer", "Event type", "Issue Type", "Severity", "Root Cause", "Reason", "Short Term Fix Status", "RCA Requested", "Standard Automation Focus"]:
         if col in out.columns:
-            vals = sorted([x for x in out[col].dropna().astype(str).unique()])
-            chosen = st.sidebar.multiselect(col, vals, key=f"side_{col}")
+            vals = sorted(out[col].dropna().astype(str).unique())
+            chosen = st.sidebar.multiselect(col, vals, key=f"filter_{col}")
             if chosen:
                 out = out[out[col].astype(str).isin(chosen)]
     q = st.sidebar.text_input("Search tracker")
@@ -422,195 +167,292 @@ def apply_global_filters(df):
     return out
 
 
-def add_entry_form():
-    with st.expander("Add new complaint / inquiry candidate"):
-        with st.form("new_entry"):
-            c1, c2, c3 = st.columns(3)
-            customer = c1.text_input("Customer")
-            event_type = c2.text_input("Event type")
-            issue_type = c3.selectbox("Issue Type", ["Complaint", "Inquiry"])
-            title = st.text_input("Event/Bulletin Title")
-            reason = st.text_input("Reason")
-            root = st.selectbox("Root Cause", ["", "People", "Process", "Product"])
-            severity = st.selectbox("Severity", ["Medium", "High", "Low"])
-            rca = st.selectbox("RCA Requested", ["No", "Yes"])
-            focus = st.text_input("Standard Automation Focus")
-            comments = st.text_area("Comments / evidence summary")
-            submitted = st.form_submit_button("Prepare row for approval/export")
-        if submitted:
-            st.success("Candidate row prepared. Review before adding to the source tracker.")
-            st.json({
-                "Customer": customer,
-                "Event type": event_type,
-                "Issue Type": issue_type,
-                "Event/Bulletin Title": title,
-                "Reason": reason,
-                "Root Cause": root,
-                "Severity": severity,
-                "RCA Requested": rca,
-                "Standard Automation Focus": focus,
-                "Comments": comments,
-            })
+def count_table(df: pd.DataFrame, col: str, base: int | None = None) -> pd.DataFrame:
+    if df.empty or col not in df.columns:
+        return pd.DataFrame(columns=[col, "Records", "% of Total"])
+    t = df[col].fillna("Blank").astype(str).value_counts().reset_index()
+    t.columns = [col, "Records"]
+    denom = max(base or len(df), 1)
+    t["% of Total"] = (t["Records"] / denom * 100).round(1).astype(str) + "%"
+    return t
 
 
-def render_source_page(title, source_df, col, data=None, pct_base=None):
-    page_header(title)
-    page_df = page_date_filter(source_df, title.replace(" ", "_").replace("·", "_"))
-    work = data if data is not None else page_df
-    if data is None:
-        work = page_df
-    elif "Issue Type" in data.columns and len(data) != len(source_df):
-        # Reapply the complaint-only or subset condition after the date filter.
-        work = page_df[page_df["Issue Type"].eq("Complaint")] if "Issue Type" in page_df.columns else page_df
+def cross_table(df: pd.DataFrame, rows: str, cols: str) -> pd.DataFrame:
+    if df.empty or rows not in df.columns or cols not in df.columns:
+        return pd.DataFrame()
+    return pd.crosstab(df[rows].fillna("Blank"), df[cols].fillna("Blank")).reset_index()
 
-    if col not in work.columns:
-        st.info(f"Column '{col}' is not available in the current source data.")
+
+def metric_card(label, value, foot="", accent="#3b6f9f"):
+    st.markdown(f"<div class='kpi' style='--accent:{accent}'><div class='kpi-label'>{label}</div><div class='kpi-num'>{value}</div><div class='kpi-foot'>{foot}</div></div>", unsafe_allow_html=True)
+
+
+def kpis(items: Iterable[tuple]):
+    st.markdown("<div class='kpi-grid'>", unsafe_allow_html=True)
+    for item in items:
+        metric_card(*item)
+    st.markdown("</div>", unsafe_allow_html=True)
+
+
+def excel_bar_table(df: pd.DataFrame, label_col: str, value_col: str = "Records"):
+    if df.empty:
+        st.info("No data available for this view.")
         return
+    max_v = max(float(df[value_col].max()), 1)
+    rows = []
+    for _, r in df.iterrows():
+        width = float(r[value_col]) / max_v * 100
+        rows.append(f"<tr><td>{r[label_col]}</td><td class='bar-cell'><div class='bar-box' style='--w:{width:.1f}%'><span>{r[value_col]}</span></div></td><td>{r.get('% of Total','')}</td></tr>")
+    st.markdown("<table class='excel-table'><thead><tr><th>Category</th><th>Records</th><th>% of Total</th></tr></thead><tbody>" + "".join(rows) + "</tbody></table>", unsafe_allow_html=True)
 
-    t = count_table(work, col, pct_base=max(pct_base or len(work), 1))
-    st.markdown("<div class='section-card' style='--accent:#2f6fae'><h3>Source table</h3>", unsafe_allow_html=True)
+
+def chart(df: pd.DataFrame, label_col: str, value_col: str = "Records", title: str = "", kind: str = "bar"):
+    if df.empty:
+        return None
+    data = df.head(20).copy()
+    if kind == "pie":
+        fig = px.pie(data, names=label_col, values=value_col, hole=.42, title=title, color_discrete_sequence=px.colors.qualitative.Safe)
+    else:
+        fig = px.bar(data, x=value_col, y=label_col, orientation="h", text=value_col, title=title, color_discrete_sequence=["#3b6f9f"])
+        fig.update_yaxes(categoryorder="total ascending", tickfont=dict(size=13, color="#202124"))
+        fig.update_xaxes(tickfont=dict(size=12, color="#202124"), gridcolor="#dfe5ec")
+        fig.update_traces(opacity=.9, textposition="outside", cliponaxis=False)
+    fig.update_layout(template="plotly_white", plot_bgcolor="#fff", paper_bgcolor="#fff", font=dict(color="#202124", size=13), margin=dict(l=20, r=45, t=44, b=28), height=max(360, min(720, len(data) * 36 + 130)), showlegend=(kind == "pie"))
+    st.plotly_chart(fig, use_container_width=True)
+    return fig
+
+
+def download_section(df: pd.DataFrame, name: str, fig=None):
+    c1, c2, c3 = st.columns([1, 1, 3])
+    c1.download_button("Download table CSV", df.to_csv(index=False).encode(), f"{name}.csv", "text/csv", key=f"csv_{name}")
+    if fig is not None:
+        try:
+            c2.download_button("Download chart HTML", fig.to_html().encode(), f"{name}_chart.html", "text/html", key=f"chart_{name}")
+        except Exception:
+            pass
+    c3.caption("Use the chart toolbar to zoom, pan, reset, or view details on hover.")
+
+
+def source_page(title: str, df: pd.DataFrame, col: str, key: str):
+    page_header(title)
+    page = date_filter(df, key)
+    t = count_table(page, col)
+    st.markdown("<div class='section-card' style='--accent:#3b6f9f'><h3>Source table</h3>", unsafe_allow_html=True)
     excel_bar_table(t, col)
+    download_section(t, key)
     st.markdown("</div>", unsafe_allow_html=True)
-    st.markdown("<div class='section-card' style='--accent:#157f7f'><h3>Chart view</h3>", unsafe_allow_html=True)
-    dark_bar_chart(t, col, title=title)
+    st.markdown("<div class='section-card' style='--accent:#427f87'><h3>Chart view</h3>", unsafe_allow_html=True)
+    fig = chart(t, col, title=title)
+    download_section(t, f"{key}_chart_data", fig)
     st.markdown("</div>", unsafe_allow_html=True)
+    if col == "Customer":
+        extra = cross_table(page, "Customer", "Reason")
+        if not extra.empty:
+            st.markdown("<div class='section-card' style='--accent:#4f7d63'><h3>Customer × reason table</h3>", unsafe_allow_html=True)
+            st.dataframe(extra, use_container_width=True, hide_index=True)
+            download_section(extra, "customer_reason")
+            st.markdown("</div>", unsafe_allow_html=True)
+
+
+def urgency_table(df: pd.DataFrame) -> pd.DataFrame:
+    if df.empty or "Standard Automation Focus" not in df.columns:
+        return pd.DataFrame()
+    g = df.groupby("Standard Automation Focus", dropna=False).agg(
+        Records=("Standard Automation Focus", "size"),
+        Customers=("Customer", "nunique") if "Customer" in df.columns else ("Standard Automation Focus", "size"),
+        High_Severity=("Severity", lambda s: int((s.astype(str) == "High").sum())) if "Severity" in df.columns else ("Standard Automation Focus", "size"),
+        RCA_Requested=("RCA Requested", lambda s: int((s.astype(str) == "Yes").sum())) if "RCA Requested" in df.columns else ("Standard Automation Focus", "size"),
+        Misses=("Missed_Flag", lambda s: int((s.astype(str) == "Yes").sum())) if "Missed_Flag" in df.columns else ("Standard Automation Focus", "size"),
+    ).reset_index()
+    g["Urgency Score"] = g["Records"] * 2 + g["High_Severity"] * 3 + g["RCA_Requested"] * 2 + g["Misses"] * 2 + g["Customers"]
+    g["Priority"] = g["Urgency Score"].rank(method="first", ascending=False).astype(int)
+    g["Recommended control"] = g["Standard Automation Focus"].astype(str).map(recommendation_for_focus)
+    return g.sort_values(["Priority", "Records"])
+
+
+def recommendation_for_focus(focus: str) -> str:
+    text = focus.lower()
+    if "source" in text: return "Expand monitored sources, vendor feeds, multilingual discovery terms, and source-miss QA checks."
+    if "warroom" in text or "decision" in text: return "Automate WarRoom validation, notification checks, and late/missing WarRoom alerts."
+    if "geofenc" in text: return "Improve geofence validation and affected-site proximity checks before publishing."
+    if "entity" in text or "supplier" in text: return "Strengthen supplier/entity resolution and customer mapping validation."
+    if "cluster" in text or "duplicate" in text: return "Add duplicate-cluster detection and split/merge review controls."
+    if "industry" in text: return "Automate industry tagging QA with exception review for ambiguous events."
+    if "keyword" in text: return "Maintain keyword expansion from misses, including multilingual variants."
+    if "notification" in text: return "Add delivery and visibility monitoring for customer profiles and notification paths."
+    return "Review recurring complaint evidence and implement targeted detection, workflow, or validation controls."
+
+
+def manual_entry_form(source_cols: list[str]):
+    with st.expander("Add complaint / inquiry entry manually", expanded=False):
+        st.caption("Use this when a valid complaint or inquiry was missed. The entry is staged for review/export; production CSV updates should still follow approval and write controls.")
+        with st.form("manual_entry_form"):
+            c1, c2, c3 = st.columns(3)
+            row = {}
+            row["Email/JIRA Date"] = c1.date_input("Email/JIRA Date")
+            row["Customer"] = c2.text_input("Customer *")
+            row["Issue Type"] = c3.selectbox("Issue Type *", ["Complaint", "Inquiry"])
+            c4, c5, c6 = st.columns(3)
+            row["Event type"] = c4.text_input("Event type *")
+            row["Reason"] = c5.text_input("Reason *")
+            row["Root Cause"] = c6.selectbox("Root Cause", ["", "People", "Process", "Product"])
+            row["Event/Bulletin Title"] = st.text_input("Event/Bulletin Title *")
+            c7, c8, c9 = st.columns(3)
+            row["Severity"] = c7.selectbox("Severity", ["Medium", "High", "Low"])
+            row["RCA Requested"] = c8.selectbox("RCA Requested", ["No", "Yes"])
+            row["Short Term Fix Status"] = c9.selectbox("Short Term Fix Status", ["", "Fixed", "RCA Shared", "Clarification Provided"])
+            row["Standard Automation Focus"] = st.text_input("Standard Automation Focus")
+            row["Comments"] = st.text_area("Comments / evidence summary *")
+            save = st.form_submit_button("Save staged entry")
+        if save:
+            required = ["Customer", "Issue Type", "Event type", "Reason", "Event/Bulletin Title", "Comments"]
+            missing = [c for c in required if not str(row.get(c, "")).strip()]
+            if missing:
+                st.error("Missing required fields: " + ", ".join(missing))
+            else:
+                clean = {c: row.get(c, "") for c in source_cols if c in row}
+                for k, v in row.items():
+                    clean.setdefault(k, v)
+                staged = pd.DataFrame([clean])
+                st.success("Manual entry saved for review/export. Download it and add it through the approved tracker update process.")
+                st.dataframe(staged, use_container_width=True, hide_index=True)
+                st.download_button("Download staged manual entry CSV", staged.to_csv(index=False).encode(), "manual_complaint_entry.csv", "text/csv")
 
 
 st.sidebar.title(APP_TITLE)
-st.sidebar.caption("Left navigation")
+st.sidebar.caption("Executive navigation")
 selected_page = st.sidebar.radio("Dashboard pages", PAGE_OPTIONS, label_visibility="collapsed")
 
-uploaded = st.file_uploader("Optional setup fallback: upload EventWatch workbook", type=["xlsx"])
-df = load_data(uploaded)
-
+df = load_data()
 if df.empty:
     st.stop()
-
-filtered_all = apply_global_filters(df)
-page_df = page_date_filter(filtered_all, f"page_{PAGE_OPTIONS.index(selected_page)}") if False else filtered_all
+filtered = apply_sidebar_filters(df)
 
 if selected_page == "Executive Summary":
     page_header(selected_page)
-    page_df = page_date_filter(filtered_all, "executive")
-    complaints = page_df[page_df["Issue Type"].eq("Complaint")] if "Issue Type" in page_df.columns else page_df
-    inquiries = page_df[page_df["Issue Type"].eq("Inquiry")] if "Issue Type" in page_df.columns else page_df.iloc[0:0]
-    rca_count = int((page_df.get("RCA Requested") == "Yes").sum()) if "RCA Requested" in page_df else 0
-    high_count = int((page_df.get("Severity") == "High").sum()) if "Severity" in page_df else 0
-    customers = page_df["Customer"].nunique() if "Customer" in page_df else 0
-    automation_focus = page_df["Standard Automation Focus"].nunique() if "Standard Automation Focus" in page_df else 0
-
-    kpi_grid([
-        ("Total records", len(page_df), f"{len(complaints)} complaints · {len(inquiries)} inquiries", "#2f6fae"),
-        ("RCA requested", rca_count, "Records with explicit RCA request", "#b7791f"),
-        ("High severity", high_count, "Highest operational attention", "#b64747"),
-        ("Customers", customers, "Distinct customer accounts", "#157f7f"),
-        ("Automation areas", automation_focus, "Standard focus categories", "#2f7d52"),
+    page = date_filter(filtered, "executive")
+    complaints = page[page["Issue Type"].astype(str).eq("Complaint")] if "Issue Type" in page.columns else page
+    inquiries = page[page["Issue Type"].astype(str).eq("Inquiry")] if "Issue Type" in page.columns else page.iloc[0:0]
+    total = max(len(page), 1)
+    missed = int((page.get("Missed_Flag", pd.Series(dtype=str)).astype(str) == "Yes").sum()) if "Missed_Flag" in page.columns else 0
+    people = int((page.get("Root Cause", pd.Series(dtype=str)).astype(str) == "People").sum()) if "Root Cause" in page.columns else 0
+    process = int((page.get("Root Cause", pd.Series(dtype=str)).astype(str) == "Process").sum()) if "Root Cause" in page.columns else 0
+    product = int((page.get("Root Cause", pd.Series(dtype=str)).astype(str) == "Product").sum()) if "Root Cause" in page.columns else 0
+    kpis([
+        ("Total records", len(page), f"{len(complaints)} complaints · {len(inquiries)} inquiries", "#3b6f9f"),
+        ("Complaints %", f"{len(complaints)/total*100:.1f}%", "Share of selected records", "#9f4b4b"),
+        ("Missed events", missed, f"{missed/total*100:.1f}% of selected records", "#a36b22"),
+        ("People misses", people, "People-rooted records", "#5f6368"),
+        ("Process/Product", f"{process}/{product}", "Process vs Product root causes", "#427f87"),
     ])
-
-    insight_left = "No complaint event type is available in the selected range."
-    if not complaints.empty and "Event type" in complaints:
-        top = complaints["Event type"].value_counts()
-        if not top.empty:
-            insight_left = f"<b>Top complaint event type:</b> {top.idxmax()} ({top.max()} complaints)."
-
-    insight_right = "No automation focus is available in the selected range."
-    if not complaints.empty and "Standard Automation Focus" in complaints:
-        top = complaints["Standard Automation Focus"].value_counts()
-        if not top.empty:
-            insight_right = f"<b>Top automation focus:</b> {top.idxmax()} ({top.max()} complaints)."
-
-    st.markdown(
-        f"""
-        <div class='insight-row'>
-          <div class='insight-box' style='--accent:#2f6fae'>{insight_left}</div>
-          <div class='insight-box' style='--accent:#157f7f'>{insight_right}</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    if "Issue Type" in page_df.columns:
-        st.markdown("<div class='section-card' style='--accent:#2f6fae'><h3>Complaint vs inquiry mix</h3>", unsafe_allow_html=True)
-        mix = count_table(page_df, "Issue Type")
-        excel_bar_table(mix, "Issue Type")
-        st.markdown("</div>", unsafe_allow_html=True)
+    st.markdown("<div class='insight-row'>", unsafe_allow_html=True)
+    top_customer = count_table(complaints, "Customer").head(1)
+    top_reason = count_table(complaints, "Reason").head(1)
+    st.markdown(f"<div class='insight-box' style='--accent:#3b6f9f'><b>Most complaining customer:</b> {top_customer.iloc[0,0] if not top_customer.empty else 'No complaint customer in range'}.</div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='insight-box' style='--accent:#a36b22'><b>Leading complaint nature:</b> {top_reason.iloc[0,0] if not top_reason.empty else 'No complaint reason in range'}.</div>", unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
+    sections = [("Top complaints by customer", "Customer"), ("Nature of complaints", "Reason"), ("Missed event types", "Event type"), ("Automation opportunities", "Standard Automation Focus")]
+    for title, col in sections:
+        if col in complaints.columns:
+            t = count_table(complaints, col).head(10)
+            st.markdown(f"<div class='section-card' style='--accent:#3b6f9f'><h3>{title}</h3>", unsafe_allow_html=True)
+            excel_bar_table(t, col)
+            fig = chart(t, col, title=title)
+            download_section(t, title.lower().replace(' ', '_'), fig)
+            st.markdown("</div>", unsafe_allow_html=True)
 
 elif selected_page == "SOURCE 01 · Monthly trend":
     page_header(selected_page)
-    page_df = page_date_filter(filtered_all, "monthly")
-    if "Month Label" in page_df.columns and "Issue Type" in page_df.columns:
-        monthly = page_df.groupby("Month Label", dropna=False)["Issue Type"].value_counts().unstack(fill_value=0).reset_index()
-        st.markdown("<div class='section-card' style='--accent:#2f6fae'><h3>Source table</h3>", unsafe_allow_html=True)
+    page = date_filter(filtered, "monthly")
+    if "Month Label" in page.columns and "Issue Type" in page.columns:
+        monthly = page.groupby("Month Label", dropna=False)["Issue Type"].value_counts().unstack(fill_value=0).reset_index()
+        monthly["Total"] = monthly.drop(columns=["Month Label"]).sum(axis=1)
+        st.markdown("<div class='section-card' style='--accent:#3b6f9f'><h3>Source table</h3>", unsafe_allow_html=True)
         st.dataframe(monthly, use_container_width=True, hide_index=True)
+        download_section(monthly, "monthly_trend")
         st.markdown("</div>", unsafe_allow_html=True)
-        y_cols = [c for c in ["Complaint", "Inquiry"] if c in monthly.columns]
-        if y_cols:
-            st.markdown("<div class='section-card' style='--accent:#157f7f'><h3>Grouped monthly chart</h3>", unsafe_allow_html=True)
-            fig = px.bar(monthly, x="Month Label", y=y_cols, barmode="group", text_auto=True, color_discrete_sequence=["#2f6fae", "#157f7f"])
-            fig.update_layout(template="plotly_white", plot_bgcolor="#ffffff", paper_bgcolor="#ffffff", font_color="#1f2a37", margin=dict(l=10, r=10, t=25, b=10))
-            fig.update_traces(marker_line_width=0, opacity=.88)
-            st.plotly_chart(fig, use_container_width=True)
-            st.markdown("</div>", unsafe_allow_html=True)
+        st.markdown("<div class='section-card' style='--accent:#427f87'><h3>Grouped monthly chart</h3>", unsafe_allow_html=True)
+        y = [c for c in ["Complaint", "Inquiry"] if c in monthly.columns]
+        fig = px.bar(monthly, x="Month Label", y=y, barmode="group", text_auto=True, color_discrete_sequence=["#3b6f9f", "#7b8b9a"])
+        fig.update_layout(template="plotly_white", plot_bgcolor="#fff", paper_bgcolor="#fff", font=dict(color="#202124", size=13), margin=dict(l=20, r=30, t=30, b=40), height=430)
+        fig.update_xaxes(tickfont=dict(color="#202124", size=12)); fig.update_yaxes(tickfont=dict(color="#202124", size=12), gridcolor="#dfe5ec")
+        st.plotly_chart(fig, use_container_width=True)
+        download_section(monthly, "monthly_trend_chart_data", fig)
+        st.markdown("</div>", unsafe_allow_html=True)
     else:
-        st.info("Monthly trend requires Month and Issue Type fields in the source data.")
+        st.info("Monthly trend requires Month/Reporting Month and Issue Type fields.")
 
-elif selected_page == "SOURCE 02 · Fix status":
-    render_source_page(selected_page, filtered_all, "Short Term Fix Status")
-elif selected_page == "SOURCE 03 · Severity":
-    render_source_page(selected_page, filtered_all, "Severity")
-elif selected_page == "SOURCE 04 · Root cause":
-    render_source_page(selected_page, filtered_all, "Root Cause")
-elif selected_page == "SOURCE 05 · Top customers":
-    render_source_page(selected_page, filtered_all, "Customer")
-elif selected_page == "SOURCE 06 · Automation focus":
-    render_source_page(selected_page, filtered_all, "Standard Automation Focus")
-elif selected_page == "DETAIL · Event workload":
-    render_source_page(selected_page, filtered_all, "Event type")
+elif selected_page == "SOURCE 02 · Fix status": source_page(selected_page, filtered, "Short Term Fix Status", "fix_status")
+elif selected_page == "SOURCE 03 · Severity": source_page(selected_page, filtered, "Severity", "severity")
+elif selected_page == "SOURCE 04 · Root cause": source_page(selected_page, filtered, "Root Cause", "root_cause")
+elif selected_page == "SOURCE 05 · Top customers": source_page(selected_page, filtered, "Customer", "top_customers")
+elif selected_page == "SOURCE 06 · Automation focus": source_page(selected_page, filtered, "Standard Automation Focus", "automation_focus")
+elif selected_page == "DETAIL · Event workload": source_page(selected_page, filtered, "Event type", "event_workload")
 
 elif selected_page == "Automation urgency":
     page_header(selected_page)
-    page_df = page_date_filter(filtered_all, "urgency")
-    complaints = page_df[page_df["Issue Type"].eq("Complaint")] if "Issue Type" in page_df.columns else page_df
-    if "Standard Automation Focus" in complaints.columns:
-        t = count_table(complaints, "Standard Automation Focus", pct_base=max(len(complaints), 1))
-        t.insert(0, "Priority", range(1, len(t) + 1))
-        st.markdown("<div class='section-card' style='--accent:#b7791f'><h3>Prioritized automation table</h3>", unsafe_allow_html=True)
-        st.dataframe(t, use_container_width=True, hide_index=True)
+    page = date_filter(filtered, "urgency")
+    complaints = page[page["Issue Type"].astype(str).eq("Complaint")] if "Issue Type" in page.columns else page
+    t = urgency_table(complaints)
+    st.markdown("<div class='section-card' style='--accent:#a36b22'><h3>Urgency table</h3>", unsafe_allow_html=True)
+    st.dataframe(t, use_container_width=True, hide_index=True)
+    download_section(t, "automation_urgency")
+    st.markdown("</div>", unsafe_allow_html=True)
+    if not t.empty:
+        st.markdown("<div class='section-card' style='--accent:#427f87'><h3>Urgency score graph</h3>", unsafe_allow_html=True)
+        fig = chart(t, "Standard Automation Focus", "Urgency Score", "Automation urgency score")
+        download_section(t, "automation_urgency_chart_data", fig)
         st.markdown("</div>", unsafe_allow_html=True)
-    else:
-        st.info("Automation urgency requires Standard Automation Focus in the source data.")
 
 elif selected_page == "Dynamic Source Discovery":
     page_header(selected_page)
-    page_df = page_date_filter(filtered_all, "discovery")
-    st.markdown("<div class='definition-box'>Dynamic Source Discovery covers misses caused by source coverage, feed ingestion, keyword detection, vendor monitoring, or article discovery gaps.</div>", unsafe_allow_html=True)
-    if "Standard Automation Focus" in page_df.columns:
-        discovery = page_df[page_df["Standard Automation Focus"].eq("Dynamic Source Discovery")]
-        st.dataframe(discovery, use_container_width=True, hide_index=True)
+    page = date_filter(filtered, "discovery")
+    if "Standard Automation Focus" in page.columns:
+        disc = page[page["Standard Automation Focus"].astype(str).eq("Dynamic Source Discovery")]
     else:
-        st.info("Standard Automation Focus is not available in the current source data.")
+        disc = page.iloc[0:0]
+    st.markdown("<div class='section-card' style='--accent:#427f87'><h3>Source-miss meaning</h3><p>Dynamic Source Discovery identifies event types, customers, reasons, feeds, keywords, or source coverage patterns that the current sensing setup is missing or under-detecting.</p></div>", unsafe_allow_html=True)
+    for title, col in [("Event types missed by sources", "Event type"), ("Customers affected by source misses", "Customer"), ("Reasons linked to source misses", "Reason")]:
+        if col in disc.columns:
+            t = count_table(disc, col, base=max(len(page), 1))
+            st.markdown(f"<div class='section-card' style='--accent:#3b6f9f'><h3>{title}</h3>", unsafe_allow_html=True)
+            excel_bar_table(t, col)
+            fig = chart(t, col, title=title)
+            download_section(t, title.lower().replace(' ', '_'), fig)
+            st.markdown("</div>", unsafe_allow_html=True)
+    for rows, cols, name in [("Customer", "Event type", "Customer × event type"), ("Event type", "Reason", "Event type × reason"), ("Customer", "Reason", "Customer × reason")]:
+        ct = cross_table(disc, rows, cols)
+        if not ct.empty:
+            st.markdown(f"<div class='section-card' style='--accent:#4f7d63'><h3>{name}</h3>", unsafe_allow_html=True)
+            st.dataframe(ct, use_container_width=True, hide_index=True)
+            download_section(ct, name.lower().replace(' ', '_'))
+            st.markdown("</div>", unsafe_allow_html=True)
+    st.markdown("<div class='section-card' style='--accent:#5f6368'><h3>Complete Dynamic Source Discovery records</h3>", unsafe_allow_html=True)
+    st.dataframe(disc, use_container_width=True, hide_index=True, height=420)
+    download_section(disc, "dynamic_source_discovery_complete")
+    st.markdown("</div>", unsafe_allow_html=True)
 
 elif selected_page == "Definitions":
     page_header(selected_page)
-    st.markdown("<div class='section-card' style='--accent:#157f7f'><h3>Classification definitions</h3>", unsafe_allow_html=True)
-    st.table(pd.DataFrame([
-        ["Complaint", "Confirmed EventWatch service miss, delay, missing/duplicate WarRoom, visibility failure, incorrect handling, or RCA-driven service concern."],
-        ["Inquiry", "Customer asks for clarification, methodology, coverage check, or supplier/site reasoning without confirmed service failure."],
-        ["Dynamic Source Discovery", "Misses caused by source coverage, ingestion, keyword, vendor feed, or discovery gaps."],
-    ], columns=["Term", "Definition"]))
-    st.markdown("</div>", unsafe_allow_html=True)
+    groups = {
+        "Tracker fields": [("Month / Reporting Month", "Month used for trend reporting and date filtering."), ("Email/JIRA Date", "Formal received/logged date for the complaint, inquiry, or Jira trail."), ("Customer", "Account that raised the concern, not the affected supplier."), ("Event/Bulletin Title", "Published EventWatch title or concise factual event title."), ("Comments", "Concise evidence-backed summary of complaint, finding, action, and status.")],
+        "Issue and reason types": [("Complaint", "Confirmed or alleged EventWatch service miss, delay, incorrect handling, visibility issue, duplicate/missing WarRoom, or RCA-driven concern."), ("Inquiry", "Coverage, methodology, supplier/site, or threshold clarification without confirmed service failure."), ("Reason", "Specific operational issue such as Missed Event, Missed WarRoom, Delayed Event, Duplicate WarRooms, Incorrect Action, or Mapping Clarification.")],
+        "Root cause groups": [("People", "Human review, prioritization, judgment, communication, or execution miss."), ("Process", "Workflow, policy, methodology, handoff, or procedural gap."), ("Product", "Ingestion, source coverage, keyword, clustering, mapping, visibility, platform, or automation defect/gap.")],
+        "Severity and status": [("High", "Material operational or customer-trust impact requiring elevated attention."), ("Medium", "Standard tracked complaint or quality issue."), ("Low", "Limited-impact inquiry or minor quality signal."), ("Fixed", "Corrective action completed."), ("RCA Shared", "RCA approved/shared for customer communication."), ("Clarification Provided", "Explanation provided where no fix/RCA is required.")],
+        "Automation focus": [("Dynamic Source Discovery", "Source, feed, keyword, vendor monitoring, or article discovery gap."), ("WarRoom & Decision Validation", "Missing, delayed, duplicate, or incorrect WarRoom/decision handling."), ("Entity & Supplier Resolution", "Supplier, customer, entity, or mapping quality issue."), ("AI-Assisted Geofencing", "Location/polygon/proximity validation opportunity."), ("Notification Visibility Monitoring", "Delivery, profile visibility, and notification path monitoring."), ("Cluster Integrity & Duplicate Prevention", "Duplicate/split clusters or inconsistent event grouping."), ("Automated Industry Tagging", "Industry tagging validation or automation."), ("Multilingual Keyword Expansion", "Language/keyword coverage expansion from observed misses."), ("Other Control Automation", "Targeted control not covered by the standard categories.")],
+        "Evidence and deduplication": [("Missed_Flag", "Yes when expected alerting, coverage, notification, escalation, or WarRoom creation was missed or materially delayed."), ("Confidence", "HIGH, MEDIUM, or LOW based on evidence quality and duplicate checks."), ("Duplicate check", "Match against Jira key, Outlook conversation, customer/event title, facility, date/type, and source message ID before adding a new row.")],
+    }
+    for group, rows in groups.items():
+        st.markdown(f"<div class='definition-group'><h3>{group}</h3>", unsafe_allow_html=True)
+        st.table(pd.DataFrame(rows, columns=["Term", "Definition"]))
+        st.markdown("</div>", unsafe_allow_html=True)
 
 elif selected_page == "Complaint Tracker":
     page_header(selected_page)
-    page_df = page_date_filter(filtered_all, "tracker")
-    concise_cols = [
-        c for c in [
-            "Month Label", "Email/JIRA Date", "Customer", "Event type", "Event/Bulletin Title",
-            "Issue Type", "Reason", "Root Cause", "Short Term Fix Status", "RCA Requested",
-            "Severity", "Standard Automation Focus", "Comments"
-        ] if c in page_df.columns
-    ]
-    st.download_button("Download dashboard tracker CSV", page_df[concise_cols].to_csv(index=False).encode(), "customer_tracker_filtered.csv", "text/csv")
-    st.download_button("Download full source CSV", page_df.to_csv(index=False).encode(), "customer_tracker_full_source.csv", "text/csv")
-    st.dataframe(page_df[concise_cols], use_container_width=True, hide_index=True, height=560)
-    add_entry_form()
+    page = date_filter(filtered, "tracker")
+    concise = [c for c in ["Month Label", "Email/JIRA Date", "Customer", "Event type", "Event/Bulletin Title", "Issue Type", "Reason", "Root Cause", "Short Term Fix Status", "RCA Requested", "Severity", "Standard Automation Focus", "Comments"] if c in page.columns]
+    c1, c2 = st.columns(2)
+    c1.download_button("Download visible tracker CSV", page[concise].to_csv(index=False).encode(), "customer_tracker_visible.csv", "text/csv")
+    c2.download_button("Download full filtered source CSV", page.to_csv(index=False).encode(), "customer_tracker_full_filtered.csv", "text/csv")
+    st.dataframe(page[concise], use_container_width=True, hide_index=True, height=560)
+    manual_entry_form(list(df.columns))
