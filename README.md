@@ -2,9 +2,25 @@
 
 Streamlit dashboard for EventWatch customer complaints and inquiries.
 
+## Production data behavior
+
+The dashboard must not show an upload workbook option. Users should not upload the workbook from the dashboard UI.
+
+The dashboard supports both production source formats from GitHub:
+
+1. Preferred live CSV:
+
+   `https://raw.githubusercontent.com/sangrambarger/EventWatch_Customer_Complaints/main/customer_tracker.csv`
+
+2. Approved Excel workbook, read directly from GitHub using the `Data` sheet:
+
+   `https://raw.githubusercontent.com/sangrambarger/EventWatch_Customer_Complaints/main/EventWatch_Customer_Complaints_2026.xlsx`
+
+If `customer_tracker.csv` is unavailable, invalid, or accidentally points to workbook bytes, the app falls back to reading the approved GitHub-hosted Excel workbook directly. This is not a user upload fallback; it is a production source fallback between approved GitHub files.
+
 ## Target production design
 
-Deploy the Streamlit app once. After that, dashboard data refreshes from the live GitHub CSV whenever the app loads or the user refreshes the page.
+Deploy the Streamlit app once. After that, dashboard data refreshes from the GitHub source whenever the app loads or the user refreshes the page.
 
 The agent workflow is:
 
@@ -13,7 +29,7 @@ The agent workflow is:
 3. Agent prepares a full approval package with email-trail evidence.
 4. User approves, edits, rejects, or holds the candidate.
 5. Once GitHub write access is configured, approved rows are appended/updated in the GitHub CSV.
-6. Streamlit reads the GitHub CSV and updates charts/tables without redeploying the app.
+6. Streamlit reads the GitHub CSV or approved GitHub workbook and updates charts/tables without redeploying the app.
 
 ## Repository
 
@@ -29,28 +45,31 @@ Live CSV source:
 
 `customer_tracker.csv`
 
-Browser URL:
-
-`https://github.com/sangrambarger/EventWatch_Customer_Complaints/blob/main/customer_tracker.csv`
-
 Raw CSV URL for Streamlit:
 
 `https://raw.githubusercontent.com/sangrambarger/EventWatch_Customer_Complaints/main/customer_tracker.csv`
 
+Raw workbook URL for Streamlit:
+
+`https://raw.githubusercontent.com/sangrambarger/EventWatch_Customer_Complaints/main/EventWatch_Customer_Complaints_2026.xlsx`
+
 ## Streamlit secrets
 
-In Streamlit Community Cloud, add:
+Preferred:
 
 ```toml
 GITHUB_CSV_URL = "https://raw.githubusercontent.com/sangrambarger/EventWatch_Customer_Complaints/main/customer_tracker.csv"
+GITHUB_WORKBOOK_URL = "https://raw.githubusercontent.com/sangrambarger/EventWatch_Customer_Complaints/main/EventWatch_Customer_Complaints_2026.xlsx"
 ```
 
-If the CSV is public, no token is needed for Streamlit read access. If the repo is private, Streamlit Community needs an approved access method.
+If the repo is public, no token is needed for Streamlit read access. If the repo is private, Streamlit Community needs an approved access method.
 
 ## Current app behavior
 
 The app supports:
 
+- No dashboard upload workbook option
+- Live data from the GitHub CSV, with approved GitHub Excel workbook support when CSV is unavailable or invalid
 - Spaced sidebar navigation without radio-button visual clutter
 - Google-style flat grey executive palette
 - Compact headers, compact KPI cards, and reduced whitespace
@@ -65,18 +84,15 @@ The app supports:
 - Complete structured Definitions page grouped by tracker fields, issue types, root cause, severity/status, automation focus, evidence, and deduplication
 - Complaint Tracker visible/full CSV downloads
 - Controlled manual complaint/inquiry entry with required fields, validation, a Save staged entry button, confirmation, and downloadable staged CSV row
-- Live GitHub CSV read mode using `GITHUB_CSV_URL`
 
-The production dashboard does not support workbook upload or workbook fallback mode. If the live CSV cannot be loaded, the app shows a clear blocker instead of asking the user to upload a workbook.
-
-Dashboard metrics and charts are calculated from the loaded live CSV. They should not use stub or hard-coded metric values.
+Dashboard metrics and charts are calculated from the loaded GitHub source. They should not use stub or hard-coded metric values.
 
 ## Files
 
 - `app.py` - Streamlit dashboard app
 - `requirements.txt` - Python dependencies
-- `customer_tracker.csv` - required live data source
-- `EventWatch_Customer_Complaints_2026.xlsx` - approved workbook reference only
+- `customer_tracker.csv` - preferred live data source
+- `EventWatch_Customer_Complaints_2026.xlsx` - approved workbook source/reference
 
 ## Run locally
 
@@ -88,9 +104,10 @@ streamlit run app.py
 ## Deploy/update on Streamlit Community Cloud
 
 1. Push these files to the GitHub repository.
-2. Create or update `customer_tracker.csv` from the approved workbook `Data` sheet.
-3. Add the `GITHUB_CSV_URL` secret in Streamlit Cloud.
-4. Deploy or reboot the app once.
-5. After that, approved CSV row updates should appear on dashboard refresh without redeploying code.
+2. Keep `customer_tracker.csv` valid when using CSV mode.
+3. Keep `EventWatch_Customer_Complaints_2026.xlsx` available when using workbook mode.
+4. Add the `GITHUB_CSV_URL` and `GITHUB_WORKBOOK_URL` secrets in Streamlit Cloud.
+5. Deploy or reboot the app once.
+6. After that, approved GitHub source updates should appear on dashboard refresh without redeploying code.
 
 Important: use Streamlit Community only if your company approves hosting this tracker data there.
