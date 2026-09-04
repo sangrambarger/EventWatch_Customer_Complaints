@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pandas as pd
 import plotly.express as px
+import requests
 import streamlit as st
 
 st.set_page_config(page_title="EventWatch Executive Dashboard", layout="wide")
@@ -14,7 +15,7 @@ PAGES = [
     "Executive Summary", "SOURCE 01 · Monthly trend", "SOURCE 02 · Fix status",
     "SOURCE 03 · Severity", "SOURCE 04 · Root cause", "SOURCE 05 · Top customers",
     "SOURCE 06 · Automation focus", "DETAIL · Event workload", "Automation urgency",
-    "Dynamic Source Discovery", "Definitions", "Complaint Tracker",
+    "Dynamic Source Discovery", "Jira Lookup", "Definitions", "Complaint Tracker",
 ]
 
 DESCRIPTIONS = {
@@ -28,6 +29,7 @@ DESCRIPTIONS = {
     "DETAIL · Event workload": "Event types that repeatedly drive complaints, inquiries, or operational workload.",
     "Automation urgency": "Ranked automation priorities using volume, severity, RCA pressure, misses, and customer concentration.",
     "Dynamic Source Discovery": "Source coverage, feed, keyword, vendor monitoring, and event-discovery gaps.",
+    "Jira Lookup": "Look up a linked Jira ticket by key and see which complaint records still need one linked, so the duplicate check against Jira is a real lookup instead of a manual guess.",
     "Definitions": "Structured glossary for tracker fields, classification, statuses, root causes, and automation terms.",
     "Complaint Tracker": "Filtered tracker records with download and controlled manual-entry staging.",
 }
@@ -51,9 +53,16 @@ def read_csv_or_excel(url: str):
     return pd.read_csv(url), "GitHub CSV"
 
 
+def get_secret(key, default=None):
+    try:
+        return st.secrets.get(key, default)
+    except Exception:
+        return default
+
+
 def load_data():
-    csv_url = st.secrets.get("GITHUB_CSV_URL", CSV_URL) if hasattr(st, "secrets") else CSV_URL
-    workbook_url = st.secrets.get("GITHUB_WORKBOOK_URL", WORKBOOK_URL) if hasattr(st, "secrets") else WORKBOOK_URL
+    csv_url = get_secret("GITHUB_CSV_URL", CSV_URL)
+    workbook_url = get_secret("GITHUB_WORKBOOK_URL", WORKBOOK_URL)
     errors = []
     for url in [csv_url, workbook_url]:
         try:
@@ -75,6 +84,43 @@ def load_data():
     if source and "Month Label" not in df.columns:
         df["Month Label"] = df[source].dt.strftime("%b %Y")
     return df
+
+
+def jira_credentials():
+    base, email, token = (get_secret(k) for k in ("JIRA_BASE_URL", "JIRA_EMAIL", "JIRA_API_TOKEN"))
+    return (base.rstrip("/"), email, token) if base and email and token else None
+
+
+def fetch_jira_issue(key):
+    creds = jira_credentials()
+    if not creds:
+        return None, "Jira lookup is not configured. Set JIRA_BASE_URL, JIRA_EMAIL, and JIRA_API_TOKEN in Streamlit secrets."
+    key = key.strip().upper()
+    if not key:
+        return None, "Enter a Jira key, e.g. DATA-54045."
+    base, email, token = creds
+    try:
+        resp = requests.get(
+            f"{base}/rest/api/3/issue/{key}",
+            params={"fields": "summary,status,issuetype,project,assignee,labels,updated"},
+            auth=(email, token), timeout=10,
+        )
+    except requests.RequestException as exc:
+        return None, f"Could not reach Jira: {exc}"
+    if resp.status_code == 404: return None, f"{key} was not found in Jira."
+    if resp.status_code == 401: return None, "Jira rejected the configured credentials (401)."
+    if resp.status_code != 200: return None, f"Jira returned {resp.status_code}: {resp.text[:200]}"
+    fields = resp.json().get("fields", {})
+    assignee = fields.get("assignee") or {}
+    return {
+        "Key": key, "Summary": fields.get("summary"),
+        "Status": (fields.get("status") or {}).get("name"),
+        "Type": (fields.get("issuetype") or {}).get("name"),
+        "Project": (fields.get("project") or {}).get("key"),
+        "Assignee": assignee.get("displayName", "Unassigned"),
+        "Labels": ", ".join(fields.get("labels", [])) or "None",
+        "Updated": fields.get("updated"), "URL": f"{base}/browse/{key}",
+    }, None
 
 
 def page_header(title):
@@ -216,7 +262,8 @@ def manual_entry_form(source_cols):
     with st.expander("Add complaint / inquiry entry manually"):
         st.caption("Use when a valid complaint/inquiry was missed. The entry is staged for review/export, not silently written to production.")
         with st.form("manual_entry_form"):
-            c1, c2, c3 = st.columns(3); row = {"Email/JIRA Date": c1.date_input("Email/JIRA Date"), "Customer": c2.text_input("Customer *"), "Issue Type": c3.selectbox("Issue Type *", ["Complaint", "Inquiry"])}
+            c1, c2, c3 = st.columns(3); row = {"Email/JIRA Date": c1.date_input("Email/JIRA Date"), "Jira Key": c2.text_input("Jira Key (e.g. DATA-54045)"), "Customer": c3.text_input("Customer *")}
+            row["Issue Type"] = st.selectbox("Issue Type *", ["Complaint", "Inquiry"])
             c4, c5, c6 = st.columns(3); row["Event type"] = c4.text_input("Event type *"); row["Reason"] = c5.text_input("Reason *"); row["Root Cause"] = c6.selectbox("Root Cause", ["", "People", "Process", "Product"])
             row["Event/Bulletin Title"] = st.text_input("Event/Bulletin Title *")
             c7, c8, c9 = st.columns(3); row["Severity"] = c7.selectbox("Severity", ["Medium", "High", "Low"]); row["RCA Requested"] = c8.selectbox("RCA Requested", ["No", "Yes"]); row["Short Term Fix Status"] = c9.selectbox("Short Term Fix Status", ["", "Fixed", "RCA Shared", "Clarification Provided"])
@@ -284,11 +331,34 @@ elif selected_page == "Dynamic Source Discovery":
         lt = long_pair_table(disc, first, second, base=max(len(page), 1))
         if not lt.empty: add_section(name, f"Readable detail table showing {first.lower()} and {second.lower()} as separate columns instead of a wide cross-tab.", "#a8dab5"); st.dataframe(lt, use_container_width=True, hide_index=True, height=420); downloads(lt, name.lower().replace(" ", "_"))
     add_section("Complete Dynamic Source Discovery records", "All filtered records classified under Dynamic Source Discovery for detailed review.", "#b6beca"); st.dataframe(disc, use_container_width=True, hide_index=True, height=420); downloads(disc, "dynamic_source_discovery_complete")
+elif selected_page == "Jira Lookup":
+    page_header(selected_page)
+    add_section("Look up a Jira ticket", "Paste a Jira key to pull its live summary, status, assignee, and labels, so a complaint can be confirmed against Jira before it's marked a duplicate or a new row is added.")
+    if jira_credentials() is None:
+        st.info("Jira lookup is not configured. Add JIRA_BASE_URL, JIRA_EMAIL, and JIRA_API_TOKEN to Streamlit secrets to enable it.")
+    key_input = st.text_input("Jira key", placeholder="e.g. DATA-54045")
+    if st.button("Look up") and key_input:
+        info, err = fetch_jira_issue(key_input)
+        if err: st.error(err)
+        else:
+            st.success(f"{info['Key']} · {info['Status']}"); st.write(info["Summary"])
+            st.table(pd.DataFrame(info.items(), columns=["Field", "Value"]).set_index("Field"))
+    add_section("Complaint records missing a Jira Key", "Complaint rows in the current filter with no Jira Key on file, so the link to Jira can be filled in during the next review pass.", "#f6c177")
+    if "Jira Key" in filtered.columns and "Issue Type" in filtered.columns:
+        complaints_only = filtered[filtered["Issue Type"].astype(str) == "Complaint"]
+        missing = complaints_only[complaints_only["Jira Key"].isna() | (complaints_only["Jira Key"].astype(str).str.strip() == "")]
+        show_cols = [c for c in ["Month Label", "Customer", "Event/Bulletin Title", "Reason", "Jira Key"] if c in missing.columns]
+        st.dataframe(missing[show_cols], use_container_width=True, hide_index=True, height=320)
+        st.caption(f"{len(missing)} of {len(complaints_only)} filtered complaint record(s) have no Jira Key on file.")
+        downloads(missing[show_cols], "complaints_missing_jira_key")
+    else:
+        st.info("Jira Key column not found in the loaded data source.")
+    add_section("Labeling convention", "EventWatch complaint tickets live across multiple Jira projects (DATA, TS, BI, TENAR and others) with no shared project or component today. Apply the label `eventwatch-complaint` to each linked ticket so `labels = \"eventwatch-complaint\"` finds them all with one JQL query, and record the ticket key in the tracker's Jira Key column.", "#80cbc4")
 elif selected_page == "Definitions":
     page_header(selected_page)
-    groups = {"Tracker fields":[("Month / Reporting Month","Month used for trend reporting and date filtering."),("Email/JIRA Date","Formal received/logged date for the complaint, inquiry, or Jira trail."),("Customer","Account that raised the concern, not the affected supplier."),("Event/Bulletin Title","Published EventWatch title or concise factual event title."),("Comments","Concise evidence-backed summary of complaint, finding, action, and status.")],"Issue and reason types":[("Complaint","Confirmed or alleged EventWatch service miss, delay, incorrect handling, visibility issue, duplicate/missing WarRoom, or RCA-driven concern."),("Inquiry","Coverage, methodology, supplier/site, or threshold clarification without confirmed service failure."),("Reason","Specific operational issue such as Missed Event, Missed WarRoom, Delayed Event, Duplicate WarRooms, Incorrect Action, or Mapping Clarification.")],"Root cause groups":[("People","Human review, prioritization, judgment, communication, or execution miss."),("Process","Workflow, policy, methodology, handoff, or procedural gap."),("Product","Ingestion, source coverage, keyword, clustering, mapping, visibility, platform, or automation defect/gap.")],"Severity and status":[("High","Material operational or customer-trust impact requiring elevated attention."),("Medium","Standard tracked complaint or quality issue."),("Low","Limited-impact inquiry or minor quality signal."),("Fixed","Corrective action completed."),("RCA Shared","RCA approved/shared for customer communication."),("Clarification Provided","Explanation provided where no fix/RCA is required.")],"Automation focus":[("Dynamic Source Discovery","Source, feed, keyword, vendor monitoring, or article discovery gap."),("WarRoom & Decision Validation","Missing, delayed, duplicate, or incorrect WarRoom/decision handling."),("Entity & Supplier Resolution","Supplier, customer, entity, or mapping quality issue."),("AI-Assisted Geofencing","Location/polygon/proximity validation opportunity."),("Notification Visibility Monitoring","Delivery, profile visibility, and notification path monitoring."),("Cluster Integrity & Duplicate Prevention","Duplicate/split clusters or inconsistent event grouping."),("Automated Industry Tagging","Industry tagging validation or automation."),("Multilingual Keyword Expansion","Language/keyword coverage expansion from observed misses."),("Other Control Automation","Targeted control not covered by the standard categories.")],"Evidence and deduplication":[("Missed_Flag","Yes when expected alerting, coverage, notification, escalation, or WarRoom creation was missed or materially delayed."),("Confidence","HIGH, MEDIUM, or LOW based on evidence quality and duplicate checks."),("Duplicate check","Match against Jira key, Outlook conversation, customer/event title, facility, date/type, and source message ID before adding a new row.")]}
+    groups = {"Tracker fields":[("Month / Reporting Month","Month used for trend reporting and date filtering."),("Email/JIRA Date","Formal received/logged date for the complaint, inquiry, or Jira trail."),("Customer","Account that raised the concern, not the affected supplier."),("Event/Bulletin Title","Published EventWatch title or concise factual event title."),("Comments","Concise evidence-backed summary of complaint, finding, action, and status.")],"Issue and reason types":[("Complaint","Confirmed or alleged EventWatch service miss, delay, incorrect handling, visibility issue, duplicate/missing WarRoom, or RCA-driven concern."),("Inquiry","Coverage, methodology, supplier/site, or threshold clarification without confirmed service failure."),("Reason","Specific operational issue such as Missed Event, Missed WarRoom, Delayed Event, Duplicate WarRooms, Incorrect Action, or Mapping Clarification.")],"Root cause groups":[("People","Human review, prioritization, judgment, communication, or execution miss."),("Process","Workflow, policy, methodology, handoff, or procedural gap."),("Product","Ingestion, source coverage, keyword, clustering, mapping, visibility, platform, or automation defect/gap.")],"Severity and status":[("High","Material operational or customer-trust impact requiring elevated attention."),("Medium","Standard tracked complaint or quality issue."),("Low","Limited-impact inquiry or minor quality signal."),("Fixed","Corrective action completed."),("RCA Shared","RCA approved/shared for customer communication."),("Clarification Provided","Explanation provided where no fix/RCA is required.")],"Automation focus":[("Dynamic Source Discovery","Source, feed, keyword, vendor monitoring, or article discovery gap."),("WarRoom & Decision Validation","Missing, delayed, duplicate, or incorrect WarRoom/decision handling."),("Entity & Supplier Resolution","Supplier, customer, entity, or mapping quality issue."),("AI-Assisted Geofencing","Location/polygon/proximity validation opportunity."),("Notification Visibility Monitoring","Delivery, profile visibility, and notification path monitoring."),("Cluster Integrity & Duplicate Prevention","Duplicate/split clusters or inconsistent event grouping."),("Automated Industry Tagging","Industry tagging validation or automation."),("Multilingual Keyword Expansion","Language/keyword coverage expansion from observed misses."),("Other Control Automation","Targeted control not covered by the standard categories.")],"Evidence and deduplication":[("Missed_Flag","Yes when expected alerting, coverage, notification, escalation, or WarRoom creation was missed or materially delayed."),("Confidence","HIGH, MEDIUM, or LOW based on evidence quality and duplicate checks."),("Jira Key","The linked Jira issue key (e.g. DATA-54045) for the complaint, tagged with the `eventwatch-complaint` label. Verify it on the Jira Lookup page before adding or updating a row."),("Duplicate check","Match against Jira Key (via the Jira Lookup page), Outlook conversation, customer/event title, facility, date/type, and source message ID before adding a new row. Jira Key is a real, checkable column and lookup; Outlook conversation matching today is a manual step performed in the mailbox, not an automated check in this dashboard.")]}
     for group, rows in groups.items(): st.markdown(f"<div class='definition-group'><h3>{group}</h3>", unsafe_allow_html=True); st.table(pd.DataFrame(rows, columns=["Term", "Definition"])); st.markdown("</div>", unsafe_allow_html=True)
 elif selected_page == "Complaint Tracker":
-    page_header(selected_page); page = date_filter(filtered, "tracker"); concise = [c for c in ["Month Label", "Email/JIRA Date", "Customer", "Event type", "Event/Bulletin Title", "Issue Type", "Reason", "Root Cause", "Short Term Fix Status", "RCA Requested", "Severity", "Standard Automation Focus", "Comments"] if c in page.columns]
+    page_header(selected_page); page = date_filter(filtered, "tracker"); concise = [c for c in ["Month Label", "Email/JIRA Date", "Jira Key", "Customer", "Event type", "Event/Bulletin Title", "Issue Type", "Reason", "Root Cause", "Short Term Fix Status", "RCA Requested", "Severity", "Standard Automation Focus", "Comments"] if c in page.columns]
     c1, c2 = st.columns(2); c1.download_button("Download visible tracker CSV", page[concise].to_csv(index=False).encode(), "customer_tracker_visible.csv", "text/csv"); c2.download_button("Download full filtered source CSV", page.to_csv(index=False).encode(), "customer_tracker_full_filtered.csv", "text/csv")
     st.dataframe(page[concise], use_container_width=True, hide_index=True, height=560); manual_entry_form(list(df.columns))
