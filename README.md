@@ -87,9 +87,9 @@ Generate the API token from the Jira account that will run lookups (Atlassian ac
 
 Previously the "Duplicate check" definition referenced a Jira key and Outlook conversation match with no supporting column or tooling — it described a manual step a person had to remember, not a real check. This is now partly closed:
 
-- The tracker has a **Jira Key** column (next to `Email/JIRA Date`). Fill it in with the linked Jira issue key (e.g. `DATA-54045`) for every complaint row, including through the manual-entry form.
+- The tracker has a **Jira Key** column (next to `Email/JIRA Date`). Fill it in with the linked Jira issue key (e.g. `EAO-33`) for every complaint row, including through the manual-entry form.
 - The **Jira Lookup** dashboard page looks up a Jira key live (summary, status, assignee, labels) so a complaint can be confirmed against Jira before it's called a duplicate, and lists filtered complaint rows that still have no Jira Key on file.
-- EventWatch complaint tickets today are scattered across multiple Jira projects (DATA, TS, BI, TENAR, and others) with no shared project or component. Apply the label `eventwatch-complaint` to every linked ticket going forward so `labels = "eventwatch-complaint"` finds them all in one JQL query; this repo does not bulk-relabel existing tickets.
+- The primary place to search is the **`EAO`** project (`EventWatch_AI_Ops`) — that's where EventWatch missed-alert/investigation/RCA-request tickets are actually filed today (e.g. `project = EAO ORDER BY created DESC`). A smaller number of older or misrouted tickets also turn up in DATA, TS, BI, TENAR, and others; for those, apply the label `eventwatch-complaint` going forward so `labels = "eventwatch-complaint"` catches them in the same query. This repo does not bulk-relabel existing tickets.
 - Outlook search is still a manual step performed in the mailbox — there is no Outlook/Graph API integration in this app. An `Outlook Conversation ID` column and a Graph API lookup (mirroring the Jira one) is the natural next step if that manual step is still a bottleneck, but it requires an Azure AD app registration with mailbox read permission, which needs IT/security sign-off before it can be built.
 
 ## Files
