@@ -45,6 +45,7 @@ The app supports:
 - Complaint Tracker visible/full CSV downloads, now including the Jira Key column
 - Controlled manual complaint/inquiry entry with required fields, validation, Save staged entry, confirmation, and downloadable staged CSV row, including a Jira Key field
 - Jira Lookup page: live Jira issue lookup by key, and a list of filtered complaint rows still missing a Jira Key
+- Outlook Lookup page: live Microsoft Graph mailbox search by subject/sender/customer keyword
 
 Dashboard metrics and charts are calculated from the loaded GitHub source. They should not use stub or hard-coded metric values.
 
@@ -83,14 +84,25 @@ JIRA_API_TOKEN = "..."
 
 Generate the API token from the Jira account that will run lookups (Atlassian account settings → Security → API tokens). Without these three secrets set, the Jira Lookup page still loads but tells you lookup isn't configured instead of failing.
 
-## Jira complaint search
+Optional, to enable the Outlook Lookup page:
 
-Previously the "Duplicate check" definition referenced a Jira key and Outlook conversation match with no supporting column or tooling — it described a manual step a person had to remember, not a real check. This is now partly closed:
+```toml
+GRAPH_TENANT_ID = "..."
+GRAPH_CLIENT_ID = "..."
+GRAPH_CLIENT_SECRET = "..."
+GRAPH_MAILBOX = "eventwatch@resilinc.com"
+```
+
+This requires an Azure AD app registration with **application-type** `Mail.Read` permission (admin consent) against the shared mailbox used for EventWatch complaints — an IT/security decision that has to happen before these secrets exist, not something this repo can do on its own. Once registered, put the tenant ID, client ID, client secret, and the target mailbox address into Streamlit secrets as above. Without them, the Outlook Lookup page still loads but tells you lookup isn't configured instead of failing — same pattern as Jira.
+
+## Jira and Outlook complaint search
+
+Previously the "Duplicate check" definition referenced a Jira key and Outlook conversation match with no supporting column or tooling — it described a manual step a person had to remember, not a real check. This is now closed on both sides:
 
 - The tracker has a **Jira Key** column (next to `Email/JIRA Date`). Fill it in with the linked Jira issue key (e.g. `EAO-33`) for every complaint row, including through the manual-entry form.
 - The **Jira Lookup** dashboard page looks up a Jira key live (summary, status, assignee, labels) so a complaint can be confirmed against Jira before it's called a duplicate, and lists filtered complaint rows that still have no Jira Key on file.
 - The primary place to search is the **`EAO`** project (`EventWatch_AI_Ops`) — that's where EventWatch missed-alert/investigation/RCA-request tickets are actually filed today (e.g. `project = EAO ORDER BY created DESC`). A smaller number of older or misrouted tickets also turn up in DATA, TS, BI, TENAR, and others; for those, apply the label `eventwatch-complaint` going forward so `labels = "eventwatch-complaint"` catches them in the same query. This repo does not bulk-relabel existing tickets.
-- Outlook search is still a manual step performed in the mailbox — there is no Outlook/Graph API integration in this app. An `Outlook Conversation ID` column and a Graph API lookup (mirroring the Jira one) is the natural next step if that manual step is still a bottleneck, but it requires an Azure AD app registration with mailbox read permission, which needs IT/security sign-off before it can be built.
+- The **Outlook Lookup** dashboard page searches a shared mailbox by subject/sender/customer keyword via Microsoft Graph (`GET /users/{mailbox}/messages?$search=...`), once the secrets above are set. There is no `Outlook Conversation ID` column in the tracker yet — a confirmed match's conversation ID or thread link goes in that row's Comments field until a dedicated column is actually requested, to avoid adding an empty column nobody uses.
 
 ## Files
 
