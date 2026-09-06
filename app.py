@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import html
+
 import pandas as pd
 import plotly.express as px
+import requests
 import streamlit as st
 
 st.set_page_config(page_title="EventWatch Executive Dashboard", layout="wide")
@@ -14,7 +17,7 @@ PAGES = [
     "Executive Summary", "SOURCE 01 · Monthly trend", "SOURCE 02 · Fix status",
     "SOURCE 03 · Severity", "SOURCE 04 · Root cause", "SOURCE 05 · Top customers",
     "SOURCE 06 · Automation focus", "DETAIL · Event workload", "Automation urgency",
-    "Dynamic Source Discovery", "Definitions", "Complaint Tracker",
+    "Dynamic Source Discovery", "Jira Lookup", "Outlook Lookup", "Definitions", "Complaint Tracker",
 ]
 
 DESCRIPTIONS = {
@@ -28,6 +31,8 @@ DESCRIPTIONS = {
     "DETAIL · Event workload": "Event types that repeatedly drive complaints, inquiries, or operational workload.",
     "Automation urgency": "Ranked automation priorities using volume, severity, RCA pressure, misses, and customer concentration.",
     "Dynamic Source Discovery": "Source coverage, feed, keyword, vendor monitoring, and event-discovery gaps.",
+    "Jira Lookup": "Look up a linked Jira ticket by key and see which complaint records still need one linked, so the duplicate check against Jira is a real lookup instead of a manual guess.",
+    "Outlook Lookup": "Search a shared mailbox for the email thread behind a complaint, so the Outlook side of the duplicate check is a real search instead of a manual mailbox trawl.",
     "Definitions": "Structured glossary for tracker fields, classification, statuses, root causes, and automation terms.",
     "Complaint Tracker": "Filtered tracker records with download and controlled manual-entry staging.",
 }
@@ -37,8 +42,8 @@ CSS = """
 :root{--bg:#0f1115;--panel:#1b1f26;--panel2:#202631;--ink:#f3f4f6;--muted:#b6beca;--line:#3a414d;--line2:#515a68;--blue:#8ab4f8;--teal:#80cbc4;--amber:#f6c177;--red:#f28b82;--green:#a8dab5}
 html,body,[data-testid="stAppViewContainer"],[data-testid="stMain"]{background:var(--bg)!important;color:var(--ink)!important}.main .block-container{padding-top:.75rem;max-width:1450px;background:var(--bg)!important}[data-testid="stHeader"],[data-testid="stToolbar"]{background:#0c0e12!important}[data-testid="stSidebar"]{background:#171b22!important;border-right:1px solid var(--line)}[data-testid="stSidebar"] *{color:var(--ink)!important}[data-testid="stSidebar"] label{color:var(--muted)!important}
 [data-testid="stSidebar"] .stRadio div[role="radiogroup"]>label{height:42px;width:100%;box-sizing:border-box;background:var(--panel2)!important;border:1px solid var(--line)!important;border-radius:8px!important;padding:9px 12px!important;margin:7px 0!important;display:flex!important;align-items:center!important;box-shadow:none!important}[data-testid="stSidebar"] .stRadio div[role="radiogroup"]>label:hover{background:#2a313d!important}[data-testid="stSidebar"] .stRadio div[role="radiogroup"]>label:has(input:checked){background:#374151!important;border-color:var(--blue)!important}[data-testid="stSidebar"] .stRadio input{display:none!important}
-h1,h2,h3,h4,h5,h6,p,span,div,label{color:var(--ink)!important}.page-hero,.section-card,.kpi,.insight-box,.definition-group{background:var(--panel)!important;border:1px solid var(--line);box-shadow:0 2px 8px rgba(0,0,0,.28)}.page-hero{border-left:5px solid var(--blue);padding:12px 16px;margin-bottom:16px}.page-hero h1{margin:0 0 4px 0;font-size:25px}.page-hero p,.section-card p{margin:0;color:var(--muted)!important;font-size:14px;line-height:1.35}.section-card{border-left:4px solid var(--accent,var(--blue));border-radius:8px;padding:12px 14px;margin:16px 0 10px}.section-card h3{margin:0 0 6px 0;font-size:21px}.kpi-grid{display:grid;grid-template-columns:repeat(5,minmax(145px,1fr));gap:10px;margin:10px 0 14px}.kpi{min-height:88px;border-top:4px solid var(--accent);border-radius:8px;padding:10px 12px}.kpi-label{font-size:11px;color:var(--muted)!important;font-weight:800;text-transform:uppercase;letter-spacing:.035em}.kpi-num{font-size:28px;font-weight:900;line-height:1.05;margin:5px 0}.kpi-foot{font-size:12px;color:var(--muted)!important}.insight-row{display:grid;grid-template-columns:repeat(2,minmax(260px,1fr));gap:10px}.insight-box{border-left:4px solid var(--accent);border-radius:8px;padding:11px 12px;font-size:14px}
-.excel-table{width:100%;border-collapse:collapse;background:var(--panel)!important;font-size:13px;table-layout:fixed}.excel-table th{background:#303846!important;color:#fff!important;border:1px solid var(--line2);padding:8px 9px;text-align:center;font-weight:850}.excel-table td{border:1px solid var(--line);padding:7px 9px;background:#1f242d!important;color:var(--ink)!important}.excel-table tr:nth-child(even) td{background:#252b35!important}.excel-table td:first-child{text-align:left;overflow-wrap:anywhere}.excel-table td:not(:first-child){text-align:center}.bar-cell{padding:0!important}.bar-box{position:relative;min-height:32px;display:flex;align-items:center;justify-content:center;overflow:hidden}.bar-box:before{content:"";position:absolute;inset:0 auto 0 0;width:var(--w);background:linear-gradient(90deg,rgba(138,180,248,.65),rgba(138,180,248,.15))}.bar-box span{position:relative;z-index:1;font-weight:900;color:#fff!important;text-shadow:0 1px 2px #000}.definition-group{border-left:4px solid var(--teal);border-radius:8px;padding:12px 14px;margin:12px 0}.stDownloadButton button,.stButton button,.stFormSubmitButton button{background:#374151!important;color:#fff!important;border:1px solid var(--blue)!important;border-radius:7px!important;font-weight:800!important}[data-testid="stDataFrame"],[data-testid="stTable"]{background:var(--panel)!important;border:1px solid var(--line)!important}
+h1,h2,h3,h4,h5,h6,p,span,div,label{color:var(--ink)!important}.page-hero,.section-card,.kpi,.insight-box,.definition-group{background:var(--panel)!important;border:1px solid var(--line);box-shadow:0 2px 8px rgba(0,0,0,.28)}.page-hero{position:relative;overflow:hidden;border-left:5px solid var(--accent,var(--blue));padding:14px 18px;margin-bottom:16px}.page-hero:after{content:"";position:absolute;inset:0;background:linear-gradient(120deg,rgba(255,255,255,.05),transparent 55%);pointer-events:none}.page-kicker{display:flex;align-items:center;gap:7px;font-size:11px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--accent,var(--blue))!important;margin-bottom:5px}.page-kicker .dot{width:7px;height:7px;border-radius:50%;background:var(--accent,var(--blue));box-shadow:0 0 0 3px color-mix(in srgb,var(--accent,var(--blue)) 25%,transparent)}.page-hero h1{margin:0 0 4px 0;font-size:25px}.page-hero p,.section-card p{margin:0;color:var(--muted)!important;font-size:14px;line-height:1.4}.section-card{border-left:4px solid var(--accent,var(--blue));border-radius:8px;padding:12px 14px;margin:18px 0 10px;display:flex;flex-direction:column;gap:2px}.section-card h3{margin:0 0 2px 0;font-size:20px;display:flex;align-items:center;gap:8px}.section-card h3:before{content:"";width:9px;height:9px;border-radius:3px;background:var(--accent,var(--blue));display:inline-block;flex:none}.kpi-grid{display:grid;grid-template-columns:repeat(5,minmax(145px,1fr));gap:10px;margin:10px 0 14px}.kpi{position:relative;min-height:92px;border-top:4px solid var(--accent);border-radius:8px;padding:11px 13px;transition:transform .15s ease,box-shadow .15s ease}.kpi:hover{transform:translateY(-3px);box-shadow:0 10px 22px rgba(0,0,0,.4)}.kpi-label{font-size:11px;color:var(--muted)!important;font-weight:800;text-transform:uppercase;letter-spacing:.04em}.kpi-num{font-size:29px;font-weight:900;line-height:1.05;margin:6px 0 4px;background:linear-gradient(180deg,#fff,var(--ink));-webkit-background-clip:text;background-clip:text}.kpi-foot{font-size:12px;color:var(--muted)!important}.insight-row{display:grid;grid-template-columns:repeat(2,minmax(260px,1fr));gap:10px}.insight-box{border-left:4px solid var(--accent);border-radius:8px;padding:11px 12px;font-size:14px}
+.table-wrap{overflow-x:auto;border-radius:8px;border:1px solid var(--line);box-shadow:0 2px 8px rgba(0,0,0,.22)}.excel-table{width:100%;border-collapse:collapse;background:var(--panel)!important;font-size:13px}.excel-table th{background:#2d3542!important;color:#fff!important;border:1px solid var(--line2);padding:9px 10px;text-align:center;font-weight:800;font-size:12px;text-transform:uppercase;letter-spacing:.03em;position:sticky;top:0}.excel-table td{border:1px solid var(--line);padding:8px 10px;background:#1f242d!important;color:var(--ink)!important;font-size:13px}.excel-table tr:nth-child(even) td{background:#242a34!important}.excel-table tbody tr{transition:background .1s ease}.excel-table tbody tr:hover td{background:#2c3542!important}.excel-table td:first-child{text-align:left;overflow-wrap:anywhere;font-weight:600}.excel-table td:not(:first-child){text-align:center}.bar-cell{padding:0!important}.bar-box{position:relative;min-height:32px;display:flex;align-items:center;justify-content:center;overflow:hidden;border-radius:4px}.bar-box:before{content:"";position:absolute;inset:0 auto 0 0;width:var(--w);background:linear-gradient(90deg,rgba(138,180,248,.7),rgba(138,180,248,.18))}.bar-box span{position:relative;z-index:1;font-weight:900;color:#fff!important;text-shadow:0 1px 2px #000}.definition-group{border-left:4px solid var(--teal);border-radius:8px;padding:12px 14px;margin:12px 0}.stDownloadButton button,.stButton button,.stFormSubmitButton button{background:#374151!important;color:#fff!important;border:1px solid var(--blue)!important;border-radius:7px!important;font-weight:800!important;transition:border-color .15s ease,transform .1s ease}.stDownloadButton button:hover,.stButton button:hover,.stFormSubmitButton button:hover{border-color:var(--teal)!important;transform:translateY(-1px)}[data-testid="stDataFrame"],[data-testid="stTable"]{background:var(--panel)!important;border:1px solid var(--line)!important;border-radius:8px!important;overflow:hidden}
 @media(max-width:1200px){.kpi-grid{grid-template-columns:repeat(2,minmax(180px,1fr))}.insight-row{grid-template-columns:1fr}}@media(max-width:760px){.kpi-grid{grid-template-columns:1fr}}
 </style>
 """
@@ -51,9 +56,16 @@ def read_csv_or_excel(url: str):
     return pd.read_csv(url), "GitHub CSV"
 
 
+def get_secret(key, default=None):
+    try:
+        return st.secrets.get(key, default)
+    except Exception:
+        return default
+
+
 def load_data():
-    csv_url = st.secrets.get("GITHUB_CSV_URL", CSV_URL) if hasattr(st, "secrets") else CSV_URL
-    workbook_url = st.secrets.get("GITHUB_WORKBOOK_URL", WORKBOOK_URL) if hasattr(st, "secrets") else WORKBOOK_URL
+    csv_url = get_secret("GITHUB_CSV_URL", CSV_URL)
+    workbook_url = get_secret("GITHUB_WORKBOOK_URL", WORKBOOK_URL)
     errors = []
     for url in [csv_url, workbook_url]:
         try:
@@ -77,8 +89,122 @@ def load_data():
     return df
 
 
+def jira_credentials():
+    base, email, token = (get_secret(k) for k in ("JIRA_BASE_URL", "JIRA_EMAIL", "JIRA_API_TOKEN"))
+    return (base.rstrip("/"), email, token) if base and email and token else None
+
+
+def fetch_jira_issue(key):
+    creds = jira_credentials()
+    if not creds:
+        return None, "Jira lookup is not configured. Set JIRA_BASE_URL, JIRA_EMAIL, and JIRA_API_TOKEN in Streamlit secrets."
+    key = key.strip().upper()
+    if not key:
+        return None, "Enter a Jira key, e.g. EAO-33."
+    base, email, token = creds
+    try:
+        resp = requests.get(
+            f"{base}/rest/api/3/issue/{key}",
+            params={"fields": "summary,status,issuetype,project,assignee,labels,updated"},
+            auth=(email, token), timeout=10,
+        )
+    except requests.RequestException as exc:
+        return None, f"Could not reach Jira: {exc}"
+    if resp.status_code == 404: return None, f"{key} was not found in Jira."
+    if resp.status_code == 401: return None, "Jira rejected the configured credentials (401)."
+    if resp.status_code != 200: return None, f"Jira returned {resp.status_code}: {resp.text[:200]}"
+    fields = resp.json().get("fields", {})
+    assignee = fields.get("assignee") or {}
+    return {
+        "Key": key, "Summary": fields.get("summary"),
+        "Status": (fields.get("status") or {}).get("name"),
+        "Type": (fields.get("issuetype") or {}).get("name"),
+        "Project": (fields.get("project") or {}).get("key"),
+        "Assignee": assignee.get("displayName", "Unassigned"),
+        "Labels": ", ".join(fields.get("labels", [])) or "None",
+        "Updated": fields.get("updated"), "URL": f"{base}/browse/{key}",
+    }, None
+
+
+def outlook_credentials():
+    tenant, client_id, secret, mailbox = (
+        get_secret(k) for k in ("GRAPH_TENANT_ID", "GRAPH_CLIENT_ID", "GRAPH_CLIENT_SECRET", "GRAPH_MAILBOX")
+    )
+    return (tenant, client_id, secret, mailbox) if tenant and client_id and secret and mailbox else None
+
+
+@st.cache_data(ttl=1500, show_spinner=False)
+def fetch_outlook_token(tenant, client_id, secret):
+    resp = requests.post(
+        f"https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token",
+        data={"grant_type": "client_credentials", "client_id": client_id, "client_secret": secret,
+              "scope": "https://graph.microsoft.com/.default"},
+        timeout=10,
+    )
+    resp.raise_for_status()
+    return resp.json()["access_token"]
+
+
+def search_outlook_messages(query):
+    creds = outlook_credentials()
+    if not creds:
+        return None, "Outlook lookup is not configured. Set GRAPH_TENANT_ID, GRAPH_CLIENT_ID, GRAPH_CLIENT_SECRET, and GRAPH_MAILBOX in Streamlit secrets."
+    query = query.strip()
+    if not query:
+        return None, "Enter a subject keyword, sender, or customer name to search for."
+    tenant, client_id, secret, mailbox = creds
+    try:
+        token = fetch_outlook_token(tenant, client_id, secret)
+    except requests.RequestException as exc:
+        return None, f"Could not authenticate with Microsoft Graph: {exc}"
+    try:
+        resp = requests.get(
+            f"https://graph.microsoft.com/v1.0/users/{mailbox}/messages",
+            headers={"Authorization": f"Bearer {token}", "ConsistencyLevel": "eventual"},
+            params={"$search": f"\"{query}\"", "$top": "15",
+                    "$select": "subject,from,receivedDateTime,conversationId,webLink"},
+            timeout=10,
+        )
+    except requests.RequestException as exc:
+        return None, f"Could not reach Microsoft Graph: {exc}"
+    if resp.status_code == 401: return None, "Microsoft Graph rejected the configured credentials (401)."
+    if resp.status_code == 403: return None, "The Graph app registration lacks Mail.Read permission for this mailbox (403)."
+    if resp.status_code != 200: return None, f"Microsoft Graph returned {resp.status_code}: {resp.text[:200]}"
+    rows = []
+    for m in resp.json().get("value", []):
+        sender = (m.get("from") or {}).get("emailAddress") or {}
+        rows.append({
+            "Received": m.get("receivedDateTime"), "From": sender.get("name") or sender.get("address"),
+            "Subject": m.get("subject"), "Conversation ID": m.get("conversationId"), "Link": m.get("webLink"),
+        })
+    return rows, None
+
+
+PAGE_KICKERS = {
+    "Executive Summary": ("Overview", "#8ab4f8"),
+    "SOURCE 01 · Monthly trend": ("Chart source", "#80cbc4"),
+    "SOURCE 02 · Fix status": ("Chart source", "#80cbc4"),
+    "SOURCE 03 · Severity": ("Chart source", "#80cbc4"),
+    "SOURCE 04 · Root cause": ("Chart source", "#80cbc4"),
+    "SOURCE 05 · Top customers": ("Chart source", "#80cbc4"),
+    "SOURCE 06 · Automation focus": ("Chart source", "#80cbc4"),
+    "DETAIL · Event workload": ("Detail view", "#f6c177"),
+    "Automation urgency": ("Prioritization", "#f6c177"),
+    "Dynamic Source Discovery": ("Coverage gap", "#f6c177"),
+    "Jira Lookup": ("Integration", "#a8dab5"),
+    "Outlook Lookup": ("Integration", "#a8dab5"),
+    "Definitions": ("Reference", "#b6beca"),
+    "Complaint Tracker": ("Data entry", "#f28b82"),
+}
+
+
 def page_header(title):
-    st.markdown(f"<div class='page-hero'><h1>{title}</h1><p>{DESCRIPTIONS.get(title,'')}</p></div>", unsafe_allow_html=True)
+    kicker, accent = PAGE_KICKERS.get(title, ("Dashboard", "#8ab4f8"))
+    st.markdown(
+        f"<div class='page-hero' style='--accent:{accent}'><div class='page-kicker'><span class='dot'></span>{kicker}</div>"
+        f"<h1>{title}</h1><p>{DESCRIPTIONS.get(title,'')}</p></div>",
+        unsafe_allow_html=True,
+    )
 
 
 def add_section(title, desc="", accent="#8ab4f8"):
@@ -135,6 +261,10 @@ def kpis(items):
     st.markdown("<div class='kpi-grid'>" + "".join(cards) + "</div>", unsafe_allow_html=True)
 
 
+def esc(v):
+    return html.escape(str(v)) if pd.notna(v) else ""
+
+
 def excel_bar_table(df, label_col, value_col="Records"):
     if df.empty or label_col not in df.columns or value_col not in df.columns:
         st.info("No data available for this view."); return
@@ -142,8 +272,24 @@ def excel_bar_table(df, label_col, value_col="Records"):
     rows = []
     for _, r in df.iterrows():
         width = float(r[value_col]) / max_v * 100
-        rows.append(f"<tr><td>{r[label_col]}</td><td class='bar-cell'><div class='bar-box' style='--w:{width:.1f}%'><span>{r[value_col]}</span></div></td><td>{r.get('% of Total','')}</td></tr>")
-    st.markdown("<table class='excel-table'><thead><tr><th>Category</th><th>Records</th><th>% of Total</th></tr></thead><tbody>" + "".join(rows) + "</tbody></table>", unsafe_allow_html=True)
+        rows.append(f"<tr><td>{esc(r[label_col])}</td><td class='bar-cell'><div class='bar-box' style='--w:{width:.1f}%'><span>{esc(r[value_col])}</span></div></td><td>{esc(r.get('% of Total',''))}</td></tr>")
+    st.markdown("<div class='table-wrap'><table class='excel-table'><thead><tr><th>Category</th><th>Records</th><th>% of Total</th></tr></thead><tbody>" + "".join(rows) + "</tbody></table></div>", unsafe_allow_html=True)
+
+
+def styled_table(df, max_rows=None, height=None):
+    """Render any dataframe as a clean bordered table matching the Excel dashboard's table style."""
+    if df is None or df.empty:
+        st.info("No data available for this view."); return
+    show = df.head(max_rows) if max_rows else df
+    head = "".join(f"<th>{esc(c)}</th>" for c in show.columns)
+    body = "".join(
+        "<tr>" + "".join(f"<td>{esc(v)}</td>" for v in row) + "</tr>"
+        for row in show.itertuples(index=False)
+    )
+    wrap_style = f" style='max-height:{height}px;overflow-y:auto'" if height else ""
+    st.markdown(f"<div class='table-wrap'{wrap_style}><table class='excel-table'><thead><tr>{head}</tr></thead><tbody>{body}</tbody></table></div>", unsafe_allow_html=True)
+    if max_rows and len(df) > max_rows:
+        st.caption(f"Showing {max_rows} of {len(df)} rows — use the download button below for the full set.")
 
 
 def chart(df, label_col, value_col="Records", title=""):
@@ -173,21 +319,21 @@ def source_page(title, df, col, key):
     add_section(f"{label} summary table", f"Shows selected tracker records by {label.lower()}, with record count and share of the filtered total.")
     excel_bar_table(t, col); downloads(t, key)
     add_section(f"{label} chart", f"Visual ranking of {label.lower()} categories so leaders can quickly see the biggest drivers.", "#80cbc4")
-    fig = chart(t, col, f"{label} distribution"); downloads(t, f"{key}_chart_data", fig)
+    fig = chart(t, col, title=f"{label} distribution"); downloads(t, f"{key}_chart_data", fig)
     if col == "Customer":
         for first, second, name, desc in [("Customer", "Reason", "Customer complaint reasons", "Shows each customer and the specific reasons tied to that customer."), ("Customer", "Event type", "Customer event-type patterns", "Shows which event types are driving records for each customer."), ("Customer", "Root Cause", "Customer root-cause patterns", "Shows whether each customer’s records are People, Process, or Product related.")]:
             lt = long_pair_table(page, first, second)
-            if not lt.empty: add_section(name, desc, "#a8dab5"); st.dataframe(lt, use_container_width=True, hide_index=True, height=420); downloads(lt, name.lower().replace(" ", "_"))
+            if not lt.empty: add_section(name, desc, "#a8dab5"); styled_table(lt, height=420); downloads(lt, name.lower().replace(" ", "_"))
     if col == "Root Cause":
         for root in ["Product", "People", "Process"]:
             root_df = page[page["Root Cause"].astype(str).eq(root)] if "Root Cause" in page.columns else page.iloc[0:0]
             if root_df.empty: continue
             add_section(f"{root} drill-down", f"Breaks {root.lower()} root-cause records into reasons, event types, customers, and automation focus areas for action planning.", "#f6c177" if root == "Process" else "#8ab4f8" if root == "Product" else "#b6beca")
             c1, c2 = st.columns(2)
-            with c1: st.markdown(f"**{root} reasons**"); st.dataframe(count_table(root_df, "Reason") if "Reason" in root_df.columns else pd.DataFrame(), use_container_width=True, hide_index=True)
-            with c2: st.markdown(f"**{root} event types**"); st.dataframe(count_table(root_df, "Event type") if "Event type" in root_df.columns else pd.DataFrame(), use_container_width=True, hide_index=True)
+            with c1: st.markdown(f"**{root} reasons**"); styled_table(count_table(root_df, "Reason") if "Reason" in root_df.columns else pd.DataFrame())
+            with c2: st.markdown(f"**{root} event types**"); styled_table(count_table(root_df, "Event type") if "Event type" in root_df.columns else pd.DataFrame())
             pair = long_pair_table(root_df, "Customer", "Reason")
-            if not pair.empty: st.markdown(f"**{root} customer and reason detail**"); st.dataframe(pair, use_container_width=True, hide_index=True, height=320); downloads(pair, f"{root.lower()}_customer_reason_detail")
+            if not pair.empty: st.markdown(f"**{root} customer and reason detail**"); styled_table(pair, height=320); downloads(pair, f"{root.lower()}_customer_reason_detail")
 
 
 def recommendation_for_focus(focus):
@@ -208,15 +354,17 @@ def urgency_table(df):
     g = df.groupby("Standard Automation Focus", dropna=False).agg(Records=("Standard Automation Focus", "size"), Customers=("Customer", "nunique") if "Customer" in df.columns else ("Standard Automation Focus", "size"), High_Severity=("Severity", lambda s: int((s.astype(str) == "High").sum())) if "Severity" in df.columns else ("Standard Automation Focus", "size"), RCA_Requested=("RCA Requested", lambda s: int((s.astype(str) == "Yes").sum())) if "RCA Requested" in df.columns else ("Standard Automation Focus", "size"), Misses=("Missed_Flag", lambda s: int((s.astype(str) == "Yes").sum())) if "Missed_Flag" in df.columns else ("Standard Automation Focus", "size")).reset_index()
     g["Urgency Score"] = g["Records"] * 2 + g["High_Severity"] * 3 + g["RCA_Requested"] * 2 + g["Misses"] * 2 + g["Customers"]
     g["Priority"] = g["Urgency Score"].rank(method="first", ascending=False).astype(int)
-    g["Recommended control"] = g["Standard Automation Focus"].map(recommendation_for_focus)
-    return g.sort_values(["Priority", "Records"])
+    g["Recommended Control"] = g["Standard Automation Focus"].map(recommendation_for_focus)
+    g = g.sort_values(["Priority", "Records"])
+    return g.rename(columns={"High_Severity": "High Severity", "RCA_Requested": "RCA Requested"})
 
 
 def manual_entry_form(source_cols):
     with st.expander("Add complaint / inquiry entry manually"):
         st.caption("Use when a valid complaint/inquiry was missed. The entry is staged for review/export, not silently written to production.")
         with st.form("manual_entry_form"):
-            c1, c2, c3 = st.columns(3); row = {"Email/JIRA Date": c1.date_input("Email/JIRA Date"), "Customer": c2.text_input("Customer *"), "Issue Type": c3.selectbox("Issue Type *", ["Complaint", "Inquiry"])}
+            c1, c2, c3 = st.columns(3); row = {"Email/JIRA Date": c1.date_input("Email/JIRA Date"), "Jira Key": c2.text_input("Jira Key (e.g. EAO-33)"), "Customer": c3.text_input("Customer *")}
+            row["Issue Type"] = st.selectbox("Issue Type *", ["Complaint", "Inquiry"])
             c4, c5, c6 = st.columns(3); row["Event type"] = c4.text_input("Event type *"); row["Reason"] = c5.text_input("Reason *"); row["Root Cause"] = c6.selectbox("Root Cause", ["", "People", "Process", "Product"])
             row["Event/Bulletin Title"] = st.text_input("Event/Bulletin Title *")
             c7, c8, c9 = st.columns(3); row["Severity"] = c7.selectbox("Severity", ["Medium", "High", "Low"]); row["RCA Requested"] = c8.selectbox("RCA Requested", ["No", "Yes"]); row["Short Term Fix Status"] = c9.selectbox("Short Term Fix Status", ["", "Fixed", "RCA Shared", "Clarification Provided"])
@@ -228,7 +376,7 @@ def manual_entry_form(source_cols):
             else:
                 staged = pd.DataFrame([{**{c: row.get(c, "") for c in source_cols if c in row}, **row}])
                 st.success("Manual entry saved for review/export. Download it and add it through the approved tracker update process.")
-                st.dataframe(staged, use_container_width=True, hide_index=True)
+                styled_table(staged)
                 st.download_button("Download staged manual entry CSV", staged.to_csv(index=False).encode(), "manual_complaint_entry.csv", "text/csv")
 
 
@@ -249,7 +397,7 @@ if selected_page == "Executive Summary":
     add_section("Event Summary Intelligence", "Customer pain, complaint nature, missed-event patterns, root causes, severity, and automation opportunities for the selected date range.")
     for title, col in [("Top complaints by customer", "Customer"), ("Nature of complaints", "Reason"), ("Missed event types", "Event type"), ("Root cause split", "Root Cause"), ("Severity split", "Severity"), ("Automation opportunities", "Standard Automation Focus")]:
         if col in complaints.columns:
-            t = count_table(complaints, col).head(10); add_section(title, f"Shows the leading {col.lower()} values for complaint records, with count and percentage of total complaints."); excel_bar_table(t, col); fig = chart(t, col, title); downloads(t, title.lower().replace(" ", "_"), fig)
+            t = count_table(complaints, col).head(10); add_section(title, f"Shows the leading {col.lower()} values for complaint records, with count and percentage of total complaints."); excel_bar_table(t, col); fig = chart(t, col, title=title); downloads(t, title.lower().replace(" ", "_"), fig)
 elif selected_page == "SOURCE 01 · Monthly trend":
     page_header(selected_page); page = date_filter(filtered, "monthly")
     if "Month Label" in page.columns and "Issue Type" in page.columns:
@@ -257,7 +405,7 @@ elif selected_page == "SOURCE 01 · Monthly trend":
         monthly["Month Date"] = pd.to_datetime(monthly["Month Label"], format="%b %Y", errors="coerce")
         monthly = monthly.sort_values("Month Date"); monthly["Total"] = monthly.drop(columns=["Month Label", "Month Date"]).sum(axis=1)
         display_monthly = monthly.drop(columns=["Month Date"], errors="ignore")
-        add_section("Monthly trend source table", "Complaint and inquiry counts by reporting month, sorted chronologically from January onward."); st.dataframe(display_monthly, use_container_width=True, hide_index=True); downloads(display_monthly, "monthly_trend")
+        add_section("Monthly trend source table", "Complaint and inquiry counts by reporting month, sorted chronologically from January onward."); styled_table(display_monthly); downloads(display_monthly, "monthly_trend")
         y_cols = [c for c in ["Complaint", "Inquiry"] if c in monthly.columns]
         add_section("Monthly complaint vs inquiry chart", "Compares complaint and inquiry volume month by month in calendar order.", "#80cbc4")
         fig = px.bar(monthly, x="Month Label", y=y_cols, barmode="group", text_auto=True, color_discrete_sequence=["#8ab4f8", "#80cbc4"])
@@ -273,22 +421,60 @@ elif selected_page == "SOURCE 06 · Automation focus": source_page(selected_page
 elif selected_page == "DETAIL · Event workload": source_page(selected_page, filtered, "Event type", "event_workload")
 elif selected_page == "Automation urgency":
     page_header(selected_page); page = date_filter(filtered, "urgency"); complaints = page[page["Issue Type"].astype(str).eq("Complaint")] if "Issue Type" in page.columns else page; t = urgency_table(complaints)
-    add_section("Automation urgency table", "Ranks pressing control areas by volume, severity, RCA pressure, missed flags, and customer concentration.", "#f6c177"); st.dataframe(t, use_container_width=True, hide_index=True); downloads(t, "automation_urgency")
+    add_section("Automation urgency table", "Ranks pressing control areas by volume, severity, RCA pressure, missed flags, and customer concentration.", "#f6c177"); styled_table(t); downloads(t, "automation_urgency")
     if not t.empty: add_section("Automation urgency score chart", "Visual ranking of the most urgent automation/control opportunities.", "#80cbc4"); fig = chart(t, "Standard Automation Focus", "Urgency Score", "Automation urgency score"); downloads(t, "automation_urgency_chart_data", fig)
 elif selected_page == "Dynamic Source Discovery":
     page_header(selected_page); page = date_filter(filtered, "discovery"); disc = page[page["Standard Automation Focus"].astype(str).eq("Dynamic Source Discovery")] if "Standard Automation Focus" in page.columns else page.iloc[0:0]
     add_section("Source-miss meaning", "Dynamic Source Discovery identifies event types, customers, reasons, feeds, keywords, or source coverage patterns that current sources are missing or under-detecting.", "#80cbc4")
     for title, col in [("Event types missed by sources", "Event type"), ("Customers affected by source misses", "Customer"), ("Reasons linked to source misses", "Reason")]:
-        if col in disc.columns: t = count_table(disc, col, base=max(len(page), 1)); add_section(title, f"Shows source-miss records by {col.lower()} with share of all selected records."); excel_bar_table(t, col); fig = chart(t, col, title); downloads(t, title.lower().replace(" ", "_"), fig)
+        if col in disc.columns: t = count_table(disc, col, base=max(len(page), 1)); add_section(title, f"Shows source-miss records by {col.lower()} with share of all selected records."); excel_bar_table(t, col); fig = chart(t, col, title=title); downloads(t, title.lower().replace(" ", "_"), fig)
     for first, second, name in [("Customer", "Event type", "Customer event-type source misses"), ("Event type", "Reason", "Event-type reason source misses"), ("Customer", "Reason", "Customer reason source misses")]:
         lt = long_pair_table(disc, first, second, base=max(len(page), 1))
-        if not lt.empty: add_section(name, f"Readable detail table showing {first.lower()} and {second.lower()} as separate columns instead of a wide cross-tab.", "#a8dab5"); st.dataframe(lt, use_container_width=True, hide_index=True, height=420); downloads(lt, name.lower().replace(" ", "_"))
-    add_section("Complete Dynamic Source Discovery records", "All filtered records classified under Dynamic Source Discovery for detailed review.", "#b6beca"); st.dataframe(disc, use_container_width=True, hide_index=True, height=420); downloads(disc, "dynamic_source_discovery_complete")
+        if not lt.empty: add_section(name, f"Readable detail table showing {first.lower()} and {second.lower()} as separate columns instead of a wide cross-tab.", "#a8dab5"); styled_table(lt, height=420); downloads(lt, name.lower().replace(" ", "_"))
+    add_section("Complete Dynamic Source Discovery records", "All filtered records classified under Dynamic Source Discovery for detailed review.", "#b6beca"); styled_table(disc, height=420); downloads(disc, "dynamic_source_discovery_complete")
+elif selected_page == "Jira Lookup":
+    page_header(selected_page)
+    add_section("Look up a Jira ticket", "Paste a Jira key to pull its live summary, status, assignee, and labels, so a complaint can be confirmed against Jira before it's marked a duplicate or a new row is added.")
+    if jira_credentials() is None:
+        st.info("Jira lookup is not configured. Add JIRA_BASE_URL, JIRA_EMAIL, and JIRA_API_TOKEN to Streamlit secrets to enable it.")
+    key_input = st.text_input("Jira key", placeholder="e.g. EAO-33")
+    if st.button("Look up") and key_input:
+        info, err = fetch_jira_issue(key_input)
+        if err: st.error(err)
+        else:
+            st.success(f"{info['Key']} · {info['Status']}"); st.write(info["Summary"])
+            styled_table(pd.DataFrame(info.items(), columns=["Field", "Value"]))
+    add_section("Complaint records missing a Jira Key", "Complaint rows in the current filter with no Jira Key on file, so the link to Jira can be filled in during the next review pass.", "#f6c177")
+    if "Jira Key" in filtered.columns and "Issue Type" in filtered.columns:
+        complaints_only = filtered[filtered["Issue Type"].astype(str) == "Complaint"]
+        missing = complaints_only[complaints_only["Jira Key"].isna() | (complaints_only["Jira Key"].astype(str).str.strip() == "")]
+        show_cols = [c for c in ["Month Label", "Customer", "Event/Bulletin Title", "Reason", "Jira Key"] if c in missing.columns]
+        styled_table(missing[show_cols], height=320)
+        st.caption(f"{len(missing)} of {len(complaints_only)} filtered complaint record(s) have no Jira Key on file.")
+        downloads(missing[show_cols], "complaints_missing_jira_key")
+    else:
+        st.info("Jira Key column not found in the loaded data source.")
+    add_section("Where to search", "The EAO project (EventWatch_AI_Ops) is the primary home for EventWatch complaint/investigation tickets, e.g. `project = EAO ORDER BY created DESC`. A small number of older or misrouted tickets also live in DATA, TS, BI, TENAR and others; apply the label `eventwatch-complaint` to any of those so `labels = \"eventwatch-complaint\"` catches them too. Record the resulting ticket key in the tracker's Jira Key column.", "#80cbc4")
+elif selected_page == "Outlook Lookup":
+    page_header(selected_page)
+    add_section("Search the shared mailbox", "Search by subject keyword, sender, or customer name to find the email thread behind a complaint, so a duplicate check against Outlook is a real search instead of a manual mailbox trawl.")
+    if outlook_credentials() is None:
+        st.info("Outlook lookup is not configured. Add GRAPH_TENANT_ID, GRAPH_CLIENT_ID, GRAPH_CLIENT_SECRET, and GRAPH_MAILBOX to Streamlit secrets to enable it.")
+    query_input = st.text_input("Search Outlook", placeholder="e.g. Micron missed alert, or a customer name")
+    if st.button("Search") and query_input:
+        results, err = search_outlook_messages(query_input)
+        if err: st.error(err)
+        elif not results: st.info("No matching messages found.")
+        else:
+            st.success(f"{len(results)} matching message(s)")
+            styled_table(pd.DataFrame(results))
+    add_section("Recording a match", "There is no Outlook Conversation ID column in the tracker today. If a search here confirms the email behind a complaint, note the Conversation ID or a link to the thread in that row's Comments field until a dedicated column is requested.", "#f6c177")
+    add_section("Enabling this page", "Requires an Azure AD app registration with **application-type** `Mail.Read` permission (admin consent) against the shared mailbox used for EventWatch complaints. This is an IT/security decision, not something this app can do on its own — once the app is registered, put its tenant ID, client ID, client secret, and the mailbox address (e.g. eventwatch@resilinc.com) into Streamlit secrets as GRAPH_TENANT_ID, GRAPH_CLIENT_ID, GRAPH_CLIENT_SECRET, and GRAPH_MAILBOX.", "#80cbc4")
 elif selected_page == "Definitions":
     page_header(selected_page)
-    groups = {"Tracker fields":[("Month / Reporting Month","Month used for trend reporting and date filtering."),("Email/JIRA Date","Formal received/logged date for the complaint, inquiry, or Jira trail."),("Customer","Account that raised the concern, not the affected supplier."),("Event/Bulletin Title","Published EventWatch title or concise factual event title."),("Comments","Concise evidence-backed summary of complaint, finding, action, and status.")],"Issue and reason types":[("Complaint","Confirmed or alleged EventWatch service miss, delay, incorrect handling, visibility issue, duplicate/missing WarRoom, or RCA-driven concern."),("Inquiry","Coverage, methodology, supplier/site, or threshold clarification without confirmed service failure."),("Reason","Specific operational issue such as Missed Event, Missed WarRoom, Delayed Event, Duplicate WarRooms, Incorrect Action, or Mapping Clarification.")],"Root cause groups":[("People","Human review, prioritization, judgment, communication, or execution miss."),("Process","Workflow, policy, methodology, handoff, or procedural gap."),("Product","Ingestion, source coverage, keyword, clustering, mapping, visibility, platform, or automation defect/gap.")],"Severity and status":[("High","Material operational or customer-trust impact requiring elevated attention."),("Medium","Standard tracked complaint or quality issue."),("Low","Limited-impact inquiry or minor quality signal."),("Fixed","Corrective action completed."),("RCA Shared","RCA approved/shared for customer communication."),("Clarification Provided","Explanation provided where no fix/RCA is required.")],"Automation focus":[("Dynamic Source Discovery","Source, feed, keyword, vendor monitoring, or article discovery gap."),("WarRoom & Decision Validation","Missing, delayed, duplicate, or incorrect WarRoom/decision handling."),("Entity & Supplier Resolution","Supplier, customer, entity, or mapping quality issue."),("AI-Assisted Geofencing","Location/polygon/proximity validation opportunity."),("Notification Visibility Monitoring","Delivery, profile visibility, and notification path monitoring."),("Cluster Integrity & Duplicate Prevention","Duplicate/split clusters or inconsistent event grouping."),("Automated Industry Tagging","Industry tagging validation or automation."),("Multilingual Keyword Expansion","Language/keyword coverage expansion from observed misses."),("Other Control Automation","Targeted control not covered by the standard categories.")],"Evidence and deduplication":[("Missed_Flag","Yes when expected alerting, coverage, notification, escalation, or WarRoom creation was missed or materially delayed."),("Confidence","HIGH, MEDIUM, or LOW based on evidence quality and duplicate checks."),("Duplicate check","Match against Jira key, Outlook conversation, customer/event title, facility, date/type, and source message ID before adding a new row.")]}
-    for group, rows in groups.items(): st.markdown(f"<div class='definition-group'><h3>{group}</h3>", unsafe_allow_html=True); st.table(pd.DataFrame(rows, columns=["Term", "Definition"])); st.markdown("</div>", unsafe_allow_html=True)
+    groups = {"Tracker fields":[("Month / Reporting Month","Month used for trend reporting and date filtering."),("Email/JIRA Date","Formal received/logged date for the complaint, inquiry, or Jira trail."),("Customer","Account that raised the concern, not the affected supplier."),("Event/Bulletin Title","Published EventWatch title or concise factual event title."),("Comments","Concise evidence-backed summary of complaint, finding, action, and status.")],"Issue and reason types":[("Complaint","Confirmed or alleged EventWatch service miss, delay, incorrect handling, visibility issue, duplicate/missing WarRoom, or RCA-driven concern."),("Inquiry","Coverage, methodology, supplier/site, or threshold clarification without confirmed service failure."),("Reason","Specific operational issue such as Missed Event, Missed WarRoom, Delayed Event, Duplicate WarRooms, Incorrect Action, or Mapping Clarification.")],"Root cause groups":[("People","Human review, prioritization, judgment, communication, or execution miss."),("Process","Workflow, policy, methodology, handoff, or procedural gap."),("Product","Ingestion, source coverage, keyword, clustering, mapping, visibility, platform, or automation defect/gap.")],"Severity and status":[("High","Material operational or customer-trust impact requiring elevated attention."),("Medium","Standard tracked complaint or quality issue."),("Low","Limited-impact inquiry or minor quality signal."),("Fixed","Corrective action completed."),("RCA Shared","RCA approved/shared for customer communication."),("Clarification Provided","Explanation provided where no fix/RCA is required.")],"Automation focus":[("Dynamic Source Discovery","Source, feed, keyword, vendor monitoring, or article discovery gap."),("WarRoom & Decision Validation","Missing, delayed, duplicate, or incorrect WarRoom/decision handling."),("Entity & Supplier Resolution","Supplier, customer, entity, or mapping quality issue."),("AI-Assisted Geofencing","Location/polygon/proximity validation opportunity."),("Notification Visibility Monitoring","Delivery, profile visibility, and notification path monitoring."),("Cluster Integrity & Duplicate Prevention","Duplicate/split clusters or inconsistent event grouping."),("Automated Industry Tagging","Industry tagging validation or automation."),("Multilingual Keyword Expansion","Language/keyword coverage expansion from observed misses."),("Other Control Automation","Targeted control not covered by the standard categories.")],"Evidence and deduplication":[("Missed_Flag","Yes when expected alerting, coverage, notification, escalation, or WarRoom creation was missed or materially delayed."),("Confidence","HIGH, MEDIUM, or LOW based on evidence quality and duplicate checks."),("Jira Key","The linked Jira issue key for the complaint (e.g. EAO-33), normally filed in the EAO project (EventWatch_AI_Ops). Verify it on the Jira Lookup page before adding or updating a row."),("Duplicate check","Match against Jira Key (via the Jira Lookup page), Outlook conversation (via the Outlook Lookup page, once configured), customer/event title, facility, date/type, and source message ID before adding a new row. Both lookups degrade to a clear \"not configured\" message until their credentials are set in Streamlit secrets; until then, Outlook matching stays a manual step performed in the mailbox.")]}
+    for group, rows in groups.items(): st.markdown(f"<div class='definition-group'><h3>{group}</h3>", unsafe_allow_html=True); styled_table(pd.DataFrame(rows, columns=["Term", "Definition"])); st.markdown("</div>", unsafe_allow_html=True)
 elif selected_page == "Complaint Tracker":
-    page_header(selected_page); page = date_filter(filtered, "tracker"); concise = [c for c in ["Month Label", "Email/JIRA Date", "Customer", "Event type", "Event/Bulletin Title", "Issue Type", "Reason", "Root Cause", "Short Term Fix Status", "RCA Requested", "Severity", "Standard Automation Focus", "Comments"] if c in page.columns]
+    page_header(selected_page); page = date_filter(filtered, "tracker"); concise = [c for c in ["Month Label", "Email/JIRA Date", "Jira Key", "Customer", "Event type", "Event/Bulletin Title", "Issue Type", "Reason", "Root Cause", "Short Term Fix Status", "RCA Requested", "Severity", "Standard Automation Focus", "Comments"] if c in page.columns]
     c1, c2 = st.columns(2); c1.download_button("Download visible tracker CSV", page[concise].to_csv(index=False).encode(), "customer_tracker_visible.csv", "text/csv"); c2.download_button("Download full filtered source CSV", page.to_csv(index=False).encode(), "customer_tracker_full_filtered.csv", "text/csv")
-    st.dataframe(page[concise], use_container_width=True, hide_index=True, height=560); manual_entry_form(list(df.columns))
+    styled_table(page[concise], height=560); manual_entry_form(list(df.columns))

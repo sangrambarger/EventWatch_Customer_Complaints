@@ -18,6 +18,8 @@ The dashboard supports both production source formats from GitHub:
 
 If `customer_tracker.csv` is unavailable, invalid, or accidentally points to workbook bytes, the app falls back to reading the approved GitHub-hosted Excel workbook directly. This is not a user upload fallback; it is approved GitHub source support.
 
+`customer_tracker.csv` must stay valid UTF-8. It previously contained two Windows-1252 ellipsis bytes that are invalid UTF-8, which silently broke `pd.read_csv` and forced every load onto the Excel-workbook fallback instead of the preferred CSV; this has been fixed by re-saving the file as UTF-8. Save future edits as UTF-8 (not "CSV" from Excel, which defaults to a Windows codepage) to avoid reintroducing this.
+
 ## Current app behavior
 
 The app supports:
@@ -40,8 +42,10 @@ The app supports:
 - Dynamic Source Discovery tables by event type, customer, reason, and readable pairwise views
 - Automation Urgency scoring with recommended control/automation actions
 - Complete structured Definitions page grouped by tracker fields, issue types, root cause, severity/status, automation focus, evidence, and deduplication
-- Complaint Tracker visible/full CSV downloads
-- Controlled manual complaint/inquiry entry with required fields, validation, Save staged entry, confirmation, and downloadable staged CSV row
+- Complaint Tracker visible/full CSV downloads, now including the Jira Key column
+- Controlled manual complaint/inquiry entry with required fields, validation, Save staged entry, confirmation, and downloadable staged CSV row, including a Jira Key field
+- Jira Lookup page: live Jira issue lookup by key, and a list of filtered complaint rows still missing a Jira Key
+- Outlook Lookup page: live Microsoft Graph mailbox search by subject/sender/customer keyword
 
 Dashboard metrics and charts are calculated from the loaded GitHub source. They should not use stub or hard-coded metric values.
 
@@ -69,6 +73,36 @@ GITHUB_WORKBOOK_URL = "https://raw.githubusercontent.com/sangrambarger/EventWatc
 ```
 
 If the repo is public, no token is needed for Streamlit read access. If the repo is private, Streamlit Community needs an approved access method.
+
+Optional, to enable the Jira Lookup page:
+
+```toml
+JIRA_BASE_URL = "https://resilinc.atlassian.net"
+JIRA_EMAIL = "you@resilinc.com"
+JIRA_API_TOKEN = "..."
+```
+
+Generate the API token from the Jira account that will run lookups (Atlassian account settings → Security → API tokens). Without these three secrets set, the Jira Lookup page still loads but tells you lookup isn't configured instead of failing.
+
+Optional, to enable the Outlook Lookup page:
+
+```toml
+GRAPH_TENANT_ID = "..."
+GRAPH_CLIENT_ID = "..."
+GRAPH_CLIENT_SECRET = "..."
+GRAPH_MAILBOX = "eventwatch@resilinc.com"
+```
+
+This requires an Azure AD app registration with **application-type** `Mail.Read` permission (admin consent) against the shared mailbox used for EventWatch complaints — an IT/security decision that has to happen before these secrets exist, not something this repo can do on its own. Once registered, put the tenant ID, client ID, client secret, and the target mailbox address into Streamlit secrets as above. Without them, the Outlook Lookup page still loads but tells you lookup isn't configured instead of failing — same pattern as Jira.
+
+## Jira and Outlook complaint search
+
+Previously the "Duplicate check" definition referenced a Jira key and Outlook conversation match with no supporting column or tooling — it described a manual step a person had to remember, not a real check. This is now closed on both sides:
+
+- The tracker has a **Jira Key** column (next to `Email/JIRA Date`). Fill it in with the linked Jira issue key (e.g. `EAO-33`) for every complaint row, including through the manual-entry form.
+- The **Jira Lookup** dashboard page looks up a Jira key live (summary, status, assignee, labels) so a complaint can be confirmed against Jira before it's called a duplicate, and lists filtered complaint rows that still have no Jira Key on file.
+- The primary place to search is the **`EAO`** project (`EventWatch_AI_Ops`) — that's where EventWatch missed-alert/investigation/RCA-request tickets are actually filed today (e.g. `project = EAO ORDER BY created DESC`). A smaller number of older or misrouted tickets also turn up in DATA, TS, BI, TENAR, and others; for those, apply the label `eventwatch-complaint` going forward so `labels = "eventwatch-complaint"` catches them in the same query. This repo does not bulk-relabel existing tickets.
+- The **Outlook Lookup** dashboard page searches a shared mailbox by subject/sender/customer keyword via Microsoft Graph (`GET /users/{mailbox}/messages?$search=...`), once the secrets above are set. There is no `Outlook Conversation ID` column in the tracker yet — a confirmed match's conversation ID or thread link goes in that row's Comments field until a dedicated column is actually requested, to avoid adding an empty column nobody uses.
 
 ## Files
 
