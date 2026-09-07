@@ -108,6 +108,7 @@ Previously the "Duplicate check" definition referenced a Jira key and Outlook co
 
 ```bash
 python3 scripts/validate.py     # data + workbook integrity; exits non-zero on failure
+python3 scripts/smoke_app.py    # loads all 14 dashboard pages, flags exceptions/empty charts
 python3 scripts/jira_sync.py    # EAO tickets vs tracker, prints only what needs a decision
 ```
 
@@ -117,6 +118,12 @@ date order, a status value missing from the Dashboard's fixed tables (so it drop
 of that chart's total), a month with records but no monthly-trend row, CSV/workbook
 drift, and dynamic-array metadata stripped by an `openpyxl` resave. Run it before
 committing any data or workbook change — it is fast and needs no credentials.
+
+`smoke_app.py` covers what `validate.py` cannot — the app itself. It starts Streamlit
+against the local CSV, visits every page, and fails on exceptions, in-app error text,
+or a page drawing fewer charts/tables than expected. Against the commit before the
+`chart()` argument fix it flags 8 pages with "required fields are missing" and no
+charts, so it catches that class of silent breakage without screenshots.
 
 `jira_sync.py` needs the same `JIRA_*` secrets as the Jira Lookup page. It fetches
 only the fields it uses (roughly a 24x reduction over a full API payload) and reports

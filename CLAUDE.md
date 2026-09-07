@@ -8,6 +8,7 @@ Streamlit dashboard over a complaint tracker that exists in two synced forms:
 
 ```bash
 python3 scripts/validate.py                 # data + workbook integrity, exits non-zero on failure
+python3 scripts/smoke_app.py                # loads all 14 pages, flags exceptions/empty charts
 python3 scripts/jira_sync.py                # EAO tickets vs tracker, prints only the delta
 python3 scripts/jira_sync.py --describe EAO-7 EAO-9   # bodies, when prose judgement is needed
 ```
@@ -18,6 +19,13 @@ tables don't list (so it silently drops from a chart total), a month with record
 no row in the monthly trend block, CSV/workbook drift, and stripped dynamic-array
 metadata. Verified against the commit where several of those were live — it catches
 all of them. Read its output instead of re-deriving the checks.
+
+`smoke_app.py` covers what `validate.py` cannot: the app itself. It starts Streamlit
+against the local CSV, clicks every page, and fails on Streamlit exceptions, in-app
+error text, or a page rendering fewer charts/tables than it should. Run against the
+commit before the `chart()` argument fix it flags 8 pages with "required fields are
+missing" and zero charts — the bug that previously only a screenshot caught. Prefer
+it over screenshots; it costs a fraction of the tokens.
 
 ## Python's job vs. the model's job
 
@@ -44,9 +52,10 @@ thematic precedent of comparable rows instead.
   JQL search rather than per-issue calls, and never list all projects.
 - **`app.py` is ~480 lines** — grep for the symbol, then read with `offset`/`limit`.
   Reading it whole costs ~13K tokens and is rarely needed.
-- **Screenshots cost real tokens.** They are the only way to catch visual bugs (a
-  broken chart was found this way), so take them for pages you changed — not for
-  pages you didn't.
+- **Screenshots cost real tokens.** Run `scripts/smoke_app.py` first — it catches
+  exceptions and empty charts from the DOM for ~1K tokens, where screenshotting all
+  14 pages costs ~25K. Reserve screenshots for judging *appearance* (layout, colour,
+  spacing) on pages you actually changed.
 
 ## Editing the workbook: do not use openpyxl load/save
 
