@@ -104,9 +104,33 @@ Previously the "Duplicate check" definition referenced a Jira key and Outlook co
 - The primary place to search is the **`EAO`** project (`EventWatch_AI_Ops`) — that's where EventWatch missed-alert/investigation/RCA-request tickets are actually filed today (e.g. `project = EAO ORDER BY created DESC`). A smaller number of older or misrouted tickets also turn up in DATA, TS, BI, TENAR, and others; for those, apply the label `eventwatch-complaint` going forward so `labels = "eventwatch-complaint"` catches them in the same query. This repo does not bulk-relabel existing tickets.
 - The **Outlook Lookup** dashboard page searches a shared mailbox by subject/sender/customer keyword via Microsoft Graph (`GET /users/{mailbox}/messages?$search=...`), once the secrets above are set. There is no `Outlook Conversation ID` column in the tracker yet — a confirmed match's conversation ID or thread link goes in that row's Comments field until a dedicated column is actually requested, to avoid adding an empty column nobody uses.
 
+## Maintenance scripts
+
+```bash
+python3 scripts/validate.py     # data + workbook integrity; exits non-zero on failure
+python3 scripts/jira_sync.py    # EAO tickets vs tracker, prints only what needs a decision
+```
+
+`validate.py` mechanizes the checks that used to be done by eye, and covers each bug
+class that has actually shipped here: a character decayed to `?`, rows appended out of
+date order, a status value missing from the Dashboard's fixed tables (so it drops out
+of that chart's total), a month with records but no monthly-trend row, CSV/workbook
+drift, and dynamic-array metadata stripped by an `openpyxl` resave. Run it before
+committing any data or workbook change — it is fast and needs no credentials.
+
+`jira_sync.py` needs the same `JIRA_*` secrets as the Jira Lookup page. It fetches
+only the fields it uses (roughly a 24x reduction over a full API payload) and reports
+the delta rather than the whole ticket list, leaving only the genuinely ambiguous
+matches for a person to judge.
+
+See `CLAUDE.md` for the Python-vs-model split and, importantly, why the workbook must
+never be edited via an `openpyxl` load/save round-trip.
+
 ## Files
 
 - `app.py` - Streamlit dashboard app
+- `scripts/` - validation and Jira sync utilities
+- `CLAUDE.md` - working notes for automated agents and maintainers
 - `requirements.txt` - Python dependencies
 - `customer_tracker.csv` - preferred live data source
 - `EventWatch_Customer_Complaints_2026.xlsx` - approved workbook source/reference
