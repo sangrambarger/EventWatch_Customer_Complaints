@@ -2,7 +2,13 @@
 
 Streamlit dashboard over a complaint tracker that exists in two synced forms:
 `customer_tracker.csv` (preferred source) and `EventWatch_Customer_Complaints_2026.xlsx`
-(Data sheet + a live Dashboard). `app.py` reads from GitHub raw URLs, not local files.
+(Data sheet + a live Dashboard).
+
+`app.py` hardcodes no owner, repo or branch. `data_sources()` resolves, in order:
+`GITHUB_CSV_URL`/`GITHUB_WORKBOOK_URL` (secret or env), then the data files sitting
+next to `app.py` (the zero-config path a Streamlit Cloud deploy takes), then a raw URL
+built from `GITHUB_REPO` + `GITHUB_BRANCH`. `scripts/smoke_app.py` deliberately writes
+no secrets so it exercises that middle path.
 
 ## Run these before exploring by hand
 

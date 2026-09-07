@@ -6,17 +6,22 @@ Streamlit dashboard for EventWatch customer complaints and inquiries.
 
 The dashboard must not show an upload workbook option. Users should not upload the workbook from the dashboard UI.
 
-The dashboard supports both production source formats from GitHub:
+No repository, owner or branch is hardcoded in `app.py`. It resolves its data source at
+runtime, most explicit first:
 
-1. Preferred live CSV:
+1. **`GITHUB_CSV_URL` / `GITHUB_WORKBOOK_URL`** (Streamlit secret or environment
+   variable) — an explicit path or URL. Wins outright when set.
+2. **The data files sitting next to `app.py`** — Streamlit Cloud deploys the whole
+   repository, so committing `customer_tracker.csv` (and the workbook) is all that is
+   needed. This also makes a local checkout run with no configuration at all.
+3. **A raw URL derived from `GITHUB_REPO`** (`owner/name`, plus optional
+   `GITHUB_BRANCH`, default `main`) — only for the case where the data lives in a
+   different repository than the app.
 
-   `https://raw.githubusercontent.com/sangrambarger/EventWatch_Customer_Complaints/main/customer_tracker.csv`
-
-2. Approved Excel workbook, read directly from GitHub using the `Data` sheet:
-
-   `https://raw.githubusercontent.com/sangrambarger/EventWatch_Customer_Complaints/main/EventWatch_Customer_Complaints_2026.xlsx`
-
-If `customer_tracker.csv` is unavailable, invalid, or accidentally points to workbook bytes, the app falls back to reading the approved GitHub-hosted Excel workbook directly. This is not a user upload fallback; it is approved GitHub source support.
+Preferred format is `customer_tracker.csv`. If it is unavailable, invalid, or
+accidentally contains workbook bytes, the app falls back to the `Data` sheet of
+`EventWatch_Customer_Complaints_2026.xlsx`. This is not a user upload fallback; it is
+approved repository source support.
 
 `customer_tracker.csv` must stay valid UTF-8. It previously contained two Windows-1252 ellipsis bytes that are invalid UTF-8, which silently broke `pd.read_csv` and forced every load onto the Excel-workbook fallback instead of the preferred CSV; this has been fixed by re-saving the file as UTF-8. Save future edits as UTF-8 (not "CSV" from Excel, which defaults to a Windows codepage) to avoid reintroducing this.
 
@@ -151,11 +156,27 @@ streamlit run app.py
 
 ## Deploy/update on Streamlit Community Cloud
 
-1. Commit the updated `app.py` and `README.md` into the GitHub repository.
-2. Keep `customer_tracker.csv` valid when using CSV mode.
-3. Keep `EventWatch_Customer_Complaints_2026.xlsx` available when using workbook mode.
-4. Add or confirm `GITHUB_CSV_URL` and `GITHUB_WORKBOOK_URL` secrets in Streamlit Cloud.
-5. Reboot or redeploy the Streamlit app if Cloud does not auto-reload.
-6. Approved GitHub source updates should appear on dashboard refresh without redeploying code.
+These four files must be in the repository — they are all the app needs:
+
+| File | Why |
+| --- | --- |
+| `app.py` | the dashboard itself |
+| `requirements.txt` | `streamlit`, `pandas`, `openpyxl`, `plotly`, `requests` |
+| `customer_tracker.csv` | preferred data source, read from beside `app.py` |
+| `EventWatch_Customer_Complaints_2026.xlsx` | fallback data source, and the Excel dashboard |
+
+Then, in Streamlit Community Cloud, point the app at `app.py` on the default branch.
+
+**No secrets are required.** The app finds the data files next to itself, so a plain
+deploy works with an empty secrets box. Set secrets only to change that default:
+`GITHUB_CSV_URL`/`GITHUB_WORKBOOK_URL` to read from elsewhere, `GITHUB_REPO`
+(+`GITHUB_BRANCH`) to read from another repository, and the `JIRA_*` / `GRAPH_*`
+values to switch on the Jira and Outlook lookup pages.
+
+`CLAUDE.md` and `scripts/` are optional for running the dashboard — they are
+maintenance tooling. Committing them is recommended but not required.
+
+Updating data means committing a new `customer_tracker.csv`; Cloud redeploys on push.
+Run `python3 scripts/validate.py` before that commit.
 
 Important: use Streamlit Community only if your company approves hosting this tracker data there.

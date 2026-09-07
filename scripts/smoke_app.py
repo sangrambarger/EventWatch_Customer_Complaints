@@ -77,14 +77,9 @@ def main() -> int:
     args = ap.parse_args()
     url = f"http://localhost:{args.port}"
 
-    # Point the app at the local CSV so the smoke test never depends on GitHub.
-    secrets = REPO / ".streamlit" / "secrets.toml"
-    created_secrets = False
-    if not secrets.exists():
-        secrets.parent.mkdir(exist_ok=True)
-        secrets.write_text(f'GITHUB_CSV_URL = "{REPO / "customer_tracker.csv"}"\n')
-        created_secrets = True
-
+    # No secrets are written: the app resolves the tracker sitting next to app.py on
+    # its own, which is the same zero-config path a Streamlit Cloud deploy takes. If
+    # that discovery regresses, this smoke test fails, which is the point.
     proc = subprocess.Popen(
         [sys.executable, "-m", "streamlit", "run", "app.py",
          "--server.headless", "true", "--server.port", str(args.port)],
@@ -102,8 +97,6 @@ def main() -> int:
                 proc.wait(timeout=10)
             except subprocess.TimeoutExpired:
                 proc.kill()
-        if created_secrets:
-            secrets.unlink(missing_ok=True)
 
 
 def run_checks(url: str) -> int:

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import html
+import os
+from pathlib import Path
 
 import pandas as pd
 import plotly.express as px
@@ -10,8 +12,11 @@ import streamlit as st
 st.set_page_config(page_title="EventWatch Executive Dashboard", layout="wide")
 
 APP_TITLE = "EventWatch Executive Dashboard"
-CSV_URL = "https://raw.githubusercontent.com/sangrambarger/EventWatch_Customer_Complaints/main/customer_tracker.csv"
-WORKBOOK_URL = "https://raw.githubusercontent.com/sangrambarger/EventWatch_Customer_Complaints/main/EventWatch_Customer_Complaints_2026.xlsx"
+# Data file names, not locations. Where they are read from is resolved at runtime by
+# data_sources() -- no owner, repo or branch is hardcoded anywhere in this file.
+CSV_NAME = "customer_tracker.csv"
+WORKBOOK_NAME = "EventWatch_Customer_Complaints_2026.xlsx"
+APP_DIR = Path(__file__).resolve().parent
 
 PAGES = [
     "Executive Summary", "SOURCE 01 · Monthly trend", "SOURCE 02 · Fix status",
@@ -50,33 +55,71 @@ h1,h2,h3,h4,h5,h6,p,span,div,label{color:var(--ink)!important}.page-hero,.sectio
 st.markdown(CSS, unsafe_allow_html=True)
 
 
-def read_csv_or_excel(url: str):
-    if url.split("?")[0].lower().endswith((".xlsx", ".xlsm", ".xls")):
-        return pd.read_excel(url, sheet_name="Data"), "GitHub Excel workbook"
-    return pd.read_csv(url), "GitHub CSV"
+def read_csv_or_excel(src):
+    src = str(src)
+    if src.split("?")[0].lower().endswith((".xlsx", ".xlsm", ".xls")):
+        return pd.read_excel(src, sheet_name="Data"), "Excel workbook"
+    return pd.read_csv(src), "CSV"
 
 
 def get_secret(key, default=None):
+    """Streamlit secret, else environment variable, else default."""
     try:
-        return st.secrets.get(key, default)
+        value = st.secrets.get(key)
     except Exception:
-        return default
+        value = None
+    return value if value else os.environ.get(key, default)
+
+
+def data_sources():
+    """Resolve where to read the tracker from, most explicit first.
+
+    1. GITHUB_CSV_URL / GITHUB_WORKBOOK_URL - an explicit path or URL, wins outright.
+    2. The files sitting next to app.py - Streamlit Cloud deploys the whole repo, so
+       uploading the data files alongside the app is all that is needed. Also makes a
+       local checkout work with zero configuration.
+    3. A raw URL derived from GITHUB_REPO (owner/name) and optional GITHUB_BRANCH,
+       for the case where the data lives in a different repo than the app.
+
+    No owner, repo or branch is baked into this file, so the app follows whatever it
+    is deployed alongside instead of pointing at one fixed fork.
+    """
+    sources: list[tuple[str, str]] = []
+    for key, name in (("GITHUB_CSV_URL", CSV_NAME), ("GITHUB_WORKBOOK_URL", WORKBOOK_NAME)):
+        explicit = get_secret(key)
+        if explicit:
+            sources.append((explicit, "configured"))
+    for name in (CSV_NAME, WORKBOOK_NAME):
+        local = APP_DIR / name
+        if local.exists():
+            sources.append((str(local), "this repo"))
+    repo = get_secret("GITHUB_REPO")
+    if repo:
+        branch = get_secret("GITHUB_BRANCH", "main")
+        base = f"https://raw.githubusercontent.com/{repo.strip('/')}/{branch}"
+        sources += [(f"{base}/{CSV_NAME}", f"{repo}@{branch}"),
+                    (f"{base}/{WORKBOOK_NAME}", f"{repo}@{branch}")]
+    return sources
 
 
 def load_data():
-    csv_url = get_secret("GITHUB_CSV_URL", CSV_URL)
-    workbook_url = get_secret("GITHUB_WORKBOOK_URL", WORKBOOK_URL)
+    sources = data_sources()
+    if not sources:
+        st.error(f"No data source found. Put {CSV_NAME} (or the workbook) next to app.py, "
+                 f"or set GITHUB_CSV_URL, or set GITHUB_REPO.")
+        return pd.DataFrame()
     errors = []
-    for url in [csv_url, workbook_url]:
+    for src, origin in sources:
         try:
-            df, label = read_csv_or_excel(url)
-            st.sidebar.success(f"Live {label} data")
-            st.sidebar.caption("Workbook upload is disabled; data is read from GitHub.")
+            df, label = read_csv_or_excel(src)
+            st.sidebar.success(f"{label} loaded from {origin}")
+            st.sidebar.caption("Workbook upload is disabled; data comes from the deployed files.")
             break
         except Exception as exc:
-            errors.append(f"{url}: {exc}")
+            errors.append(f"{src}: {exc}")
     else:
-        st.error("Dashboard data could not be loaded from GitHub. Uploading a workbook in the dashboard is intentionally disabled.")
+        st.error("Dashboard data could not be loaded from any configured source. "
+                 "Uploading a workbook in the dashboard is intentionally disabled.")
         for err in errors: st.caption(err)
         return pd.DataFrame()
     if not df.empty and str(df.columns[0]).startswith("Unnamed"):
