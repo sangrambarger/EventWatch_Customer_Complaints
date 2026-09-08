@@ -1,0 +1,13 @@
+# Streamlit secrets hold the Jira API token and the Graph client secret once those
+# lookups are switched on. Never commit them. Note this ignores the secrets file
+# only, not the whole .streamlit/ directory -- config.toml belongs in the repo.
+.streamlit/secrets.toml
+
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.DS_Store
+
+# Excel lock files, created when someone has the workbook open
+~$*.xlsx

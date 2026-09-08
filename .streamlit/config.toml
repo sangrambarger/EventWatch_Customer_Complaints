@@ -1,0 +1,16 @@
+# app.py paints the dashboard dark via injected CSS, but Streamlit's own widgets
+# (date inputs, multiselects, expanders) follow the server theme and default to light,
+# which showed up as white boxes against the dark pages. Setting the base theme here
+# makes the native controls match. Colours mirror the CSS variables in app.py.
+[theme]
+base = "dark"
+primaryColor = "#8ab4f8"
+backgroundColor = "#0f1115"
+secondaryBackgroundColor = "#1b1f26"
+textColor = "#f3f4f6"
+
+[server]
+headless = true
+
+[browser]
+gatherUsageStats = false
