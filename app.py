@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import html
 import os
+from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
@@ -319,6 +320,26 @@ def excel_bar_table(df, label_col, value_col="Records"):
     st.markdown("<div class='table-wrap'><table class='excel-table'><thead><tr><th>Category</th><th>Records</th><th>% of Total</th></tr></thead><tbody>" + "".join(rows) + "</tbody></table></div>", unsafe_allow_html=True)
 
 
+def cell(v):
+    """One display string per value.
+
+    A date column read from the CSV arrives as a Timestamp, and str() on that prints
+    "2026-01-09 00:00:00" -- a midnight time on every row of the tracker that means
+    nothing and crowds the column. Whole floats lose their trailing ".0" for the same
+    reason, and a missing value renders as empty rather than "nan".
+    """
+    if v is None or (isinstance(v, float) and pd.isna(v)):
+        return ""
+    if isinstance(v, pd.Timestamp):
+        return "" if pd.isna(v) else v.strftime("%d-%b-%Y")
+    if isinstance(v, datetime):
+        return v.strftime("%d-%b-%Y")
+    if isinstance(v, float) and v == int(v):
+        return str(int(v))
+    text = str(v)
+    return "" if text in {"nan", "NaT", "None"} else text
+
+
 def styled_table(df, max_rows=None, height=None):
     """Render any dataframe as a clean bordered table matching the Excel dashboard's table style."""
     if df is None or df.empty:
@@ -326,7 +347,7 @@ def styled_table(df, max_rows=None, height=None):
     show = df.head(max_rows) if max_rows else df
     head = "".join(f"<th>{esc(c)}</th>" for c in show.columns)
     body = "".join(
-        "<tr>" + "".join(f"<td>{esc(v)}</td>" for v in row) + "</tr>"
+        "<tr>" + "".join(f"<td>{esc(cell(v))}</td>" for v in row) + "</tr>"
         for row in show.itertuples(index=False)
     )
     wrap_style = f" style='max-height:{height}px;overflow-y:auto'" if height else ""
@@ -435,9 +456,9 @@ if selected_page == "Executive Summary":
     inquiries = page[page["Issue Type"].astype(str).eq("Inquiry")] if "Issue Type" in page.columns else page.iloc[0:0]
     total = max(len(page), 1); missed = int((page.get("Missed_Flag", pd.Series(dtype=str)).astype(str) == "Yes").sum()) if "Missed_Flag" in page.columns else 0
     people = int((page.get("Root Cause", pd.Series(dtype=str)).astype(str) == "People").sum()) if "Root Cause" in page.columns else 0; process = int((page.get("Root Cause", pd.Series(dtype=str)).astype(str) == "Process").sum()) if "Root Cause" in page.columns else 0; product = int((page.get("Root Cause", pd.Series(dtype=str)).astype(str) == "Product").sum()) if "Root Cause" in page.columns else 0
-    kpis([("Total records", len(page), f"{len(complaints)} complaints · {len(inquiries)} inquiries", "#8ab4f8"), ("Complaints %", f"{len(complaints)/total*100:.1f}%", "Share of selected records", "#f28b82"), ("Missed events", missed, f"{missed/total*100:.1f}% of selected records", "#f6c177"), ("People misses", people, "People-rooted records", "#b6beca"), ("Process/Product", f"{process}/{product}", "Process vs Product root causes", "#80cbc4")])
-    kpis([("High severity", int((page.get("Severity", pd.Series(dtype=str)).astype(str) == "High").sum()) if "Severity" in page.columns else 0, "Records needing leadership attention", "#f28b82"), ("RCA requested", int((page.get("RCA Requested", pd.Series(dtype=str)).astype(str) == "Yes").sum()) if "RCA Requested" in page.columns else 0, "Customer/Product/CS RCA asks", "#f6c177"), ("Fixed", int((page.get("Short Term Fix Status", pd.Series(dtype=str)).astype(str) == "Fixed").sum()) if "Short Term Fix Status" in page.columns else 0, "Completed short-term fixes", "#a8dab5"), ("RCA shared", int((page.get("Short Term Fix Status", pd.Series(dtype=str)).astype(str) == "RCA Shared").sum()) if "Short Term Fix Status" in page.columns else 0, "RCA shared or approved", "#80cbc4"), ("Clarified", int((page.get("Short Term Fix Status", pd.Series(dtype=str)).astype(str) == "Clarification Provided").sum()) if "Short Term Fix Status" in page.columns else 0, "Clarifications completed", "#8ab4f8")])
-    add_section("Event Summary Intelligence", "Customer pain, complaint nature, missed-event patterns, root causes, severity, and automation opportunities for the selected date range.")
+    kpis([("Total records", len(page), f"{len(complaints)} complaints · {len(inquiries)} inquiries", "#8ab4f8"), ("Complaints %", f"{len(complaints)/total*100:.1f}%", "Share of selected records", "#f28b82"), ("Missed events", missed, f"{missed/total*100:.1f}% of selected records", "#f6c177"), ("People misses", people, "People-rooted · all records", "#b6beca"), ("Process/Product", f"{process}/{product}", "Process vs Product · all records", "#80cbc4")])
+    kpis([("High severity", int((page.get("Severity", pd.Series(dtype=str)).astype(str) == "High").sum()) if "Severity" in page.columns else 0, "Records needing leadership attention", "#f28b82"), ("RCA requested", int((page.get("RCA Requested", pd.Series(dtype=str)).astype(str) == "Yes").sum()) if "RCA Requested" in page.columns else 0, "RCA asks · all records", "#f6c177"), ("Fixed", int((page.get("Short Term Fix Status", pd.Series(dtype=str)).astype(str) == "Fixed").sum()) if "Short Term Fix Status" in page.columns else 0, "Short-term fixes · all records", "#a8dab5"), ("RCA shared", int((page.get("Short Term Fix Status", pd.Series(dtype=str)).astype(str) == "RCA Shared").sum()) if "Short Term Fix Status" in page.columns else 0, "RCA shared · all records", "#80cbc4"), ("Clarified", int((page.get("Short Term Fix Status", pd.Series(dtype=str)).astype(str) == "Clarification Provided").sum()) if "Short Term Fix Status" in page.columns else 0, "Clarified · all records", "#8ab4f8")])
+    add_section("Event Summary Intelligence", "Customer pain, complaint nature, missed-event patterns, root causes, severity, and automation opportunities for the selected date range. Unlike the cards above, every table in this section counts complaint records only — the same basis the SOURCE pages and the Excel Dashboard use.")
     for title, col in [("Top complaints by customer", "Customer"), ("Nature of complaints", "Reason"), ("Missed event types", "Event type"), ("Root cause split", "Root Cause"), ("Severity split", "Severity"), ("Automation opportunities", "Standard Automation Focus")]:
         if col in complaints.columns:
             t = count_table(complaints, col).head(10); add_section(title, f"Shows the leading {col.lower()} values for complaint records, with count and percentage of total complaints."); excel_bar_table(t, col); fig = chart(t, col, title=title); downloads(t, title.lower().replace(" ", "_"), fig)
