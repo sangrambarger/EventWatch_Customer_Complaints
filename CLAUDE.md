@@ -30,8 +30,11 @@ was lost), records sitting in the wrong month, a status value the Dashboard's fi
 tables don't list (so it silently drops from a chart total), a month with records but no
 row in the monthly trend block, CSV/workbook drift on **any** shared column, stripped
 dynamic-array metadata, stale caches, a `ComplaintTracker` table ref left short after an
-append (which silently undercounts every Dashboard COUNTIFS), and Data rows appended in
-a different font. Read its output instead of re-deriving the checks.
+append (which silently undercounts every Dashboard COUNTIFS), Data rows appended in
+a different font, the same complaint logged twice, a tracker column with no row in the
+workbook's own data dictionary, and a `ComplaintTracker[...]` reference on any sheet
+naming a column that no longer exists (which turns the Management Readout -- twelve
+formulas, no cached values -- into #REF! on next open). Read its output instead of re-deriving the checks.
 
 `selftest.py` is why you can trust that list. It breaks the data on purpose, one fault
 per rule, and asserts the rule blocks — a validator nobody has watched fail is a

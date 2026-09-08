@@ -132,6 +132,25 @@ def break_styling(csv: Path, xlsx: Path) -> None:
     patch_zip(xlsx, DATA_SHEET, bend)
 
 
+def break_duplicates(csv: Path, xlsx: Path) -> None:
+    """Log the same complaint twice, the way a Jira path and an email path both would."""
+    lines = csv_lines(csv)
+    lines.insert(40, lines[40])
+    write_lines(csv, lines)
+
+
+def break_definitions(csv: Path, xlsx: Path) -> None:
+    """A tracker column with no row in the workbook's data dictionary."""
+    patch_zip(xlsx, "xl/worksheets/sheet3.xml",
+              lambda x: x.replace("<t>Jira Key</t>", "<t>Ticket Ref</t>"))
+
+
+def break_formula_columns(csv: Path, xlsx: Path) -> None:
+    """A column renamed out from under the Management Readout's formulas."""
+    patch_zip(xlsx, "xl/worksheets/sheet4.xml",
+              lambda x: x.replace("ComplaintTracker[Severity]", "ComplaintTracker[Impact]"))
+
+
 CASES: list[tuple[str, str, object]] = [
     ("mojibake_adjacent", "mojibake", break_mojibake_adjacent),
     ("mojibake_lone_arrow", "mojibake", break_mojibake_lone),
@@ -146,6 +165,9 @@ CASES: list[tuple[str, str, object]] = [
     ("spill_space", "spill_space", break_spill_space),
     ("table_ref", "table_ref", break_table_ref),
     ("styling", "styling", break_styling),
+    ("duplicates", "duplicates", break_duplicates),
+    ("definitions", "definitions", break_definitions),
+    ("formula_columns", "formula_columns", break_formula_columns),
 ]
 
 
