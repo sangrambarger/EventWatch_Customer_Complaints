@@ -111,17 +111,33 @@ def break_caches(csv: Path, xlsx: Path) -> None:
 
 
 def break_spill_space(csv: Path, xlsx: Path) -> None:
-    """Shrink the Event Type array's ref and park a value in the row it must grow into."""
+    """Shrink the Event Type array's ref and park a value in the row it must grow into.
+
+    The ref is read out of the file rather than written in: hardcoding it here means the
+    fault silently stops being a fault the next time the array grows, and the case then
+    passes for the wrong reason.
+    """
     def bend(x):
-        x = x.replace('ref="I64:L87"', 'ref="I64:L80"', 1)
-        return re.sub(r'<c r="I81"[^>]*?(?:/>|>.*?</c>)',
-                      '<c r="I81" t="inlineStr"><is><t>in the way</t></is></c>', x, count=1, flags=re.S)
+        m = re.search(r'ref="(I64:L)(\d+)"', x)
+        last = int(m.group(2))
+        short = last - 7
+        x = x.replace(m.group(0), f'ref="{m.group(1)}{short}"', 1)
+        return re.sub(r'<c r="I%d"[^>]*?(?:/>|>.*?</c>)' % (short + 1),
+                      f'<c r="I{short + 1}" t="inlineStr"><is><t>in the way</t></is></c>',
+                      x, count=1, flags=re.S)
     patch_zip(xlsx, DASH_SHEET, bend)
 
 
 def break_table_ref(csv: Path, xlsx: Path) -> None:
-    """A table ref left short after an append: every Dashboard COUNTIFS undercounts."""
-    patch_zip(xlsx, "xl/tables/table1.xml", lambda x: x.replace('ref="A1:W94"', 'ref="A1:W90"', 1))
+    """A table ref left short after an append: every Dashboard COUNTIFS undercounts.
+
+    Derived from the current ref for the same reason as above -- this case was a silent
+    no-op for one commit because it was pinned to A1:W94 after the table reached W95.
+    """
+    def bend(x):
+        m = re.search(r'ref="(A1:[A-Z]+)(\d+)"', x)
+        return x.replace(m.group(0), f'ref="{m.group(1)}{int(m.group(2)) - 4}"', 1)
+    patch_zip(xlsx, "xl/tables/table1.xml", bend)
 
 
 def break_styling(csv: Path, xlsx: Path) -> None:
