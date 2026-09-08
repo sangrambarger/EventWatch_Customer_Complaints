@@ -21,14 +21,24 @@ python3 scripts/refresh_caches.py --dry-run # what in the workbook has drifted f
 python3 scripts/refresh_caches.py           # rewrite the drifted caches
 python3 scripts/sort_tracker.py Jul Aug     # put those months back in date order, both files
 python3 scripts/sort_tracker.py --all       # ...or the whole tracker
+python3 scripts/selftest.py                 # prove each validate.py rule still fires
 ```
 
-`validate.py` covers every bug class that has actually shipped here: characters
-decayed to `?`, rows appended out of date order, a status value the Dashboard's fixed
-tables don't list (so it silently drops from a chart total), a month with records but
-no row in the monthly trend block, CSV/workbook drift, and stripped dynamic-array
-metadata. Verified against the commit where several of those were live — it catches
-all of them. Read its output instead of re-deriving the checks.
+`validate.py` covers every bug class that has actually shipped here: characters decayed
+to `?` (both shapes — beside a letter, and standing alone between words where an arrow
+was lost), records sitting in the wrong month, a status value the Dashboard's fixed
+tables don't list (so it silently drops from a chart total), a month with records but no
+row in the monthly trend block, CSV/workbook drift on **any** shared column, stripped
+dynamic-array metadata, stale caches, a `ComplaintTracker` table ref left short after an
+append (which silently undercounts every Dashboard COUNTIFS), and Data rows appended in
+a different font. Read its output instead of re-deriving the checks.
+
+`selftest.py` is why you can trust that list. It breaks the data on purpose, one fault
+per rule, and asserts the rule blocks — a validator nobody has watched fail is a
+validator nobody should trust. Two checks here were silent no-ops when first written,
+and the mojibake pattern passed clean for months over four corrupted cells because its
+regex needed a letter beside the `?` and the real corruption had spaces both sides.
+Add a rule to `validate.py`, add a case to `selftest.py`.
 
 `refresh_caches.py` (with `dashboard_calc.py`) re-derives every cached value in the
 workbook from the CSV, by reading each Dashboard cell's own formula -- COUNTIFS, the

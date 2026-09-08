@@ -87,14 +87,35 @@ ROW = re.compile(r'<row r="(\d+)"([^>]*)>(.*?)</row>', re.S)
 
 
 def style_fonts(xlsx: zipfile.ZipFile) -> tuple[dict[str, str], dict[str, str]]:
-    """style id -> fontId, and style id -> fillId, read out of cellXfs."""
+    """style id -> fontId, and style id -> fillId, read out of cellXfs.
+
+    Shared with validate.py's styling check, so both agree on what "off-font" means.
+    """
     styles = xlsx.read("xl/styles.xml").decode("utf-8")
     xfs = re.search(r"<cellXfs[^>]*>(.*?)</cellXfs>", styles, re.S).group(1)
     fonts, fills = {}, {}
     for i, xf in enumerate(re.findall(r"<xf\b.*?(?:/>|</xf>)", xfs, re.S)):
-        fonts[str(i)] = (re.search(r'fontId="(\d+)"', xf) or re.match("", "")).group(1) if 'fontId="' in xf else "0"
-        fills[str(i)] = re.search(r'fillId="(\d+)"', xf).group(1) if 'fillId="' in xf else "0"
+        f = re.search(r'fontId="(\d+)"', xf)
+        g = re.search(r'fillId="(\d+)"', xf)
+        fonts[str(i)] = f.group(1) if f else "0"
+        fills[str(i)] = g.group(1) if g else "0"
     return fonts, fills
+
+
+def data_cell_styles(xlsx_path: Path) -> tuple[list[tuple[int, str, str | None]], dict[str, str], dict[str, str]]:
+    """(row, column, style id) for every cell on the Data sheet below the header."""
+    with zipfile.ZipFile(xlsx_path) as z:
+        fonts, fills = style_fonts(z)
+        xml = z.read(DATA_SHEET).decode("utf-8")
+    cells = []
+    for m in ROW.finditer(xml):
+        r = int(m.group(1))
+        if r < 2:
+            continue
+        for c in re.finditer(r'<c r="([A-Z]+)\d+"([^>]*?)(?:/>|>)', m.group(3)):
+            s = re.search(r'\ss="(\d+)"', c.group(2))
+            cells.append((r, c.group(1), s.group(1) if s else None))
+    return cells, fonts, fills
 
 
 def split_rows(xml: str) -> tuple[str, list[tuple[int, str, str]], str]:

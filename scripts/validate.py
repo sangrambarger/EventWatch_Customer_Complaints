@@ -85,10 +85,21 @@ def check_mojibake(csv_path: Path, rep: Report) -> None:
     except UnicodeDecodeError as exc:
         rep.fail("mojibake", f"{csv_path.name} is not valid UTF-8 ({exc}); pandas will fall back to the workbook")
         return
-    # A '?' adjacent to a letter is almost always a lost character, not real punctuation.
-    for m in re.finditer(r"[A-Za-z0-9]\?[ ,\"]|\?[A-Za-z]", text):
-        line = text.count("\n", 0, m.start()) + 1
-        rep.fail("mojibake", f"line {line}: suspicious '?' in {text[max(0, m.start() - 30):m.end() + 10]!r}")
+    # Two shapes, both of which have actually shipped here:
+    #   a '?' butted against a letter -- a lost accent or dash inside a word
+    #   a '?' standing alone between two words -- a lost arrow, e.g. "Apr 1 ? May 1"
+    # A genuine question mark attaches to the word before it, so neither shape is
+    # ordinary punctuation. The second was missed for months because the original
+    # pattern required a letter immediately beside the '?'.
+    patterns = [r"[A-Za-z0-9]\?[ ,\"]|\?[A-Za-z]", r"(?<=\w) \? (?=\w)"]
+    seen: set[int] = set()
+    for pattern in patterns:
+        for m in re.finditer(pattern, text):
+            if m.start() in seen:
+                continue
+            seen.add(m.start())
+            line = text.count("\n", 0, m.start()) + 1
+            rep.fail("mojibake", f"line {line}: suspicious '?' in {text[max(0, m.start() - 30):m.end() + 10]!r}")
 
 
 def check_row_order(df: pd.DataFrame, rep: Report) -> None:
@@ -107,10 +118,19 @@ def check_row_order(df: pd.DataFrame, rep: Report) -> None:
     # so surface those distinctly, but warn rather than block: this is human entry
     # order, not corruption, and a validator that cries wolf gets ignored.
     cross_month = [d for d in drops if (d[1].year, d[1].month) != (d[2].year, d[2].month)]
-    rep.warn("row_order", f"{len(drops)} date regression(s) ({len(cross_month)} crossing a month boundary); "
-                          f"first at row {drops[0][0] + 2}: {drops[0][1]} followed by {drops[0][2]}")
-    for i, prev, cur in cross_month[:5]:
-        rep.warn("row_order", f"  row {i + 2}: {prev} followed by {cur} — check this row is in the right place")
+    same_month = len(drops) - len(cross_month)
+    if cross_month:
+        # A record landing in the wrong month is the append bug, not human entry order,
+        # and `sort_tracker.py` fixes it in one command -- so this blocks. Day-level
+        # jitter inside a month stays a warning: a record logged a few days late is
+        # ordinary, and a validator that cries wolf gets ignored.
+        rep.fail("row_order", f"{len(cross_month)} record(s) sit in the wrong month; "
+                              f"run `python3 scripts/sort_tracker.py --all`")
+        for i, prev, cur in cross_month[:5]:
+            rep.fail("row_order", f"  row {i + 2}: {prev} followed by {cur}")
+    if same_month:
+        rep.warn("row_order", f"{same_month} same-month date regression(s); "
+                              f"first at row {drops[0][0] + 2}: {drops[0][1]} followed by {drops[0][2]}")
 
 
 def check_required_fields(df: pd.DataFrame, rep: Report) -> None:
@@ -224,24 +244,51 @@ def check_month_coverage(df: pd.DataFrame, blocks: dict[str, dict], rep: Report)
         rep.note(f"monthly trend block covers all {len(present)} month(s) present in the tracker")
 
 
+def _norm(v) -> str:
+    """One comparable string per cell, so a date read as a Timestamp on one side and a
+    string on the other, or 1 vs 1.0, does not read as a difference."""
+    if v is None or (isinstance(v, float) and pd.isna(v)) or (isinstance(v, str) and not v.strip()):
+        return ""
+    if pd.isna(v):
+        return ""
+    if isinstance(v, str):
+        for fmt in ("%d-%b-%Y", "%b %Y"):
+            ts = pd.to_datetime(v.strip(), format=fmt, errors="coerce")
+            if pd.notna(ts):
+                return ts.strftime("%Y-%m-%d")
+    if isinstance(v, pd.Timestamp):
+        return v.strftime("%Y-%m-%d")
+    if isinstance(v, float) and v == int(v):
+        return str(int(v))
+    return str(v).strip()
+
+
 def check_parity(df: pd.DataFrame, xlsx_path: Path, rep: Report) -> None:
     """The workbook's Data sheet and the CSV should describe the same records."""
     xl = pd.read_excel(xlsx_path, sheet_name="Data")
     if len(xl) != len(df):
         rep.fail("parity", f"workbook Data sheet has {len(xl)} rows, CSV has {len(df)}")
         return
-    for col in ("Customer", "Jira Key", "Event/Bulletin Title"):
-        if col not in xl.columns or col not in df.columns:
-            rep.fail("parity", f"column {col!r} missing from one side")
+    missing = [c for c in df.columns if c not in xl.columns]
+    if missing:
+        rep.fail("parity", f"column(s) {missing} are in the CSV but not the workbook Data sheet")
+    # Every shared column, not a sample of three: a reordering bug that permuted one
+    # file differently from the other would slip past any column that happened to match.
+    shared = [c for c in df.columns if c in xl.columns]
+    for col in shared:
+        # A column the CSV writes as "Jan 2026" is a month, and the workbook holds it as
+        # a real date; compare those at month precision so the two spellings agree.
+        as_month = df[col].dropna().astype(str).str.strip().replace("", pd.NA).dropna()
+        monthly = len(as_month) > 0 and pd.to_datetime(as_month, format="%b %Y", errors="coerce").notna().all()
+        norm = (lambda v: _norm(v)[:7]) if monthly else _norm
+        a = xl[col].map(norm).reset_index(drop=True)
+        b = df[col].map(norm).reset_index(drop=True)
+        if a.equals(b):
             continue
-        a = xl[col].fillna("").astype(str).str.strip().reset_index(drop=True)
-        b = df[col].fillna("").astype(str).str.strip().reset_index(drop=True)
-        diff = a.compare(b) if not a.equals(b) else None
-        if diff is not None and not diff.empty:
-            first = diff.index[0]
-            rep.fail("parity", f"{col!r} differs at row {int(first) + 2}: workbook {a[first]!r} vs CSV {b[first]!r} "
-                               f"({len(diff)} row(s) differ)")
-    rep.note(f"workbook Data sheet and CSV agree on {len(xl)} rows")
+        rows = [i for i in range(len(a)) if a[i] != b[i]]
+        rep.fail("parity", f"{col!r} differs in {len(rows)} row(s), first at row {rows[0] + 2}: "
+                           f"workbook {a[rows[0]]!r} vs CSV {b[rows[0]]!r}")
+    rep.note(f"workbook Data sheet and CSV agree on {len(xl)} rows across {len(shared)} shared column(s)")
 
 
 def check_dynamic_arrays(xlsx_path: Path, rep: Report) -> None:
@@ -326,6 +373,72 @@ def check_spill_space(csv_path: Path, xlsx_path: Path, rep: Report) -> None:
             rep.note(f"the {anchor} array must grow to row {needed_last}; that space is clear")
 
 
+def check_styling(xlsx_path: Path, rep: Report) -> None:
+    """Every record on the Data sheet must be formatted like every other record.
+
+    Rows appended without matching the sheet render in a different font, which reads
+    as a rendering fault rather than as new data -- and it is invisible until someone
+    opens the workbook, which is exactly the kind of thing that goes unnoticed for
+    months. It went unnoticed here: 13 rows sat in Calibri against the sheet's Aptos,
+    and the Jira Key column was appended with no style at all.
+
+    A cell carrying a fill is a deliberate human highlight and is exempt.
+    `sort_tracker.py --all` normalises whatever this finds.
+    """
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from sort_tracker import data_cell_styles
+
+    cells, fonts, fills = data_cell_styles(xlsx_path)
+    if not cells:
+        rep.fail("styling", "no data rows found on the Data sheet")
+        return
+    tally: dict[str, int] = {}
+    for _, _, style in cells:
+        f = fonts.get(style, "0") if style else "0"
+        tally[f] = tally.get(f, 0) + 1
+    main_font = max(tally, key=tally.get)
+
+    odd = [(r, c) for r, c, style in cells
+           if fills.get(style, "0") == "0" and (fonts.get(style, "0") if style else "0") != main_font]
+    if odd:
+        rows = sorted({r for r, _ in odd})
+        rep.fail("styling", f"{len(odd)} cell(s) across {len(rows)} row(s) are not in the sheet's font "
+                            f"(rows {rows[0]}-{rows[-1]}, e.g. {odd[0][1]}{odd[0][0]}); "
+                            f"run `python3 scripts/sort_tracker.py --all`")
+    else:
+        rep.note(f"all {len(cells)} Data cells share one font, "
+                 f"{sum(1 for _, _, s in cells if fills.get(s, '0') != '0')} highlighted cell(s) aside")
+
+
+def check_table_ref(df: pd.DataFrame, xlsx_path: Path, rep: Report) -> None:
+    """The ComplaintTracker table must span exactly the rows and columns that exist.
+
+    Every Dashboard number is a COUNTIFS over this table. A ref left short after an
+    append silently undercounts every chart, with nothing on the sheet to show for it
+    -- no error, no gap, just quietly wrong totals. Nothing else here would catch that.
+    """
+    with zipfile.ZipFile(xlsx_path) as z:
+        parts = [n for n in z.namelist() if re.match(r"xl/tables/table\d+\.xml$", n)]
+        tables = {n: z.read(n).decode("utf-8") for n in parts}
+    for name, xml in tables.items():
+        if 'displayName="ComplaintTracker"' not in xml:
+            continue
+        ref = re.search(r'<table[^>]*\sref="([^"]+)"', xml).group(1)
+        cols = len(re.findall(r"<tableColumn ", xml))
+        top, bottom = (int(re.sub(r"\D", "", part)) for part in ref.split(":"))
+        last_col = re.sub(r"\d", "", ref.split(":")[1])
+        want_bottom = top + len(df)  # header row plus one row per record
+        if bottom != want_bottom:
+            rep.fail("table_ref", f"ComplaintTracker covers {ref} ({bottom - top} record row(s)) but the CSV "
+                                  f"has {len(df)}; every Dashboard COUNTIFS is reading the wrong range")
+        elif cols != len(df.columns):
+            rep.fail("table_ref", f"ComplaintTracker declares {cols} column(s) to the CSV's {len(df.columns)}")
+        else:
+            rep.note(f"ComplaintTracker spans {ref}: {len(df)} records x {cols} columns, matching the CSV")
+        return
+    rep.fail("table_ref", "no ComplaintTracker table found; the Dashboard's COUNTIFS formulas cannot resolve")
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--csv", type=Path, default=DEFAULT_CSV)
@@ -354,6 +467,8 @@ def main() -> int:
         check_dynamic_arrays(args.xlsx, rep)
         check_spill_space(args.csv, args.xlsx, rep)
         check_caches(args.csv, args.xlsx, rep)
+        check_table_ref(df, args.xlsx, rep)
+        check_styling(args.xlsx, rep)
     else:
         rep.note(f"{args.xlsx.name} not found; ran CSV-only checks")
 
