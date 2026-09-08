@@ -439,6 +439,91 @@ def check_table_ref(df: pd.DataFrame, xlsx_path: Path, rep: Report) -> None:
     rep.fail("table_ref", "no ComplaintTracker table found; the Dashboard's COUNTIFS formulas cannot resolve")
 
 
+def check_duplicates(df: pd.DataFrame, rep: Report) -> None:
+    """The same complaint must not be logged twice.
+
+    Nothing stops it: rows arrive from Jira and from email, and the same miss reaches
+    the tracker down both paths. A duplicate inflates every count on the Dashboard, and
+    unlike a wrong value it looks entirely plausible on the row itself.
+
+    Two customers hitting the same event on the same day is a real pattern here, so the
+    customer is part of the key -- a slash row (`Ford/GM`) is one record by convention.
+    """
+    keys = ["Email/JIRA Date", "Customer", "Event/Bulletin Title"]
+    if any(k not in df.columns for k in keys):
+        rep.fail("duplicates", f"cannot check for duplicates: {[k for k in keys if k not in df.columns]} missing")
+        return
+    norm = df[keys].apply(lambda c: c.fillna("").astype(str).str.strip().str.casefold())
+    dupes = norm[norm.duplicated(keep=False)]
+    if not dupes.empty:
+        for _, rows in dupes.groupby(list(dupes.columns)):
+            lines = [int(i) + 2 for i in rows.index]
+            rep.fail("duplicates", f"rows {lines} are the same record: "
+                                   f"{df.loc[rows.index[0], 'Customer']} / "
+                                   f"{str(df.loc[rows.index[0], 'Event/Bulletin Title'])[:60]!r}")
+        return
+    rep.note(f"no two rows share a date, customer and title across {len(df)} records")
+
+
+def check_definitions(df: pd.DataFrame, xlsx_path: Path, rep: Report) -> None:
+    """Every tracker column needs a row in the workbook's own data dictionary.
+
+    The Definitions sheet is what a reader consults to understand a column, and it
+    silently goes stale the moment a column is added -- `Jira Key` sat undocumented
+    from the day it was introduced. The Definitions page in the app renders this sheet,
+    so the gap is user-facing, not just internal.
+    """
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from dashboard_calc import Sheet
+
+    with zipfile.ZipFile(xlsx_path) as z:
+        names = {n for n in z.namelist() if re.match(r"xl/worksheets/sheet\d+\.xml$", n)}
+        sheets = {n: Sheet(z.read(n).decode("utf-8")) for n in sorted(names)}
+    dictionary = next((sh for sh in sheets.values()
+                       if any(v.strip() == "Source column" for v in sh.text.values())), None)
+    if dictionary is None:
+        rep.fail("definitions", "no Definitions sheet found (no 'Source column' header)")
+        return
+    header = next(k for k, v in dictionary.text.items() if v.strip() == "Source column")
+    col = re.sub(r"\d", "", header)
+    row = int(re.sub(r"\D", "", header))
+    sourced = {v.strip() for k, v in dictionary.text.items()
+               if re.sub(r"\d", "", k) == col and int(re.sub(r"\D", "", k)) > row}
+
+    undocumented = [c for c in df.columns if c not in sourced]
+    if undocumented:
+        rep.fail("definitions", f"tracker column(s) {undocumented} have no row in the Definitions sheet")
+    unknown = sorted(v for v in sourced if v and v != "Various" and v not in df.columns)
+    if unknown:
+        rep.fail("definitions", f"Definitions cite source column(s) {unknown} that the tracker does not have")
+    if not undocumented and not unknown:
+        rep.note(f"Definitions sheet documents all {len(df.columns)} tracker columns")
+
+
+def check_formula_columns(df: pd.DataFrame, xlsx_path: Path, rep: Report) -> None:
+    """Every ComplaintTracker[...] reference, on any sheet, must name a real column.
+
+    The Management Readout is twelve formulas over this table and holds no cached
+    values at all, so a renamed or dropped column turns the whole sheet into #REF!
+    the next time someone opens it, with nothing here to warn them first. The same
+    reference style drives the Dashboard, so this covers both in one pass.
+    """
+    with zipfile.ZipFile(xlsx_path) as z:
+        parts = sorted(n for n in z.namelist() if re.match(r"xl/worksheets/sheet\d+\.xml$", n))
+        blobs = {n: z.read(n).decode("utf-8") for n in parts}
+    referenced: dict[str, set[str]] = {}
+    for name, xml in blobs.items():
+        for m in re.finditer(r"ComplaintTracker\[([^\]#]+)\]", xml):
+            referenced.setdefault(m.group(1), set()).add(Path(name).stem)
+    unknown = {c: sorted(v) for c, v in referenced.items() if c not in df.columns}
+    if unknown:
+        for col, where in unknown.items():
+            rep.fail("formula_columns", f"formulas on {where} reference ComplaintTracker[{col}], "
+                                        f"which is not a tracker column; those cells resolve to #REF!")
+        return
+    rep.note(f"{len(referenced)} distinct table column(s) referenced by formulas all exist")
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--csv", type=Path, default=DEFAULT_CSV)
@@ -458,6 +543,7 @@ def main() -> int:
     check_row_order(df, rep)
     check_required_fields(df, rep)
     check_jira_keys(df, rep)
+    check_duplicates(df, rep)
 
     if args.xlsx.exists():
         blocks = dashboard_blocks(args.xlsx)
@@ -469,6 +555,8 @@ def main() -> int:
         check_caches(args.csv, args.xlsx, rep)
         check_table_ref(df, args.xlsx, rep)
         check_styling(args.xlsx, rep)
+        check_definitions(df, args.xlsx, rep)
+        check_formula_columns(df, args.xlsx, rep)
     else:
         rep.note(f"{args.xlsx.name} not found; ran CSV-only checks")
 
