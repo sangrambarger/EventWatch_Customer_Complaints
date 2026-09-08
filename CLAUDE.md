@@ -19,6 +19,8 @@ python3 scripts/jira_sync.py                # EAO tickets vs tracker, prints onl
 python3 scripts/jira_sync.py --describe EAO-7 EAO-9   # bodies, when prose judgement is needed
 python3 scripts/refresh_caches.py --dry-run # what in the workbook has drifted from the CSV
 python3 scripts/refresh_caches.py           # rewrite the drifted caches
+python3 scripts/sort_tracker.py Jul Aug     # put those months back in date order, both files
+python3 scripts/sort_tracker.py --all       # ...or the whole tracker
 ```
 
 `validate.py` covers every bug class that has actually shipped here: characters
@@ -43,6 +45,16 @@ caches are not what *Excel* reads. They are what everything else reads -- GitHub
 preview, a Google Sheets or LibreOffice import, `openpyxl(data_only=True)`, a file
 manager's preview pane. Four of six charts and all three Top Customers columns were
 showing the pre-EAO 80-row figures against a 93-row tracker before this landed.
+
+`sort_tracker.py` is the fix for `validate.py`'s `row_order` warning. Rows get appended
+in triage order, not event order, so the tracker drifts; this re-sorts a chosen set of
+records by date across the CSV and the Data sheet together. Records are sorted among
+the positions they already occupy, so naming two months never disturbs the rest. It
+moves whole rows, so a highlight fill (`fillId=2` -- rows a human has flagged, e.g.
+Data row 55) travels with its record, and it rewrites the CSV line-by-line rather than
+re-serialising it, so quoting stays byte-identical and the diff shows only what moved.
+It also restyles cells appended in the wrong font: sorting scatters them, turning a
+tidy odd-looking block at the bottom into odd-looking rows throughout.
 
 `smoke_app.py` covers what `validate.py` cannot: the app itself. It starts Streamlit
 against the local CSV, clicks every page, and fails on Streamlit exceptions, in-app
