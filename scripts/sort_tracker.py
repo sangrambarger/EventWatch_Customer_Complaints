@@ -166,17 +166,14 @@ def main() -> int:
     for slot, src in zip(selected, order):
         if slot != src:
             print(f"  · row {slot + 2} <- row {src + 2}  {dates[src]}  {field(lines[src], month_i)}")
-    if not moved:
-        return 0
-    if args.dry_run:
-        print("\nNothing written (--dry-run).")
-        return 1
-
-    # --- CSV: move whole lines, so quoting and spacing survive untouched
-    new_lines = list(lines)
-    for slot, src in zip(selected, order):
-        new_lines[slot] = lines[src]
-    args.csv.write_text(newline.join([newline.join([",".join(header)])] + new_lines) + newline, encoding="utf-8")
+    # --- CSV: move whole lines, so quoting and spacing survive untouched.
+    # The workbook pass runs even when nothing moves: it also normalises styling, and
+    # that work is worth doing on its own.
+    if moved and not args.dry_run:
+        new_lines = list(lines)
+        for slot, src in zip(selected, order):
+            new_lines[slot] = lines[src]
+        args.csv.write_text(newline.join([",".join(header)] + new_lines) + newline, encoding="utf-8")
 
     # --- workbook Data sheet: move whole rows, so highlights travel with the record
     with zipfile.ZipFile(args.xlsx) as z:
@@ -184,7 +181,7 @@ def main() -> int:
         fonts, fills = style_fonts(z)
     xml = next(d for i, d in members if i.filename == DATA_SHEET).decode("utf-8")
     head, rows, tail = split_rows(xml)
-    by_r = {r: (attrs, body) for r, attrs, body in rows}
+    by_r = {r: (attrs, body) for r, attrs, body in rows}  # every row, header included
 
     data_rows = [r for r in by_r if r >= 2]
     if len(data_rows) != len(lines):
@@ -227,14 +224,20 @@ def main() -> int:
         print(f"\nrestyled {cells} cell(s) across {len(touched)} row(s) that did not match the "
               f"sheet's font (rows {touched[0]}-{touched[-1]})")
 
+    if args.dry_run:
+        print("\nNothing written (--dry-run).")
+        return 1 if (moved or touched) else 0
+    if not moved and not touched:
+        return 0
+
+    # Every row is rebuilt from by_r, not from the original list: restyling applies to
+    # the whole sheet, and taking unselected rows from the original would throw it away.
     first_data = min(data_rows)
     source_for = {first_data + slot: first_data + src for slot, src in zip(selected, order)}
     rebuilt = []
-    for r, attrs, body in rows:
-        if r in source_for:
-            attrs, body = by_r[source_for[r]]
-            body = renumber(body, r)
-        rebuilt.append(f'<row r="{r}"{attrs}>{body}</row>')
+    for r, _, _ in rows:
+        attrs, body = by_r[source_for.get(r, r)]
+        rebuilt.append(f'<row r="{r}"{attrs}>{renumber(body, r)}</row>')
     xml = head + "".join(rebuilt) + tail
 
     tmp = args.xlsx.with_suffix(".xlsx.tmp")
