@@ -17,6 +17,8 @@ python3 scripts/validate.py                 # data + workbook integrity, exits n
 python3 scripts/smoke_app.py                # loads all 14 pages, flags exceptions/empty charts
 python3 scripts/jira_sync.py                # EAO tickets vs tracker, prints only the delta
 python3 scripts/jira_sync.py --describe EAO-7 EAO-9   # bodies, when prose judgement is needed
+python3 scripts/refresh_caches.py --dry-run # what in the workbook has drifted from the CSV
+python3 scripts/refresh_caches.py           # rewrite the drifted caches
 ```
 
 `validate.py` covers every bug class that has actually shipped here: characters
@@ -25,6 +27,22 @@ tables don't list (so it silently drops from a chart total), a month with record
 no row in the monthly trend block, CSV/workbook drift, and stripped dynamic-array
 metadata. Verified against the commit where several of those were live — it catches
 all of them. Read its output instead of re-deriving the checks.
+
+`refresh_caches.py` (with `dashboard_calc.py`) re-derives every cached value in the
+workbook from the CSV, by reading each Dashboard cell's own formula -- COUNTIFS, the
+`LET`/`TAKE` arrays, the `ANCHORARRAY` columns -- and evaluating it. It rewrites the
+six chart `<numCache>`/`<strCache>` blocks and the three dynamic-array spill regions,
+including an array's `ref` and its Total-row styling when the array has grown. Nothing
+about the layout is hardcoded; move a block or add a row and the values still come from
+the formula that row carries. `validate.py` calls its `audit()` and fails if anything
+is stale, so this is a gate, not a habit. It is idempotent -- a second run reports
+nothing.
+
+Why it matters even though `fullCalcOnLoad` is set: Excel recalculates on open, so the
+caches are not what *Excel* reads. They are what everything else reads -- GitHub's xlsx
+preview, a Google Sheets or LibreOffice import, `openpyxl(data_only=True)`, a file
+manager's preview pane. Four of six charts and all three Top Customers columns were
+showing the pre-EAO 80-row figures against a 93-row tracker before this landed.
 
 `smoke_app.py` covers what `validate.py` cannot: the app itself. It starts Streamlit
 against the local CSV, clicks every page, and fails on Streamlit exceptions, in-app

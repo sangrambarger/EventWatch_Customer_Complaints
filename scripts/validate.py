@@ -270,6 +270,62 @@ def check_dynamic_arrays(xlsx_path: Path, rep: Report) -> None:
         rep.note(f"{len(array_cells)} dynamic-array cell(s) carry their cm= marker")
 
 
+def check_caches(csv_path: Path, xlsx_path: Path, rep: Report) -> None:
+    """Every cached value in the workbook must already agree with the tracker.
+
+    Excel recalculates on open, so these caches are not what Excel reads -- they are
+    what everything that does not recalculate reads: GitHub's xlsx preview, a Google
+    Sheets import, openpyxl(data_only=True), a file-manager preview. They drift on
+    every append and had: four of six charts and all three Top Customers array columns
+    were still showing 80-row figures against a 93-row tracker.
+
+    `refresh_caches.py` recomputes them from the CSV; this asserts that has been run.
+    """
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from refresh_caches import audit
+
+    drift = audit(csv_path, xlsx_path)
+    if drift:
+        rep.fail("caches", f"{len(drift)} cached value(s) no longer match the tracker; "
+                           f"run `python3 scripts/refresh_caches.py`")
+        for line in drift[:6]:
+            rep.fail("caches", f"  {line}")
+    else:
+        rep.note("chart and dynamic-array caches all match the tracker")
+
+
+def check_spill_space(csv_path: Path, xlsx_path: Path, rep: Report) -> None:
+    """A dynamic array that outgrows its declared ref needs empty cells to grow into.
+
+    Excel resizes a spill on recalculation, but only when nothing is in the way -- a
+    blocked spill shows #SPILL! instead of data. The Event Type table gains a row every
+    time a new event type appears in the tracker, so the room below it must stay clear.
+    """
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from dashboard_calc import Sheet, col_to_num, load, split_ref
+
+    calc = load(csv_path, xlsx_path)
+    with zipfile.ZipFile(xlsx_path) as z:
+        sheet = Sheet(z.read("xl/worksheets/sheet2.xml").decode("utf-8"))
+
+    for anchor, span, grid in calc.array_regions():
+        acol, arow = split_ref(anchor)
+        declared_last = split_ref(sheet.array_ref[anchor].split(":")[-1])[1]
+        needed_last = arow + len(grid) - 1
+        if needed_last <= declared_last:
+            continue
+        blockers = [
+            f"{chr(64 + col_to_num(acol) + c)}{r}"
+            for r in range(declared_last + 1, needed_last + 1) for c in range(span)
+            if sheet.text.get(f"{chr(64 + col_to_num(acol) + c)}{r}")
+        ]
+        if blockers:
+            rep.fail("spill_space", f"the {anchor} array needs {len(grid)} rows but "
+                                    f"{blockers[:4]} are in the way; Excel will show #SPILL!")
+        else:
+            rep.note(f"the {anchor} array must grow to row {needed_last}; that space is clear")
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--csv", type=Path, default=DEFAULT_CSV)
@@ -296,6 +352,8 @@ def main() -> int:
         check_month_coverage(df, blocks, rep)
         check_parity(df, args.xlsx, rep)
         check_dynamic_arrays(args.xlsx, rep)
+        check_spill_space(args.csv, args.xlsx, rep)
+        check_caches(args.csv, args.xlsx, rep)
     else:
         rep.note(f"{args.xlsx.name} not found; ran CSV-only checks")
 
