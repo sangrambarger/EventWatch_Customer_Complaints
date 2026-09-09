@@ -70,7 +70,7 @@ It also restyles cells appended in the wrong font: sorting scatters them, turnin
 tidy odd-looking block at the bottom into odd-looking rows throughout.
 
 `smoke_app.py` covers what `validate.py` cannot: the app itself. It starts Streamlit
-against the local CSV, clicks every page, and fails on Streamlit exceptions, in-app
+against the local CSV, clicks every page (16 of them), and fails on Streamlit exceptions, in-app
 error text, or a page rendering fewer charts/tables than it should. Run against the
 commit before the `chart()` argument fix it flags 8 pages with "required fields are
 missing" and zero charts — the bug that previously only a screenshot caught. Prefer
@@ -141,4 +141,11 @@ If a resave already happened, restore the four `cm="1"` attributes and
   `Pending` for tickets still open in Jira. Adding a new value means adding it to the
   Dashboard's Fix Status table too.
 - Jira and Outlook lookups are credential-gated and degrade to a "not configured"
-  message; neither has live credentials in this repo.
+  message; neither has live credentials in this repo. The Atlassian MCP connector is a
+  separate path that works for a model in-session but does nothing for the deployed app.
+- `RCA Details` holds the root cause summary from the linked ticket. Most RCAs went out
+  as PDF attachments whose text is not in Jira, so those entries say so rather than
+  paraphrasing a document nobody can read back. Do not invent RCA narrative.
+- The app's Definitions page is a hardcoded dict in `app.py`, *not* a render of the
+  workbook's Definitions sheet. Adding a tracker column means updating both, and
+  `validate.py`'s `definitions` check only watches the workbook side.
