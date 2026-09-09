@@ -20,21 +20,23 @@ WORKBOOK_NAME = "EventWatch_Customer_Complaints_2026.xlsx"
 APP_DIR = Path(__file__).resolve().parent
 
 PAGES = [
-    "Executive Summary", "SOURCE 01 · Monthly trend", "SOURCE 02 · Fix status",
+    "Executive Summary", "Open items", "SOURCE 01 · Monthly trend", "SOURCE 02 · Fix status",
     "SOURCE 03 · Severity", "SOURCE 04 · Root cause", "SOURCE 05 · Top customers",
-    "SOURCE 06 · Automation focus", "DETAIL · Event workload", "Automation urgency",
+    "SOURCE 06 · Automation focus", "DETAIL · Event workload", "Repeat patterns", "Automation urgency",
     "Dynamic Source Discovery", "Jira Lookup", "Outlook Lookup", "Definitions", "Complaint Tracker",
 ]
 
 DESCRIPTIONS = {
     "Executive Summary": "Leadership cockpit for complaint volume, customer pain, missed events, RCA exposure, root causes, and automation opportunities.",
-    "SOURCE 01 · Monthly trend": "Month-by-month complaint and inquiry trend, sorted chronologically from January onward.",
+    "Open items": "Everything still outstanding: records awaiting a fix, and records where the customer asked for an RCA that has not been delivered. Includes the RCA text where one has been shared.",
+    "SOURCE 01 · Monthly trend": "Month-by-month complaint and inquiry trend, sorted chronologically from January onward, with the missed-event rate that volume alone hides.",
     "SOURCE 02 · Fix status": "Resolution posture across fixed, RCA-shared, and clarification-provided records.",
     "SOURCE 03 · Severity": "Severity distribution for leadership prioritization.",
     "SOURCE 04 · Root cause": "People, Process, and Product themes with deeper drill-downs below the current summary.",
     "SOURCE 05 · Top customers": "Customers with the highest complaint or inquiry volume and the reasons behind those records.",
     "SOURCE 06 · Automation focus": "Automation/control categories linked to tracker evidence.",
     "DETAIL · Event workload": "Event types that repeatedly drive complaints, inquiries, or operational workload.",
+    "Repeat patterns": "Customer and reason combinations that keep recurring. A pattern repeated many times is one systemic problem, not many incidents.",
     "Automation urgency": "Ranked automation priorities using volume, severity, RCA pressure, misses, and customer concentration.",
     "Dynamic Source Discovery": "Source coverage, feed, keyword, vendor monitoring, and event-discovery gaps.",
     "Jira Lookup": "Look up a linked Jira ticket by key and see which complaint records still need one linked, so the duplicate check against Jira is a real lookup instead of a manual guess.",
@@ -226,6 +228,7 @@ def search_outlook_messages(query):
 
 PAGE_KICKERS = {
     "Executive Summary": ("Overview", "#8ab4f8"),
+    "Open items": ("Outstanding", "#f28b82"),
     "SOURCE 01 · Monthly trend": ("Chart source", "#80cbc4"),
     "SOURCE 02 · Fix status": ("Chart source", "#80cbc4"),
     "SOURCE 03 · Severity": ("Chart source", "#80cbc4"),
@@ -233,6 +236,7 @@ PAGE_KICKERS = {
     "SOURCE 05 · Top customers": ("Chart source", "#80cbc4"),
     "SOURCE 06 · Automation focus": ("Chart source", "#80cbc4"),
     "DETAIL · Event workload": ("Detail view", "#f6c177"),
+    "Repeat patterns": ("Recurrence", "#f6c177"),
     "Automation urgency": ("Prioritization", "#f6c177"),
     "Dynamic Source Discovery": ("Coverage gap", "#f6c177"),
     "Jira Lookup": ("Integration", "#a8dab5"),
@@ -371,6 +375,72 @@ def chart(df, label_col, value_col="Records", title=""):
     return fig
 
 
+def rate_chart(df, x_col, y_col, title="", suffix="%"):
+    """A line over time. Volume charts answer "how many"; a rate answers "are we improving"."""
+    if df.empty or x_col not in df.columns or y_col not in df.columns:
+        st.info(f"Chart cannot be rendered because required fields are missing: {x_col}, {y_col}."); return None
+    fig = px.line(df, x=x_col, y=y_col, markers=True, title=title, color_discrete_sequence=["#f6c177"])
+    fig.update_traces(line=dict(width=3), marker=dict(size=9),
+                      hovertemplate="%{x}<br>%{y:.0f}" + suffix + "<extra></extra>")
+    fig.update_xaxes(tickfont=dict(size=12, color="#f3f4f6"), gridcolor="#303846", title="")
+    fig.update_yaxes(tickfont=dict(size=12, color="#f3f4f6"), gridcolor="#303846",
+                     title="", ticksuffix=suffix, rangemode="tozero")
+    fig.update_layout(template="plotly_dark", plot_bgcolor="#1b1f26", paper_bgcolor="#1b1f26",
+                      font=dict(color="#f3f4f6", size=13), margin=dict(l=20, r=40, t=44, b=28),
+                      height=380, showlegend=False)
+    st.plotly_chart(fig, use_container_width=True)
+    return fig
+
+
+def filled(series):
+    """Rows where a text column actually has content.
+
+    A blank CSV cell arrives as NaN, and str(NaN) is the string "nan" -- which is not
+    empty, so a naive emptiness test counts every row as populated.
+    """
+    if series is None:
+        return pd.Series(dtype=bool)
+    text = series.fillna("").astype(str).str.strip()
+    return ~text.isin(["", "nan", "NaT", "None"])
+
+
+def open_items(df):
+    """Rows that still need something done, and the RCA text where one exists."""
+    fix = df.get("Short Term Fix Status", pd.Series(dtype=str)).astype(str).str.strip()
+    rca = df.get("RCA Requested", pd.Series(dtype=str)).astype(str).str.strip()
+    pending = df[fix == "Pending"]
+    owed = df[(rca == "Yes") & (~fix.isin(["RCA Shared", "Fixed"]))]
+    return pending, owed
+
+
+def days_open(df):
+    dates = pd.to_datetime(df.get("Email/JIRA Date"), errors="coerce")
+    return (pd.Timestamp.today().normalize() - dates).dt.days
+
+
+def missed_rate(df):
+    """Missed-event rate per month. The count of complaints tracks how many tickets were
+    raised; the share that were genuine misses is the part that says whether we improved."""
+    dates = pd.to_datetime(df.get("Email/JIRA Date"), errors="coerce")
+    flag = df.get("Missed_Flag", pd.Series(dtype=str)).astype(str).str.strip().eq("Yes")
+    g = pd.DataFrame({"Month": dates.dt.to_period("M").astype(str), "Missed": flag}).dropna(subset=["Month"])
+    if g.empty: return pd.DataFrame(columns=["Month", "Records", "Missed", "Missed %"])
+    out = g.groupby("Month").agg(Records=("Missed", "size"), Missed=("Missed", "sum")).reset_index()
+    out["Missed %"] = (out["Missed"] / out["Records"] * 100).round(0)
+    return out.sort_values("Month")
+
+
+def repeat_patterns(df, minimum=2):
+    """Customer + Reason pairs seen more than once, worst first."""
+    if not {"Customer", "Reason"} <= set(df.columns): return pd.DataFrame()
+    g = (df.groupby(["Customer", "Reason"], dropna=False).size().reset_index(name="Records"))
+    g = g[g["Records"] >= minimum].sort_values(["Records", "Customer"], ascending=[False, True])
+    total = max(len(df), 1)
+    g["% of Total"] = (g["Records"] / total * 100).round(1).astype(str) + "%"
+    g["Pattern"] = g["Customer"].astype(str) + " · " + g["Reason"].astype(str)
+    return g.reset_index(drop=True)
+
+
 def downloads(df, name, fig=None):
     c1, c2, c3 = st.columns([1, 1, 3])
     c1.download_button("Download table CSV", df.to_csv(index=False).encode(), f"{name}.csv", "text/csv", key=f"csv_{name}")
@@ -462,6 +532,74 @@ if selected_page == "Executive Summary":
     for title, col in [("Top complaints by customer", "Customer"), ("Nature of complaints", "Reason"), ("Missed event types", "Event type"), ("Root cause split", "Root Cause"), ("Severity split", "Severity"), ("Automation opportunities", "Standard Automation Focus")]:
         if col in complaints.columns:
             t = count_table(complaints, col).head(10); add_section(title, f"Shows the leading {col.lower()} values for complaint records, with count and percentage of total complaints."); excel_bar_table(t, col); fig = chart(t, col, title=title); downloads(t, title.lower().replace(" ", "_"), fig)
+elif selected_page == "Open items":
+    page_header(selected_page); page = date_filter(filtered, "open_items")
+    pending, owed = open_items(page)
+    ages = days_open(pending)
+    oldest = int(ages.max()) if len(ages.dropna()) else 0
+    with_rca = int(filled(page.get("RCA Details")).sum())
+    kpis([
+        ("Awaiting a fix", len(pending), "Short Term Fix Status is Pending", "#f28b82"),
+        ("RCA owed", len(owed), "Customer asked, none shared or fixed yet", "#f6c177"),
+        ("Oldest open item", f"{oldest}d", "Days since the record was raised", "#8ab4f8"),
+        ("RCA on file", with_rca, "Records carrying RCA text", "#a8dab5"),
+    ])
+
+    COLS = ["Email/JIRA Date", "Jira Key", "Customer", "Event/Bulletin Title", "Reason",
+            "Severity", "Short Term Fix Status", "RCA Requested"]
+    add_section("Awaiting a fix", "Records whose short-term fix status is still Pending, oldest first. "
+                                  "These are the live queue.", "#f28b82")
+    if pending.empty:
+        st.success("Nothing is pending.")
+    else:
+        t = pending.assign(**{"Days open": days_open(pending)}).sort_values("Days open", ascending=False)
+        cols = [c for c in COLS if c in t.columns] + ["Days open"]
+        styled_table(t[cols]); downloads(t[cols], "open_pending")
+
+    add_section("RCA requested but not delivered", "The customer asked for a root cause analysis and the "
+                "record is neither RCA Shared nor Fixed. This is the commitment backlog.", "#f6c177")
+    if owed.empty:
+        st.success("No outstanding RCA commitments.")
+    else:
+        t = owed.assign(**{"Days open": days_open(owed)}).sort_values("Days open", ascending=False)
+        cols = [c for c in COLS if c in t.columns] + ["Days open"]
+        styled_table(t[cols]); downloads(t[cols], "open_rca_owed")
+
+    add_section("Root cause analyses on file", "The RCA text for every record that has one, newest first. "
+                "Where the RCA went out only as a PDF attached to the ticket, the entry says so rather than "
+                "paraphrasing a document that is not in Jira.", "#a8dab5")
+    if "RCA Details" in page.columns:
+        rows = page[filled(page["RCA Details"])]
+        if rows.empty:
+            st.info("No RCA text on file for the current filter.")
+        else:
+            rows = rows.sort_values("Email/JIRA Date", ascending=False)
+            show = [c for c in ["Email/JIRA Date", "Jira Key", "Customer", "Short Term Fix Status", "RCA Details"]
+                    if c in rows.columns]
+            styled_table(rows[show]); downloads(rows[show], "rca_details")
+    else:
+        st.info("The tracker has no RCA Details column.")
+
+elif selected_page == "Repeat patterns":
+    page_header(selected_page); page = date_filter(filtered, "repeats")
+    pat = repeat_patterns(page)
+    top = pat.head(15)
+    recurring = int(pat["Records"].sum()) if not pat.empty else 0
+    kpis([
+        ("Recurring pairs", len(pat), "Customer + reason seen more than once", "#f6c177"),
+        ("Records in a pattern", recurring, f"{recurring / max(len(page), 1) * 100:.0f}% of selected records", "#8ab4f8"),
+        ("Worst pattern", int(pat["Records"].max()) if not pat.empty else 0,
+         (pat.iloc[0]["Pattern"][:38] if not pat.empty else "None"), "#f28b82"),
+    ])
+    add_section("Most repeated customer and reason", "A pair that recurs is one systemic problem, not many "
+                "separate incidents. Ranked by how often the same customer raised the same reason.", "#f6c177")
+    if pat.empty:
+        st.info("No repeated customer/reason pairs in the current filter.")
+    else:
+        excel_bar_table(top[["Pattern", "Records", "% of Total"]], "Pattern")
+        fig = chart(top, "Pattern", title="Most repeated customer and reason")
+        downloads(pat[["Customer", "Reason", "Records", "% of Total"]], "repeat_patterns", fig)
+
 elif selected_page == "SOURCE 01 · Monthly trend":
     page_header(selected_page); page = date_filter(filtered, "monthly")
     if "Month Label" in page.columns and "Issue Type" in page.columns:
@@ -477,6 +615,16 @@ elif selected_page == "SOURCE 01 · Monthly trend":
         fig.update_xaxes(categoryorder="array", categoryarray=monthly["Month Label"].tolist(), tickfont=dict(color="#f3f4f6"), gridcolor="#303846"); fig.update_yaxes(tickfont=dict(color="#f3f4f6"), gridcolor="#303846")
         st.plotly_chart(fig, use_container_width=True); downloads(display_monthly, "monthly_trend_chart_data", fig)
     else: st.info("Monthly trend requires Month/Reporting Month and Issue Type fields.")
+    rate = missed_rate(page)
+    add_section("Missed-event rate", "The share of each month's records that were genuine misses. Volume rises "
+                "and falls with how many tickets were raised; this is the line that says whether coverage is "
+                "actually improving.", "#f6c177")
+    if rate.empty:
+        st.info("No dated records in the current filter.")
+    else:
+        f2 = rate_chart(rate, "Month", "Missed %", title="Missed events as a share of records")
+        styled_table(rate); downloads(rate, "missed_event_rate", f2)
+
 elif selected_page == "SOURCE 02 · Fix status": source_page(selected_page, filtered, "Short Term Fix Status", "fix_status")
 elif selected_page == "SOURCE 03 · Severity": source_page(selected_page, filtered, "Severity", "severity")
 elif selected_page == "SOURCE 04 · Root cause": source_page(selected_page, filtered, "Root Cause", "root_cause")
@@ -536,7 +684,7 @@ elif selected_page == "Outlook Lookup":
     add_section("Enabling this page", "Requires an Azure AD app registration with **application-type** `Mail.Read` permission (admin consent) against the shared mailbox used for EventWatch complaints. This is an IT/security decision, not something this app can do on its own — once the app is registered, put its tenant ID, client ID, client secret, and the mailbox address (e.g. eventwatch@resilinc.com) into Streamlit secrets as GRAPH_TENANT_ID, GRAPH_CLIENT_ID, GRAPH_CLIENT_SECRET, and GRAPH_MAILBOX.", "#80cbc4")
 elif selected_page == "Definitions":
     page_header(selected_page)
-    groups = {"Tracker fields":[("Month / Reporting Month","Month used for trend reporting and date filtering."),("Email/JIRA Date","Formal received/logged date for the complaint, inquiry, or Jira trail."),("Customer","Account that raised the concern, not the affected supplier."),("Event/Bulletin Title","Published EventWatch title or concise factual event title."),("Comments","Concise evidence-backed summary of complaint, finding, action, and status.")],"Issue and reason types":[("Complaint","Confirmed or alleged EventWatch service miss, delay, incorrect handling, visibility issue, duplicate/missing WarRoom, or RCA-driven concern."),("Inquiry","Coverage, methodology, supplier/site, or threshold clarification without confirmed service failure."),("Reason","Specific operational issue such as Missed Event, Missed WarRoom, Delayed Event, Duplicate WarRooms, Incorrect Action, or Mapping Clarification.")],"Root cause groups":[("People","Human review, prioritization, judgment, communication, or execution miss."),("Process","Workflow, policy, methodology, handoff, or procedural gap."),("Product","Ingestion, source coverage, keyword, clustering, mapping, visibility, platform, or automation defect/gap.")],"Severity and status":[("High","Material operational or customer-trust impact requiring elevated attention."),("Medium","Standard tracked complaint or quality issue."),("Low","Limited-impact inquiry or minor quality signal."),("Fixed","Corrective action completed."),("RCA Shared","RCA approved/shared for customer communication."),("Clarification Provided","Explanation provided where no fix/RCA is required.")],"Automation focus":[("Dynamic Source Discovery","Source, feed, keyword, vendor monitoring, or article discovery gap."),("WarRoom & Decision Validation","Missing, delayed, duplicate, or incorrect WarRoom/decision handling."),("Entity & Supplier Resolution","Supplier, customer, entity, or mapping quality issue."),("AI-Assisted Geofencing","Location/polygon/proximity validation opportunity."),("Notification Visibility Monitoring","Delivery, profile visibility, and notification path monitoring."),("Cluster Integrity & Duplicate Prevention","Duplicate/split clusters or inconsistent event grouping."),("Automated Industry Tagging","Industry tagging validation or automation."),("Multilingual Keyword Expansion","Language/keyword coverage expansion from observed misses."),("Other Control Automation","Targeted control not covered by the standard categories.")],"Evidence and deduplication":[("Missed_Flag","Yes when expected alerting, coverage, notification, escalation, or WarRoom creation was missed or materially delayed."),("Confidence","HIGH, MEDIUM, or LOW based on evidence quality and duplicate checks."),("Jira Key","The linked Jira issue key for the complaint (e.g. EAO-33), normally filed in the EAO project (EventWatch_AI_Ops). Verify it on the Jira Lookup page before adding or updating a row."),("Duplicate check","Match against Jira Key (via the Jira Lookup page), Outlook conversation (via the Outlook Lookup page, once configured), customer/event title, facility, date/type, and source message ID before adding a new row. Both lookups degrade to a clear \"not configured\" message until their credentials are set in Streamlit secrets; until then, Outlook matching stays a manual step performed in the mailbox.")]}
+    groups = {"Tracker fields":[("Month / Reporting Month","Month used for trend reporting and date filtering."),("Email/JIRA Date","Formal received/logged date for the complaint, inquiry, or Jira trail."),("Customer","Account that raised the concern, not the affected supplier."),("Event/Bulletin Title","Published EventWatch title or concise factual event title."),("Comments","Concise evidence-backed summary of complaint, finding, action, and status."),("RCA Details","Root cause summary taken from the RCA shared on the linked Jira ticket. Blank where no RCA was requested or none has been issued yet; where the RCA went out only as a PDF attachment the entry says so rather than paraphrasing a document that is not in the ticket.")],"Issue and reason types":[("Complaint","Confirmed or alleged EventWatch service miss, delay, incorrect handling, visibility issue, duplicate/missing WarRoom, or RCA-driven concern."),("Inquiry","Coverage, methodology, supplier/site, or threshold clarification without confirmed service failure."),("Reason","Specific operational issue such as Missed Event, Missed WarRoom, Delayed Event, Duplicate WarRooms, Incorrect Action, or Mapping Clarification.")],"Root cause groups":[("People","Human review, prioritization, judgment, communication, or execution miss."),("Process","Workflow, policy, methodology, handoff, or procedural gap."),("Product","Ingestion, source coverage, keyword, clustering, mapping, visibility, platform, or automation defect/gap.")],"Severity and status":[("High","Material operational or customer-trust impact requiring elevated attention."),("Medium","Standard tracked complaint or quality issue."),("Low","Limited-impact inquiry or minor quality signal."),("Fixed","Corrective action completed."),("RCA Shared","RCA approved/shared for customer communication."),("Clarification Provided","Explanation provided where no fix/RCA is required.")],"Automation focus":[("Dynamic Source Discovery","Source, feed, keyword, vendor monitoring, or article discovery gap."),("WarRoom & Decision Validation","Missing, delayed, duplicate, or incorrect WarRoom/decision handling."),("Entity & Supplier Resolution","Supplier, customer, entity, or mapping quality issue."),("AI-Assisted Geofencing","Location/polygon/proximity validation opportunity."),("Notification Visibility Monitoring","Delivery, profile visibility, and notification path monitoring."),("Cluster Integrity & Duplicate Prevention","Duplicate/split clusters or inconsistent event grouping."),("Automated Industry Tagging","Industry tagging validation or automation."),("Multilingual Keyword Expansion","Language/keyword coverage expansion from observed misses."),("Other Control Automation","Targeted control not covered by the standard categories.")],"Evidence and deduplication":[("Missed_Flag","Yes when expected alerting, coverage, notification, escalation, or WarRoom creation was missed or materially delayed."),("Confidence","HIGH, MEDIUM, or LOW based on evidence quality and duplicate checks."),("Jira Key","The linked Jira issue key for the complaint (e.g. EAO-33), normally filed in the EAO project (EventWatch_AI_Ops). Verify it on the Jira Lookup page before adding or updating a row."),("Duplicate check","Match against Jira Key (via the Jira Lookup page), Outlook conversation (via the Outlook Lookup page, once configured), customer/event title, facility, date/type, and source message ID before adding a new row. Both lookups degrade to a clear \"not configured\" message until their credentials are set in Streamlit secrets; until then, Outlook matching stays a manual step performed in the mailbox.")]}
     for group, rows in groups.items(): st.markdown(f"<div class='definition-group'><h3>{group}</h3>", unsafe_allow_html=True); styled_table(pd.DataFrame(rows, columns=["Term", "Definition"])); st.markdown("</div>", unsafe_allow_html=True)
 elif selected_page == "Complaint Tracker":
     page_header(selected_page); page = date_filter(filtered, "tracker"); concise = [c for c in ["Month Label", "Email/JIRA Date", "Jira Key", "Customer", "Event type", "Event/Bulletin Title", "Issue Type", "Reason", "Root Cause", "Short Term Fix Status", "RCA Requested", "Severity", "Standard Automation Focus", "Comments"] if c in page.columns]
