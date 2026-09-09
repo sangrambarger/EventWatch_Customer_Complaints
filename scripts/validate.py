@@ -45,7 +45,9 @@ ENUM_BLOCKS = {
     "Standard Automation Focus": "Automation Focus",
     "Event type": "Event Type",
 }
-JIRA_KEY_RE = re.compile(r"^[A-Z][A-Z0-9]+-\d+$")
+# One key, or several slash-separated when a single incident spans more than one
+# ticket -- the same convention multi-customer rows use for the Customer column.
+JIRA_KEY_RE = re.compile(r"^[A-Z][A-Z0-9]+-\d+(?:/[A-Z][A-Z0-9]+-\d+)*$")
 
 
 class Report:

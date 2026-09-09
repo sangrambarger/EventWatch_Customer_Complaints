@@ -134,7 +134,16 @@ If a resave already happened, restore the four `cm="1"` attributes and
 
 ## Conventions
 
-- Multi-customer rows use a slash: `Ford/GM`, `Penske/Ford`, with `Number of Customers` set.
+- Multi-customer rows use a slash: `Ford/GM`, `Penske/Ford`, `Eaton/Ford`, with `Number of
+  Customers` set. One incident reported by two customers is **one row**, not two.
+  A merged incident may also carry slash-separated Jira keys (`EAO-35/EAO-36`).
+- **The app and the workbook count customers differently, on purpose.** `app.py`'s
+  `customer_exposure()` splits on the slash so a row naming two accounts is counted for
+  each -- that is the tally on SOURCE 05 and the Executive Summary. The workbook's
+  `COUNTIFS` matches the whole string, so `Eaton/Ford` is its own category there. SOURCE
+  05 shows the exact-match table too, labelled, so the two can be reconciled. Making
+  Excel agree means rewriting `Dashboard!A64`, `B64` and the `B74` "Other customers"
+  formula to be token-aware -- not done.
 - `Jira Key` links to the `EAO` project (EventWatch_AI_Ops); older strays live in
   DATA/TS/BI/TENAR.
 - `Short Term Fix Status` is `Fixed` / `RCA Shared` / `Clarification Provided`, plus
