@@ -430,6 +430,26 @@ def missed_rate(df):
     return out.sort_values("Month")
 
 
+def customer_exposure(df, base=None):
+    """Count a multi-customer row once for each customer named in it.
+
+    `Ford/GM` is one incident but two affected accounts, and the Excel Dashboard's
+    COUNTIFS matches the whole string, so a merged row drops out of both customers'
+    totals and appears as its own category. This splits on the slash so "how many
+    incidents touched Ford" has an answer. It deliberately differs from the canonical
+    count above, which stays exact-match so the app and the workbook agree.
+    """
+    if df.empty or "Customer" not in df.columns:
+        return pd.DataFrame(columns=["Customer", "Records", "% of Total"])
+    pairs = (df["Customer"].fillna("Blank").astype(str)
+             .str.split("/").explode().str.strip().replace("", "Blank"))
+    t = pairs.value_counts().reset_index()
+    t.columns = ["Customer", "Records"]
+    denom = max(base or len(df), 1)
+    t["% of Total"] = (t["Records"] / denom * 100).round(1).astype(str) + "%"
+    return t
+
+
 def repeat_patterns(df, minimum=2):
     """Customer + Reason pairs seen more than once, worst first."""
     if not {"Customer", "Reason"} <= set(df.columns): return pd.DataFrame()
@@ -448,9 +468,14 @@ def downloads(df, name, fig=None):
     c3.caption("Use the chart toolbar to zoom, pan, reset, or inspect values on hover.")
 
 
-def source_page(title, df, col, key):
-    page_header(title); page = date_filter(df, key); t = count_table(page, col); label = col.replace("Standard Automation Focus", "Automation focus")
-    add_section(f"{label} summary table", f"Shows selected tracker records by {label.lower()}, with record count and share of the filtered total.")
+def source_page(title, df, col, key, primary=None):
+    """`primary` overrides how the main table is counted -- Customer needs a counter that
+    credits every account named in a multi-customer row, not the whole string."""
+    page_header(title); page = date_filter(df, key); label = col.replace("Standard Automation Focus", "Automation focus")
+    t = primary(page) if primary else count_table(page, col)
+    note = (" A row naming two customers is counted for each of them, so one incident reported by two accounts "
+            "adds to both tallies." if primary else "")
+    add_section(f"{label} summary table", f"Shows selected tracker records by {label.lower()}, with record count and share of the filtered total.{note}")
     excel_bar_table(t, col); downloads(t, key)
     add_section(f"{label} chart", f"Visual ranking of {label.lower()} categories so leaders can quickly see the biggest drivers.", "#80cbc4")
     fig = chart(t, col, title=f"{label} distribution"); downloads(t, f"{key}_chart_data", fig)
@@ -469,6 +494,8 @@ def source_page(title, df, col, key):
             pair = long_pair_table(root_df, "Customer", "Reason")
             if not pair.empty: st.markdown(f"**{root} customer and reason detail**"); styled_table(pair, height=320); downloads(pair, f"{root.lower()}_customer_reason_detail")
 
+
+    return page
 
 def recommendation_for_focus(focus):
     text = str(focus).lower()
@@ -531,7 +558,7 @@ if selected_page == "Executive Summary":
     add_section("Event Summary Intelligence", "Customer pain, complaint nature, missed-event patterns, root causes, severity, and automation opportunities for the selected date range. Unlike the cards above, every table in this section counts complaint records only — the same basis the SOURCE pages and the Excel Dashboard use.")
     for title, col in [("Top complaints by customer", "Customer"), ("Nature of complaints", "Reason"), ("Missed event types", "Event type"), ("Root cause split", "Root Cause"), ("Severity split", "Severity"), ("Automation opportunities", "Standard Automation Focus")]:
         if col in complaints.columns:
-            t = count_table(complaints, col).head(10); add_section(title, f"Shows the leading {col.lower()} values for complaint records, with count and percentage of total complaints."); excel_bar_table(t, col); fig = chart(t, col, title=title); downloads(t, title.lower().replace(" ", "_"), fig)
+            t = (customer_exposure(complaints) if col == "Customer" else count_table(complaints, col)).head(10); add_section(title, f"Shows the leading {col.lower()} values for complaint records, with count and percentage of total complaints."); excel_bar_table(t, col); fig = chart(t, col, title=title); downloads(t, title.lower().replace(" ", "_"), fig)
 elif selected_page == "Open items":
     page_header(selected_page); page = date_filter(filtered, "open_items")
     pending, owed = open_items(page)
@@ -628,7 +655,16 @@ elif selected_page == "SOURCE 01 · Monthly trend":
 elif selected_page == "SOURCE 02 · Fix status": source_page(selected_page, filtered, "Short Term Fix Status", "fix_status")
 elif selected_page == "SOURCE 03 · Severity": source_page(selected_page, filtered, "Severity", "severity")
 elif selected_page == "SOURCE 04 · Root cause": source_page(selected_page, filtered, "Root Cause", "root_cause")
-elif selected_page == "SOURCE 05 · Top customers": source_page(selected_page, filtered, "Customer", "top_customers")
+elif selected_page == "SOURCE 05 · Top customers":
+    page = source_page(selected_page, filtered, "Customer", "top_customers", primary=customer_exposure)
+    complaints = page[page["Issue Type"].astype(str).eq("Complaint")] if "Issue Type" in page.columns else page
+    multi = int(complaints["Customer"].astype(str).str.contains("/").sum()) if "Customer" in complaints.columns else 0
+    exact = count_table(complaints, "Customer")
+    add_section("As the Excel Dashboard counts it", f"The workbook's COUNTIFS matches the Customer field as a whole "
+                f"string, so each of the {multi} multi-customer complaint row(s) appears as its own category rather "
+                f"than being added to either account. Kept here so the two artefacts can be reconciled; the table "
+                f"above is the one that answers how many incidents touched a customer.", "#b6beca")
+    styled_table(exact, height=420); downloads(exact, "top_customers_exact")
 elif selected_page == "SOURCE 06 · Automation focus": source_page(selected_page, filtered, "Standard Automation Focus", "automation_focus")
 elif selected_page == "DETAIL · Event workload": source_page(selected_page, filtered, "Event type", "event_workload")
 elif selected_page == "Automation urgency":
