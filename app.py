@@ -423,6 +423,49 @@ def missed_rate(df):
     return out.sort_values("Month")
 
 
+def missed_verdict(rate, window=3, noise=5.0):
+    """Say in words whether the miss rate is coming down, in a sentence a director reads.
+
+    A grid of monthly percentages does not answer "are we getting better", and the
+    honest answer here is no -- nine months in, the rate has not moved. Stating that
+    is the point of the KPI; leaving the reader to eyeball nine numbers is how it went
+    unnoticed.
+
+    Compared on POOLED counts, not the mean of monthly percentages: a month with four
+    records would otherwise carry the same weight as one with eighteen. A move smaller
+    than `noise` points is reported as flat rather than dressed up as a trend, and the
+    latest month is flagged when it is too thin to lean on -- these are 10-20 records a
+    month, and reading a trend into that noise is worse than reading none.
+    """
+    if len(rate) < window * 2:
+        return None
+    recent, prior = rate.tail(window), rate.iloc[-window * 2:-window]
+    now = recent["Missed"].sum() / max(recent["Records"].sum(), 1) * 100
+    was = prior["Missed"].sum() / max(prior["Records"].sum(), 1) * 100
+    delta = now - was
+    label = lambda m: pd.Period(m, freq="M").strftime("%b %Y")
+    span = (f"{label(recent['Month'].iloc[0])} to {label(recent['Month'].iloc[-1])}, "
+            f"against {label(prior['Month'].iloc[0])} to {label(prior['Month'].iloc[-1])}")
+    if delta <= -noise:
+        verdict, colour = "Improving", "#a8dab5"
+        sentence = f"down {abs(delta):.0f} points on the previous {window} months"
+    elif delta >= noise:
+        verdict, colour = "Getting worse", "#f28b82"
+        sentence = f"up {delta:.0f} points on the previous {window} months"
+    else:
+        verdict, colour = "Not improving", "#f6c177"
+        sentence = (f"a {abs(delta):.0f}-point move on the previous {window} months, "
+                    f"which is noise at this volume")
+    detail = (f"{now:.0f}% of the last {window} months' records were genuine misses "
+              f"({int(recent['Missed'].sum())} of {int(recent['Records'].sum())}), against "
+              f"{was:.0f}% before — {sentence}. {span}.")
+    thin = rate.iloc[-1]
+    if thin["Records"] < 8:
+        detail += (f" {label(thin['Month'])} holds only {int(thin['Records'])} records so far, so the "
+                   f"last point on the line will move.")
+    return verdict, detail, colour, now
+
+
 def customer_exposure(df, base=None):
     """Count a multi-customer row once for each customer named in it.
 
@@ -698,6 +741,24 @@ if selected_page == "Executive Summary":
     people = int((page.get("Root Cause", pd.Series(dtype=str)).astype(str) == "People").sum()) if "Root Cause" in page.columns else 0; process = int((page.get("Root Cause", pd.Series(dtype=str)).astype(str) == "Process").sum()) if "Root Cause" in page.columns else 0; product = int((page.get("Root Cause", pd.Series(dtype=str)).astype(str) == "Product").sum()) if "Root Cause" in page.columns else 0
     kpis([("Total records", len(page), f"{len(complaints)} complaints · {len(inquiries)} inquiries", "#8ab4f8"), ("Complaints %", f"{len(complaints)/total*100:.1f}%", "Share of selected records", "#f28b82"), ("Missed events", missed, f"{missed/total*100:.1f}% of selected records", "#f6c177"), ("People misses", people, "People-rooted · all records", "#b6beca"), ("Process/Product", f"{process}/{product}", "Process vs Product · all records", "#80cbc4")])
     kpis([("High severity", int((page.get("Severity", pd.Series(dtype=str)).astype(str) == "High").sum()) if "Severity" in page.columns else 0, "Records needing leadership attention", "#f28b82"), ("RCA requested", int((page.get("RCA Requested", pd.Series(dtype=str)).astype(str) == "Yes").sum()) if "RCA Requested" in page.columns else 0, "RCA asks · all records", "#f6c177"), ("Fixed", int((page.get("Short Term Fix Status", pd.Series(dtype=str)).astype(str) == "Fixed").sum()) if "Short Term Fix Status" in page.columns else 0, "Short-term fixes · all records", "#a8dab5"), ("RCA shared", int((page.get("Short Term Fix Status", pd.Series(dtype=str)).astype(str) == "RCA Shared").sum()) if "Short Term Fix Status" in page.columns else 0, "RCA shared · all records", "#80cbc4"), ("Clarified", int((page.get("Short Term Fix Status", pd.Series(dtype=str)).astype(str) == "Clarification Provided").sum()) if "Short Term Fix Status" in page.columns else 0, "Clarified · all records", "#8ab4f8")])
+    rate = missed_rate(page)
+    verdict = missed_verdict(rate)
+    add_section("Are we missing fewer events?", "The share of each month's records that were a genuine "
+                "reporting miss. Volume rises and falls with how many tickets customers happened to raise; "
+                "this is the line that says whether coverage is actually improving.", "#f6c177")
+    if rate.empty:
+        st.info("No dated records in the current filter.")
+    else:
+        if verdict:
+            headline, detail, colour, _ = verdict
+            st.markdown(
+                f"<div class='insight-box' style='--accent:{colour}'>"
+                f"<b style='color:{colour}'>{esc(headline)}.</b> {esc(detail)}</div>",
+                unsafe_allow_html=True)
+        else:
+            st.caption("Fewer than six months of records in this filter — too short to call a trend.")
+        f = rate_chart(rate, "Month", "Missed %", title="Missed events as a share of records")
+        downloads(rate, "missed_event_rate", f)
     add_section("Event Summary Intelligence", "Customer pain, complaint nature, missed-event patterns, root causes, severity, and automation opportunities for the selected date range. Every table here counts the same population as the cards above and as the SOURCE pages: all records the customer sent in, complaints and inquiries together.")
     for title, col in [("Top complaints by customer", "Customer"), ("Nature of complaints", "Reason"), ("Missed event types", "Event type"), ("Root cause split", "Root Cause"), ("Severity split", "Severity"), ("Automation opportunities", "Standard Automation Focus")]:
         if col in page.columns:

@@ -112,6 +112,15 @@ its own denominator rather than treating a blank as zero. Backfill came from eac
 ticket's Jira `resolutiondate` via the connector -- never guessed, and never taken for
 a merged incident unless every one of its keys resolved.
 
+The Executive Summary opens on the miss-rate question, because a grid of nine monthly
+percentages does not answer "are we getting better" and nobody was reading one out of
+it. `missed_verdict()` says it in a sentence: the last three months' pooled miss rate
+against the three before, on **counts, not the mean of monthly percentages** -- a month
+with 4 records must not weigh the same as one with 18. A move under 5 points reads as
+"Not improving" rather than being dressed up as a trend, and a thin latest month is
+flagged so nobody leans on a point that will move. At 103 records over nine months the
+current answer is 73% against 70%: flat, and the page now says so.
+
 `audit_pages.py` covers what `smoke_app.py` cannot: whether the numbers are *right*.
 It scrapes every `excel-table` off every page and reconciles each label against counts
 computed independently from the CSV. A page bound to a stale frame, a filter quietly
