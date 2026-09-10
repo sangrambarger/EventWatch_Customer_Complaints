@@ -33,12 +33,15 @@ row in the monthly trend block, CSV/workbook drift on **any** shared column, str
 dynamic-array metadata, stale caches, a `ComplaintTracker` table ref left short after an
 append (which silently undercounts every Dashboard COUNTIFS), Data rows appended in
 a different font, the same complaint logged twice, a tracker column with no row in the
-workbook's own data dictionary, and a `ComplaintTracker[...]` reference on any sheet
+workbook's own data dictionary, an enumerated *value* in use with no row in that
+dictionary (six event types, four reason labels and the `Pending` fix status were all
+in circulation undefined), a `DefinitionsTable` ref left short after an append, and a
+`ComplaintTracker[...]` reference on any sheet
 naming a column that no longer exists (which turns the Management Readout -- twelve
 formulas, no cached values -- into #REF! on next open). Read its output instead of re-deriving the checks.
 
 `selftest.py` is why you can trust that list. It breaks the data on purpose, one fault
-per rule, and asserts the rule blocks — a validator nobody has watched fail is a
+per failure mode (18 fixtures over 17 rules), and asserts the rule blocks — a validator nobody has watched fail is a
 validator nobody should trust. Two checks here were silent no-ops when first written,
 and the mojibake pattern passed clean for months over four corrupted cells because its
 regex needed a letter beside the `?` and the real corruption had spaces both sides.
@@ -148,7 +151,11 @@ If a resave already happened, restore the four `cm="1"` attributes and
   `chart1` already covers. Nothing needs doing when the month rolls over.
 - Fixed enumerations (Root Cause, Fix Status, Severity, Automation Focus) are still
   hand-listed and still go stale when a new value appears; `validate.py`'s
-  `enum_coverage` reports it and the row is added by hand.
+  `enum_coverage` reports it and the row is added by hand. A new value costs **two**
+  hand-edits, not one: the Dashboard's enum block (`enum_coverage`) and a row on the
+  Definitions sheet (`enum_definitions`). Definitions rows append at the bottom, out
+  of section order -- rows 138-150 already do -- so nothing shifts; extend
+  `DefinitionsTable`'s `ref` and the sheet `dimension` to the new last row.
 - Top Customers (`A64`) and Event Type workload (`I64`) are dynamic arrays; they
   resize themselves and need no maintenance.
 - Charts bind to those source tables by fixed range (`chart1` monthly trend,
@@ -193,4 +200,7 @@ If a resave already happened, restore the four `cm="1"` attributes and
   paraphrasing a document nobody can read back. Do not invent RCA narrative.
 - The app's Definitions page is a hardcoded dict in `app.py`, *not* a render of the
   workbook's Definitions sheet. Adding a tracker column means updating both, and
-  `validate.py`'s `definitions` check only watches the workbook side.
+  `validate.py`'s `definitions` and `enum_definitions` checks only watch the workbook
+  side. The two have already drifted: the app's page has no Event type or Sub-type
+  section at all and defines a `Confidence` term the tracker does not have, while the
+  workbook defines 110 values across 11 enumerated columns.
