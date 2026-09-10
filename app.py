@@ -269,8 +269,11 @@ def date_filter(df, key):
     if df.empty or not date_col or df[date_col].dropna().empty: return df
     mn, mx = df[date_col].dropna().min().date(), df[date_col].dropna().max().date()
     a, b, c = st.columns([1, 1, 2])
-    start = a.date_input("Start date", mn, min_value=mn, max_value=mx, key=f"{key}_start")
-    end = b.date_input("End date", mx, min_value=mn, max_value=mx, key=f"{key}_end")
+    # No min_value/max_value: clamping the picker to the data's own span meant you could
+    # not select a date outside it -- including next month, to check nothing has landed
+    # there yet. The defaults still open on the data's range.
+    start = a.date_input("Start date", mn, key=f"{key}_start")
+    end = b.date_input("End date", mx, key=f"{key}_end")
     c.caption(f"Date filter uses **{date_col}** and applies to this page.")
     if start > end:
         st.warning("Start date is after end date. Showing the full available range.")

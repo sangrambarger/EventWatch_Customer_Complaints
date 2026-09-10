@@ -137,14 +137,28 @@ If a resave already happened, restore the four `cm="1"` attributes and
 
 ## Dashboard structure worth knowing
 
-- Source tables sit under row 46. Fixed enumerations (Root Cause, Fix Status,
-  Severity, Automation Focus, monthly trend) are hand-listed and go stale when a new
-  value appears — this is what `validate.py`'s coverage checks watch.
+- Source tables sit under row 46. **The four bands share rows**: row 53 carries April's
+  month serial in column A, the Root Cause Total in E, a Fix Status value in I and a
+  Severity value in M. Inserting a row to grow one block therefore rewrites cells
+  belonging to the others — an attempt at automating that replaced May's month serial
+  with a duplicate of April's. Grow a block by writing its own two columns, never by
+  cloning a row.
+- The monthly trend block is pre-extended to all twelve months of 2026 (rows 50-61,
+  Total at 62), so October, November and December land in rows that already exist and
+  `chart1` already covers. Nothing needs doing when the month rolls over.
+- Fixed enumerations (Root Cause, Fix Status, Severity, Automation Focus) are still
+  hand-listed and still go stale when a new value appears; `validate.py`'s
+  `enum_coverage` reports it and the row is added by hand.
 - Top Customers (`A64`) and Event Type workload (`I64`) are dynamic arrays; they
   resize themselves and need no maintenance.
 - Charts bind to those source tables by fixed range (`chart1` monthly trend,
   `chart2` fix status, …), so extending a table means extending the chart's `<f>`
-  range and its cached points too.
+  range and its cached points too. Charts are not row-anchored in `drawing1.xml`, so
+  shifting source rows does not move them on screen.
+- Shifting rows also means rewriting A1-style references **inside** formulas
+  (`ANCHORARRAY(A64)`, `SUM(F64:F72)`) and the `ref=` on each `<f t="array">`, plus
+  `mergeCell`, `conditionalFormatting sqref` and the frozen `pane`. Renumbering only
+  the `<c r="...">` attributes leaves the sheet loading but computing nonsense.
 
 ## Conventions
 
