@@ -116,6 +116,11 @@ def load_data():
         try:
             df, label = read_csv_or_excel(src)
             st.sidebar.success(f"{label} loaded from {origin}")
+            # Say what was loaded, not just that something was. Without this there is no way
+            # to tell a stale deploy from a chart that legitimately excludes a small customer.
+            newest = pd.to_datetime(df.get("Email/JIRA Date"), errors="coerce").max() if len(df) else None
+            stamp = f" · newest record {newest:%d-%b-%Y}" if pd.notna(newest) else ""
+            st.sidebar.caption(f"**{len(df)} records**{stamp}")
             st.sidebar.caption("Workbook upload is disabled; data comes from the deployed files.")
             break
         except Exception as exc:
