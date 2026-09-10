@@ -171,17 +171,21 @@ def rewrite(csv_path: Path, xlsx_path: Path, dry: bool) -> tuple[list[str], list
     """
     calc = load(csv_path, xlsx_path)
     report: list[str] = []
-    patched = []
     with zipfile.ZipFile(xlsx_path) as z:
-        for info in z.infolist():
-            data = z.read(info.filename)
-            if info.filename == SHEET:
-                data = refresh_spills(data.decode("utf-8"), calc, report, dry).encode("utf-8")
-            elif re.match(r"xl/charts/chart\d+\.xml$", info.filename):
-                data = refresh_chart(data.decode("utf-8"), calc, Path(info.filename).name,
-                                     report, dry).encode("utf-8")
-            patched.append((info, data))
-    return report, patched
+        blob = {i.filename: z.read(i.filename) for i in z.infolist()}
+        infos = list(z.infolist())
+    # Note: growing a hand-listed block automatically is NOT done here. The source
+    # tables share rows -- row 53 carries April's serial in column A, the Root Cause
+    # Total in E, and a Fix Status value in I -- so inserting a row for one block
+    # rewrites cells belonging to the others. An attempt at it silently replaced May's
+    # month serial with a duplicate of April's. `validate.py`'s enum_coverage reports a
+    # new value and the row is added by hand, against a block that does not share rows.
+    blob[SHEET] = refresh_spills(blob[SHEET].decode("utf-8"), calc, report, dry).encode("utf-8")
+    for n in list(blob):
+        if re.match(r"xl/charts/chart\d+\.xml$", n):
+            blob[n] = refresh_chart(blob[n].decode("utf-8"), calc, Path(n).name,
+                                    report, dry).encode("utf-8")
+    return report, [(i, blob[i.filename]) for i in infos]
 
 
 def audit(csv_path: Path, xlsx_path: Path) -> list[str]:

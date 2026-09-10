@@ -281,10 +281,14 @@ class DashboardCalc:
 
 
 def load(csv_path: Path, xlsx_path: Path, sheet_member: str = "xl/worksheets/sheet2.xml") -> DashboardCalc:
-    df = pd.read_csv(csv_path, dtype=str, keep_default_na=False)
     with zipfile.ZipFile(xlsx_path) as z:
-        sheet = Sheet(z.read(sheet_member).decode("utf-8"))
-    return DashboardCalc(df, sheet)
+        return load_from(csv_path, z.read(sheet_member).decode("utf-8"))
+
+
+def load_from(csv_path: Path, sheet_xml: str) -> DashboardCalc:
+    """Evaluate against sheet XML held in memory, for callers mid-edit."""
+    df = pd.read_csv(csv_path, dtype=str, keep_default_na=False)
+    return DashboardCalc(df, Sheet(sheet_xml))
 
 
 def chart_series(xml: str) -> list[tuple[str, str, str]]:

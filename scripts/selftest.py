@@ -90,7 +90,9 @@ def break_enum_coverage(csv: Path, xlsx: Path) -> None:
 
 
 def break_month_coverage(csv: Path, xlsx: Path) -> None:
-    text = csv.read_text(encoding="utf-8").replace("Sep 2026,03-Sep-2026", "Oct 2026,03-Oct-2026", 1)
+    """A month past the end of the trend block. It runs Jan-Dec 2026 now, so the fault
+    has to reach into the next year to be a fault at all."""
+    text = csv.read_text(encoding="utf-8").replace("Sep 2026,03-Sep-2026", "Jan 2027,03-Jan-2027", 1)
     csv.write_text(text, encoding="utf-8")
 
 
@@ -105,7 +107,11 @@ def break_dynamic_arrays(csv: Path, xlsx: Path) -> None:
 
 def break_caches(csv: Path, xlsx: Path) -> None:
     def bend(x):
-        return re.sub(r'(<f>Dashboard!\$B\$50:\$B\$58</f><numCache>.*?<pt idx="0"><v>)\d+',
+        rng = re.search(r"<f>Dashboard!\$B\$\d+:\$B\$\d+</f>", x).group(0)
+        # The range element stays inside the capture group. Left outside it, the
+        # substitution drops the whole <f> ref and the chart loses the series --
+        # which is not the fault this case is meant to introduce.
+        return re.sub("(" + re.escape(rng) + r'<numCache>.*?<pt idx="0"><v>)\d+',
                       r"\g<1>99", x, count=1, flags=re.S)
     patch_zip(xlsx, "xl/charts/chart1.xml", bend)
 
@@ -118,12 +124,16 @@ def break_spill_space(csv: Path, xlsx: Path) -> None:
     passes for the wrong reason.
     """
     def bend(x):
-        m = re.search(r'ref="(I64:L)(\d+)"', x)
-        last = int(m.group(2))
+        # Find the widest array ref on the sheet rather than naming its anchor: the
+        # anchor moved from I64 to I67 when the monthly block was extended, and a
+        # pinned one stops being a fault instead of failing.
+        best = max(re.finditer(r'<f t="array" ref="([A-Z]+)(\d+):([A-Z]+)(\d+)"', x),
+                   key=lambda m: int(m.group(4)) - int(m.group(2)))
+        col, first, last = best.group(1), int(best.group(2)), int(best.group(4))
         short = last - 7
-        x = x.replace(m.group(0), f'ref="{m.group(1)}{short}"', 1)
-        return re.sub(r'<c r="I%d"[^>]*?(?:/>|>.*?</c>)' % (short + 1),
-                      f'<c r="I{short + 1}" t="inlineStr"><is><t>in the way</t></is></c>',
+        x = x.replace(best.group(0), f'<f t="array" ref="{col}{first}:{best.group(3)}{short}"', 1)
+        return re.sub(r'<c r="%s%d"[^>]*?(?:/>|>.*?</c>)' % (col, short + 1),
+                      f'<c r="{col}{short + 1}" t="inlineStr"><is><t>in the way</t></is></c>',
                       x, count=1, flags=re.S)
     patch_zip(xlsx, DASH_SHEET, bend)
 
