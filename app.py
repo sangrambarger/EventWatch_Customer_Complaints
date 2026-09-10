@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import html
+import json
 import os
 from datetime import datetime
 from pathlib import Path
@@ -135,6 +136,25 @@ def load_data():
     if source and "Month Label" not in df.columns:
         df["Month Label"] = df[source].dt.strftime("%b %Y")
     return df
+
+
+DEFINITIONS_NAME = "definitions.json"
+
+
+@st.cache_data(show_spinner=False)
+def definitions_payload():
+    """The glossary the Definitions page renders.
+
+    Generated from the workbook's Definitions sheet by scripts/export_definitions.py
+    and committed, so the CSV-only deploy path still has a glossary and the app never
+    has to parse a workbook at runtime. validate.py fails if the committed file has
+    drifted from the sheet, which is what the old hardcoded dict had no way to catch.
+    """
+    path = APP_DIR / DEFINITIONS_NAME
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {"groups": []}
 
 
 PAGE_KICKERS = {
@@ -474,31 +494,171 @@ def urgency_table(df):
     return g.rename(columns={"High_Severity": "High Severity", "RCA_Requested": "RCA Requested"})
 
 
-def manual_entry_form(source_cols):
-    with st.expander("Add complaint / inquiry entry manually"):
-        st.caption("Use when a valid complaint/inquiry was missed. The entry is staged for review/export, not silently written to production.")
+STAGED_FLAG = "_Staged"
+# Fields the form fills from the tracker's own values, so a new entry can only use a
+# term the Definitions sheet already defines. `enum_definitions` gates the workbook;
+# this gates the app, and the two agree because both read the same column.
+PICKLISTS = ["Customer", "Event type", "Reason", "Sub-type", "Standard Automation Focus"]
+NEW_VALUE = "— add a new value —"
+
+
+def taxonomy(df, column, extra=()):
+    """Distinct values in use for a column, plus any fixed options that must appear."""
+    values = set(extra)
+    if column in df.columns:
+        values |= {str(v).strip() for v in df[column].dropna() if str(v).strip()}
+    return sorted(values)
+
+
+def stage_entry(row):
+    st.session_state.setdefault("staged", []).append(row)
+
+
+def staged_frame(columns):
+    rows = st.session_state.get("staged", [])
+    if not rows:
+        return pd.DataFrame(columns=list(columns) + [STAGED_FLAG])
+    frame = pd.DataFrame(rows)
+    for col in columns:
+        if col not in frame.columns:
+            frame[col] = pd.NA
+    frame[STAGED_FLAG] = True
+    return frame[list(columns) + [STAGED_FLAG]]
+
+
+def apply_staged(df):
+    """Append this session's staged entries to the loaded tracker.
+
+    Everything downstream -- the sidebar filters, every count table, every chart, the
+    Executive Summary cards -- derives from this one frame, so appending here is what
+    makes an entry on the Complaint Tracker page show up on all fourteen pages at
+    once. Nothing else needs to know staging exists.
+    """
+    df = df.copy()
+    df[STAGED_FLAG] = False
+    extra = staged_frame([c for c in df.columns if c != STAGED_FLAG])
+    if extra.empty:
+        return df
+    out = pd.concat([df, extra], ignore_index=True)
+    for col in ("Month", "Email/JIRA Date", "Reporting Month"):
+        if col in out.columns:
+            out[col] = pd.to_datetime(out[col], errors="coerce")
+    source = next((c for c in ["Reporting Month", "Month", "Email/JIRA Date"] if c in out.columns), None)
+    if source and "Month Label" in out.columns:
+        out["Month Label"] = out[source].dt.strftime("%b %Y")
+    return out
+
+
+def derive_row(row):
+    """Fill the columns a complete tracker row carries but nobody should retype.
+
+    `validate.py` requires ten fields and the Dashboard's COUNTIFS read several more.
+    Deriving them here is what lets a staged row be pasted into the tracker and pass
+    validate.py unedited, rather than becoming a row someone has to finish by hand.
+    """
+    date = pd.Timestamp(row["Email/JIRA Date"])
+    row["Month"] = date.replace(day=1)
+    row["Reporting Month"] = date.replace(day=1)
+    row["Month Label"] = date.strftime("%b %Y")
+    row["Month_Sort"] = date.month
+    row["Number of Customers"] = len([p for p in str(row["Customer"]).split("/") if p.strip()])
+    # Routing is derived from Root Cause and a human override is expected; see CLAUDE.md.
+    row["Routed To"] = ("Product & Platform" if row.get("Root Cause") == "Product"
+                        else "EventWatch Ops - Nitin Rindhe")
+    return row
+
+
+def manual_entry_form(df):
+    source_cols = [c for c in df.columns if c != STAGED_FLAG]
+    with st.expander("Add complaint / inquiry entry", expanded=False):
+        st.caption("A saved entry is added to this session immediately and counted on every "
+                   "page -- cards, tables and charts alike. It is held in the browser session, "
+                   "not written to the tracker: download the combined CSV below and commit it "
+                   "through the approved update process to make it permanent.")
         with st.form("manual_entry_form"):
-            c1, c2, c3 = st.columns(3); row = {"Email/JIRA Date": c1.date_input("Email/JIRA Date"), "Jira Key": c2.text_input("Jira Key (e.g. EAO-33)"), "Customer": c3.text_input("Customer *")}
-            row["Issue Type"] = st.selectbox("Issue Type *", ["Complaint", "Inquiry"])
-            c4, c5, c6 = st.columns(3); row["Event type"] = c4.text_input("Event type *"); row["Reason"] = c5.text_input("Reason *"); row["Root Cause"] = c6.selectbox("Root Cause", ["", "People", "Process", "Product"])
+            c1, c2, c3 = st.columns(3)
+            row = {"Email/JIRA Date": c1.date_input("Email/JIRA Date *"),
+                   "Jira Key": c2.text_input("Jira Key (e.g. EAO-39)"),
+                   "Issue Type": c3.selectbox("Issue Type *", ["Complaint", "Inquiry"])}
+            c4, c5 = st.columns(2)
+            row["Customer"] = c4.selectbox("Customer *", taxonomy(df, "Customer") + [NEW_VALUE])
+            new_customer = c5.text_input("New customer (slash-separate two accounts: Eaton/Ford)")
             row["Event/Bulletin Title"] = st.text_input("Event/Bulletin Title *")
-            c7, c8, c9 = st.columns(3); row["Severity"] = c7.selectbox("Severity", ["Medium", "High", "Low"]); row["RCA Requested"] = c8.selectbox("RCA Requested", ["No", "Yes"]); row["Short Term Fix Status"] = c9.selectbox("Short Term Fix Status", ["", "Fixed", "RCA Shared", "Clarification Provided"])
-            row["Standard Automation Focus"] = st.text_input("Standard Automation Focus"); row["Comments"] = st.text_area("Comments / evidence summary *")
-            save = st.form_submit_button("Save staged entry")
+
+            c6, c7, c8 = st.columns(3)
+            row["Event type"] = c6.selectbox("Event type *", taxonomy(df, "Event type"))
+            row["Reason"] = c7.selectbox("Reason *", taxonomy(df, "Reason"))
+            row["Sub-type"] = c8.selectbox("Sub-type", [""] + taxonomy(df, "Sub-type"))
+
+            c9, c10, c11 = st.columns(3)
+            row["Root Cause"] = c9.selectbox("Root Cause *", ["People", "Process", "Product"])
+            row["Severity"] = c10.selectbox("Severity *", ["Medium", "High", "Low"])
+            row["Standard Automation Focus"] = c11.selectbox(
+                "Standard Automation Focus *", taxonomy(df, "Standard Automation Focus"))
+
+            c12, c13, c14 = st.columns(3)
+            row["Short Term Fix Status"] = c12.selectbox(
+                "Short Term Fix Status", taxonomy(df, "Short Term Fix Status", ("Pending",)))
+            row["RCA Requested"] = c13.selectbox("RCA Requested", ["No", "Yes"])
+            row["Missed_Flag"] = c14.selectbox("Missed_Flag", ["No", "Yes"])
+
+            c15, c16 = st.columns(2)
+            row["Improvement VS Bug"] = c15.selectbox(
+                "Improvement VS Bug", [""] + taxonomy(df, "Improvement VS Bug"))
+            row["Delay"] = c16.text_input("Delay (free text, e.g. '2 days')")
+            row["Comments"] = st.text_area("Comments / evidence summary *")
+            row["RCA Details"] = st.text_area(
+                "RCA Details (leave blank where no RCA has been issued; do not paraphrase a PDF)")
+            save = st.form_submit_button("Add entry to this session")
+
         if save:
-            missing = [c for c in ["Customer", "Issue Type", "Event type", "Reason", "Event/Bulletin Title", "Comments"] if not str(row.get(c, "")).strip()]
-            if missing: st.error("Missing required fields: " + ", ".join(missing))
+            if row["Customer"] == NEW_VALUE:
+                row["Customer"] = new_customer.strip()
+            required = ["Customer", "Event/Bulletin Title", "Event type", "Reason",
+                        "Root Cause", "Severity", "Standard Automation Focus", "Comments"]
+            missing = [c for c in required if not str(row.get(c, "")).strip()]
+            if missing:
+                st.error("Missing required fields: " + ", ".join(missing))
             else:
-                staged = pd.DataFrame([{**{c: row.get(c, "") for c in source_cols if c in row}, **row}])
-                st.success("Manual entry saved for review/export. Download it and add it through the approved tracker update process.")
-                styled_table(staged)
-                st.download_button("Download staged manual entry CSV", staged.to_csv(index=False).encode(), "manual_complaint_entry.csv", "text/csv")
+                stage_entry({k: v for k, v in derive_row(row).items() if k in source_cols or k == "Month Label"})
+                st.success("Entry added. Every page now counts it. Download the combined CSV "
+                           "below to make it permanent.")
+                st.rerun()
+
+    staged = st.session_state.get("staged", [])
+    if not staged:
+        return
+    st.markdown("<div class='definition-group'><h3>Staged this session</h3>", unsafe_allow_html=True)
+    st.caption(f"{len(staged)} entry(ies) counted on every page but not yet in the tracker file.")
+    preview = [c for c in ["Email/JIRA Date", "Jira Key", "Customer", "Event type",
+                           "Event/Bulletin Title", "Issue Type", "Reason", "Root Cause",
+                           "Severity", "Short Term Fix Status"] if c in source_cols]
+    styled_table(staged_frame(source_cols)[preview])
+    combined = apply_staged(df.drop(columns=[STAGED_FLAG], errors="ignore"))
+    combined = combined.drop(columns=[STAGED_FLAG, "Month Label"], errors="ignore")
+    for col in ("Month", "Email/JIRA Date", "Reporting Month"):
+        if col in combined.columns:
+            combined[col] = pd.to_datetime(combined[col], errors="coerce").dt.strftime("%d-%b-%Y")
+    c1, c2 = st.columns(2)
+    c1.download_button("Download tracker CSV including staged entries",
+                       combined.to_csv(index=False).encode(), CSV_NAME, "text/csv")
+    if c2.button("Discard staged entries"):
+        st.session_state["staged"] = []
+        st.rerun()
+    st.markdown("</div>", unsafe_allow_html=True)
 
 
 st.sidebar.title(APP_TITLE); st.sidebar.caption("Executive navigation")
 selected_page = st.sidebar.radio("Dashboard pages", PAGES, label_visibility="collapsed")
 df = load_data()
 if df.empty: st.stop()
+# Staged entries join the frame here, before filtering, so every page downstream
+# counts them without knowing they exist.
+df = apply_staged(df)
+staged_count = int(df[STAGED_FLAG].sum()) if STAGED_FLAG in df.columns else 0
+if staged_count:
+    st.sidebar.warning(f"{staged_count} staged entry(ies) included on every page. "
+                       f"Not yet written to the tracker file.")
 filtered = sidebar_filters(df)
 
 if selected_page == "Executive Summary":
@@ -652,9 +812,22 @@ elif selected_page == "Dynamic Source Discovery":
     add_section("Complete Dynamic Source Discovery records", "All filtered records classified under Dynamic Source Discovery for detailed review.", "#b6beca"); styled_table(disc, height=420); downloads(disc, "dynamic_source_discovery_complete")
 elif selected_page == "Definitions":
     page_header(selected_page)
-    groups = {"Tracker fields":[("Month / Reporting Month","Month used for trend reporting and date filtering."),("Email/JIRA Date","Formal received/logged date for the complaint, inquiry, or Jira trail."),("Customer","Account that raised the concern, not the affected supplier."),("Event/Bulletin Title","Published EventWatch title or concise factual event title."),("Comments","Concise evidence-backed summary of complaint, finding, action, and status."),("RCA Details","Root cause summary taken from the RCA shared on the linked Jira ticket. Blank where no RCA was requested or none has been issued yet; where the RCA went out only as a PDF attachment the entry says so rather than paraphrasing a document that is not in the ticket."),("Routed To","Which team the record is directed to for action. People- and Process-rooted records go to EventWatch Ops (Nitin Rindhe); Product-rooted records go to Product & Platform. EventWatch Ops still owns the customer-facing RCA on Product-routed records — routing says who investigates, not who replies.")],"Issue and reason types":[("Complaint","Confirmed or alleged EventWatch service miss, delay, incorrect handling, visibility issue, duplicate/missing WarRoom, or RCA-driven concern."),("Inquiry","Coverage, methodology, supplier/site, or threshold clarification without confirmed service failure."),("Reason","Specific operational issue such as Missed Event, Missed WarRoom, Delayed Event, Duplicate WarRooms, Incorrect Action, or Mapping Clarification.")],"Root cause groups":[("People","Human review, prioritization, judgment, communication, or execution miss."),("Process","Workflow, policy, methodology, handoff, or procedural gap."),("Product","Ingestion, source coverage, keyword, clustering, mapping, visibility, platform, or automation defect/gap.")],"Severity and status":[("High","Material operational or customer-trust impact requiring elevated attention."),("Medium","Standard tracked complaint or quality issue."),("Low","Limited-impact inquiry or minor quality signal."),("Fixed","Corrective action completed."),("RCA Shared","RCA approved/shared for customer communication."),("Clarification Provided","Explanation provided where no fix/RCA is required.")],"Automation focus":[("Dynamic Source Discovery","Source, feed, keyword, vendor monitoring, or article discovery gap."),("WarRoom & Decision Validation","Missing, delayed, duplicate, or incorrect WarRoom/decision handling."),("Entity & Supplier Resolution","Supplier, customer, entity, or mapping quality issue."),("AI-Assisted Geofencing","Location/polygon/proximity validation opportunity."),("Notification Visibility Monitoring","Delivery, profile visibility, and notification path monitoring."),("Cluster Integrity & Duplicate Prevention","Duplicate/split clusters or inconsistent event grouping."),("Automated Industry Tagging","Industry tagging validation or automation."),("Multilingual Keyword Expansion","Language/keyword coverage expansion from observed misses."),("Other Control Automation","Targeted control not covered by the standard categories.")],"Evidence and deduplication":[("Missed_Flag","Yes when expected alerting, coverage, notification, escalation, or WarRoom creation was missed or materially delayed."),("Confidence","HIGH, MEDIUM, or LOW based on evidence quality and duplicate checks."),("Jira Key","The linked Jira issue key for the complaint (e.g. EAO-33), normally filed in the EAO project (EventWatch_AI_Ops). Blank on records that predate the project."),("Duplicate check","Match a new row against Jira Key, customer and event title, facility, date and type before adding it. Jira itself is the place to confirm a key; the tracker records it once confirmed.")]}
-    for group, rows in groups.items(): st.markdown(f"<div class='definition-group'><h3>{group}</h3>", unsafe_allow_html=True); styled_table(pd.DataFrame(rows, columns=["Term", "Definition"])); st.markdown("</div>", unsafe_allow_html=True)
+    payload = definitions_payload()
+    if not payload.get("groups"):
+        st.warning("definitions.json is missing or unreadable. Run "
+                   "`python3 scripts/export_definitions.py` and redeploy.")
+    else:
+        st.caption(f"{payload.get('terms', 0)} terms, generated from the workbook's Definitions "
+                   f"sheet and pruned to the values this tracker actually uses "
+                   f"({payload.get('pruned', 0)} unused term(s) omitted).")
+        for group in payload["groups"]:
+            rows = pd.DataFrame(group["rows"], columns=["Term", "Definition", "Allowed values / interpretation"])
+            if not rows["Allowed values / interpretation"].str.strip().any():
+                rows = rows[["Term", "Definition"]]
+            st.markdown(f"<div class='definition-group'><h3>{group['title']}</h3>", unsafe_allow_html=True)
+            styled_table(rows)
+            st.markdown("</div>", unsafe_allow_html=True)
 elif selected_page == "Complaint Tracker":
     page_header(selected_page); page = date_filter(filtered, "tracker"); concise = [c for c in ["Month Label", "Email/JIRA Date", "Jira Key", "Customer", "Event type", "Event/Bulletin Title", "Issue Type", "Reason", "Root Cause", "Short Term Fix Status", "RCA Requested", "Severity", "Standard Automation Focus", "Comments"] if c in page.columns]
-    c1, c2 = st.columns(2); c1.download_button("Download visible tracker CSV", page[concise].to_csv(index=False).encode(), "customer_tracker_visible.csv", "text/csv"); c2.download_button("Download full filtered source CSV", page.to_csv(index=False).encode(), "customer_tracker_full_filtered.csv", "text/csv")
-    styled_table(page[concise], height=560); manual_entry_form(list(df.columns))
+    c1, c2 = st.columns(2); c1.download_button("Download visible tracker CSV", page[concise].to_csv(index=False).encode(), "customer_tracker_visible.csv", "text/csv"); c2.download_button("Download full filtered source CSV", page.drop(columns=[STAGED_FLAG], errors="ignore").to_csv(index=False).encode(), "customer_tracker_full_filtered.csv", "text/csv")
+    styled_table(page[concise], height=560); manual_entry_form(df)

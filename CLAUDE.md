@@ -23,6 +23,7 @@ python3 scripts/sort_tracker.py Jul Aug     # put those months back in date orde
 python3 scripts/sort_tracker.py --all       # ...or the whole tracker
 python3 scripts/selftest.py                 # prove each validate.py rule still fires
 python3 scripts/audit_pages.py              # every rendered figure vs the tracker, page by page
+python3 scripts/export_definitions.py       # regenerate definitions.json from the workbook sheet
 ```
 
 `validate.py` covers every bug class that has actually shipped here: characters decayed
@@ -41,7 +42,7 @@ naming a column that no longer exists (which turns the Management Readout -- twe
 formulas, no cached values -- into #REF! on next open). Read its output instead of re-deriving the checks.
 
 `selftest.py` is why you can trust that list. It breaks the data on purpose, one fault
-per failure mode (18 fixtures over 17 rules), and asserts the rule blocks — a validator nobody has watched fail is a
+per failure mode (19 fixtures over 18 rules), and asserts the rule blocks — a validator nobody has watched fail is a
 validator nobody should trust. Two checks here were silent no-ops when first written,
 and the mojibake pattern passed clean for months over four corrupted cells because its
 regex needed a letter beside the `?` and the real corruption had spaces both sides.
@@ -85,6 +86,19 @@ table carries explicit `Complaints` and `Inquiries` columns beside the total, wi
 charts stacked to match. The Excel Dashboard still counts complaints only, so its Top
 Customers figures differ from the app on two axes; SOURCE 05 shows the workbook's basis
 in its own table so the two reconcile.
+
+The Complaint Tracker page's entry form writes into `st.session_state`, and
+`apply_staged()` appends those rows to the frame **before** `sidebar_filters()`. Every
+page derives from that one frame, so an entry added there is counted immediately on all
+fourteen -- Executive Summary's total goes 103 to 104, SOURCE 05's Ford tally 37 to 38.
+The form's pickers are built from the tracker's own distinct values, so a staged row can
+only carry terms the Definitions sheet already defines, and `derive_row()` fills Month,
+Reporting Month, Month_Sort, Number of Customers and Routed To -- a staged row pasted
+into the tracker passes `validate.py` unedited. Staging is **per browser session and not
+persisted**: Streamlit Cloud's filesystem is ephemeral and `app.py` makes no network
+calls, so the entry lives until the tab is closed. The "Download tracker CSV including
+staged entries" button is the path to making it permanent. Durable in-app writes would
+need a GitHub token or a database, and neither exists here.
 
 `smoke_app.py` covers what `validate.py` cannot: the app itself. It starts Streamlit
 against the local CSV, clicks every page (14 of them), and fails on Streamlit exceptions, in-app
@@ -198,9 +212,13 @@ If a resave already happened, restore the four `cm="1"` attributes and
 - `RCA Details` holds the root cause summary from the linked ticket. Most RCAs went out
   as PDF attachments whose text is not in Jira, so those entries say so rather than
   paraphrasing a document nobody can read back. Do not invent RCA narrative.
-- The app's Definitions page is a hardcoded dict in `app.py`, *not* a render of the
-  workbook's Definitions sheet. Adding a tracker column means updating both, and
-  `validate.py`'s `definitions` and `enum_definitions` checks only watch the workbook
-  side. The two have already drifted: the app's page has no Event type or Sub-type
-  section at all and defines a `Confidence` term the tracker does not have, while the
-  workbook defines 110 values across 11 enumerated columns.
+- The app's Definitions page renders `definitions.json`, generated from the workbook's
+  Definitions sheet by `scripts/export_definitions.py` and **pruned to terms in use**
+  (a field definition survives if the tracker has that column, a taxonomy value if some
+  record carries it, an operational term if it appears in the tracker's own text). Edit
+  the sheet, re-run the script; never edit the JSON. `validate.py`'s
+  `definitions_export` rebuilds it in memory and fails if what is committed is stale.
+  It is a committed file rather than a runtime read of the workbook because the
+  CSV-only deploy path has no workbook, and a JSON that ships with the app cannot fail
+  to load. It replaced a hardcoded dict that had drifted badly -- no Event type or
+  Sub-type section at all, and a `Confidence` term the tracker never had.

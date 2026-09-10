@@ -47,7 +47,7 @@ EXPECTED: dict[str, tuple[int, int]] = {
     "Repeat patterns": (1, 1),
     "Automation urgency": (1, 1),
     "Dynamic Source Discovery": (3, 7),
-    "Definitions": (0, 6),
+    "Definitions": (0, 12),
     "Complaint Tracker": (0, 1),
 }
 
