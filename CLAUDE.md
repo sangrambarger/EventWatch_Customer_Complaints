@@ -22,6 +22,7 @@ python3 scripts/refresh_caches.py           # rewrite the drifted caches
 python3 scripts/sort_tracker.py Jul Aug     # put those months back in date order, both files
 python3 scripts/sort_tracker.py --all       # ...or the whole tracker
 python3 scripts/selftest.py                 # prove each validate.py rule still fires
+python3 scripts/audit_pages.py              # every rendered figure vs the tracker, page by page
 ```
 
 `validate.py` covers every bug class that has actually shipped here: characters decayed
@@ -68,6 +69,19 @@ Data row 55) travels with its record, and it rewrites the CSV line-by-line rathe
 re-serialising it, so quoting stays byte-identical and the diff shows only what moved.
 It also restyles cells appended in the wrong font: sorting scatters them, turning a
 tidy odd-looking block at the bottom into odd-looking rows throughout.
+
+`audit_pages.py` covers what `smoke_app.py` cannot: whether the numbers are *right*.
+It scrapes every `excel-table` off every page and reconciles each label against counts
+computed independently from the CSV. A page bound to a stale frame, a filter quietly
+dropping rows, or a chart truncating a category all look identical to `smoke_app.py`;
+this names the label and both numbers. It found the app showing Ford as 41, 37 and 32
+on three pages at once.
+
+Every page counts **all records — complaints and inquiries together** — and every count
+table carries explicit `Complaints` and `Inquiries` columns beside the total, with the
+charts stacked to match. The Excel Dashboard still counts complaints only, so its Top
+Customers figures differ from the app on two axes; SOURCE 05 shows the workbook's basis
+in its own table so the two reconcile.
 
 `smoke_app.py` covers what `validate.py` cannot: the app itself. It starts Streamlit
 against the local CSV, clicks every page (16 of them), and fails on Streamlit exceptions, in-app

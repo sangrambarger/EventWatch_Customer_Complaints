@@ -291,13 +291,32 @@ def sidebar_filters(df):
     return out
 
 
+def split_by_issue(frame, keys, index):
+    """Complaint and Inquiry counts per key, so a total never hides its make-up."""
+    out = pd.DataFrame(index=index)
+    if "Issue Type" not in frame.columns:
+        return out
+    issue = frame["Issue Type"].fillna("").astype(str).str.strip()
+    # Spelled out, not pluralised by concatenation -- "Inquiry" + "s" is "Inquirys",
+    # which silently never matched the column the callers look for.
+    for value, column in (("Complaint", "Complaints"), ("Inquiry", "Inquiries")):
+        out[column] = keys[issue == value].value_counts().reindex(index).fillna(0).astype(int)
+    return out
+
+
 def count_table(df, col, base=None):
-    if df.empty or col not in df.columns: return pd.DataFrame(columns=[col, "Records", "% of Total"])
-    t = df[col].fillna("Blank").astype(str).value_counts().reset_index()
+    cols = [col, "Complaints", "Inquiries", "Records", "% of Total"]
+    if df.empty or col not in df.columns: return pd.DataFrame(columns=cols)
+    keys = df[col].fillna("Blank").astype(str)
+    t = keys.value_counts().reset_index()
     t.columns = [col, "Records"]
+    parts = split_by_issue(df, keys, pd.Index(t[col]))
+    for name in ("Complaints", "Inquiries"):
+        if name in parts.columns:
+            t[name] = parts[name].values
     denom = max(base or len(df), 1)
     t["% of Total"] = (t["Records"] / denom * 100).round(1).astype(str) + "%"
-    return t
+    return t[[c for c in cols if c in t.columns]]
 
 
 def long_pair_table(df, first, second, base=None):
@@ -322,11 +341,18 @@ def excel_bar_table(df, label_col, value_col="Records"):
     if df.empty or label_col not in df.columns or value_col not in df.columns:
         st.info("No data available for this view."); return
     max_v = max(float(df[value_col].max()), 1)
+    extra = [c for c in ("Complaints", "Inquiries") if c in df.columns]
     rows = []
     for _, r in df.iterrows():
         width = float(r[value_col]) / max_v * 100
-        rows.append(f"<tr><td>{esc(r[label_col])}</td><td class='bar-cell'><div class='bar-box' style='--w:{width:.1f}%'><span>{esc(r[value_col])}</span></div></td><td>{esc(r.get('% of Total',''))}</td></tr>")
-    st.markdown("<div class='table-wrap'><table class='excel-table'><thead><tr><th>Category</th><th>Records</th><th>% of Total</th></tr></thead><tbody>" + "".join(rows) + "</tbody></table></div>", unsafe_allow_html=True)
+        cells = "".join(f"<td>{esc(r[c])}</td>" for c in extra)
+        rows.append(f"<tr><td>{esc(r[label_col])}</td>{cells}"
+                    f"<td class='bar-cell'><div class='bar-box' style='--w:{width:.1f}%'><span>{esc(r[value_col])}</span></div></td>"
+                    f"<td>{esc(r.get('% of Total',''))}</td></tr>")
+    heads = "".join(f"<th>{esc(c)}</th>" for c in extra)
+    st.markdown("<div class='table-wrap'><table class='excel-table'><thead><tr><th>Category</th>" + heads +
+                "<th>Total records</th><th>% of Total</th></tr></thead><tbody>" + "".join(rows) +
+                "</tbody></table></div>", unsafe_allow_html=True)
 
 
 def cell(v):
@@ -368,14 +394,25 @@ def styled_table(df, max_rows=None, height=None):
 def chart(df, label_col, value_col="Records", title=""):
     if df.empty or label_col not in df.columns or value_col not in df.columns:
         st.info(f"Chart cannot be rendered because required fields are missing: {label_col}, {value_col}."); return None
-    data = df[[label_col, value_col]].dropna().head(20).copy()
+    # When the table carries the complaint/inquiry split, stack it so the bar shows what
+    # the total is made of rather than hiding it behind one number.
+    parts = [c for c in ("Complaints", "Inquiries") if c in df.columns]
+    keep = [label_col, value_col] + parts
+    data = df[keep].dropna(subset=[label_col, value_col]).head(20).copy()
     if data.empty: st.info("No chartable records available for this view."); return None
     data[label_col] = data[label_col].astype(str)
-    fig = px.bar(data, x=value_col, y=label_col, orientation="h", text=value_col, title=title, color_discrete_sequence=["#8ab4f8"])
-    fig.update_yaxes(categoryorder="total ascending", tickfont=dict(size=13, color="#f3f4f6"), gridcolor="#303846")
-    fig.update_xaxes(tickfont=dict(size=12, color="#f3f4f6"), gridcolor="#303846")
-    fig.update_traces(opacity=.92, textposition="outside", cliponaxis=False, marker_line_width=0)
-    fig.update_layout(template="plotly_dark", plot_bgcolor="#1b1f26", paper_bgcolor="#1b1f26", font=dict(color="#f3f4f6", size=13), margin=dict(l=20, r=60, t=44, b=28), height=max(360, min(760, len(data) * 38 + 130)), showlegend=False)
+    if parts:
+        fig = px.bar(data, x=parts, y=label_col, orientation="h", text_auto=True, title=title,
+                     color_discrete_map={"Complaints": "#8ab4f8", "Inquiries": "#f6c177"})
+        fig.update_layout(barmode="stack", legend_title_text="",
+                          legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0))
+    else:
+        fig = px.bar(data, x=value_col, y=label_col, orientation="h", text=value_col, title=title, color_discrete_sequence=["#8ab4f8"])
+    fig.update_yaxes(categoryorder="total ascending", tickfont=dict(size=13, color="#f3f4f6"), gridcolor="#303846", title="")
+    fig.update_xaxes(tickfont=dict(size=12, color="#f3f4f6"), gridcolor="#303846", title="Records")
+    fig.update_traces(opacity=.92, cliponaxis=False, marker_line_width=0)
+    if not parts: fig.update_traces(textposition="outside")
+    fig.update_layout(template="plotly_dark", plot_bgcolor="#1b1f26", paper_bgcolor="#1b1f26", font=dict(color="#f3f4f6", size=13), margin=dict(l=20, r=60, t=64 if parts else 44, b=28), height=max(360, min(760, len(data) * 38 + 150)), showlegend=bool(parts))
     st.plotly_chart(fig, use_container_width=True)
     return fig
 
@@ -446,13 +483,18 @@ def customer_exposure(df, base=None):
     """
     if df.empty or "Customer" not in df.columns:
         return pd.DataFrame(columns=["Customer", "Records", "% of Total"])
-    pairs = (df["Customer"].fillna("Blank").astype(str)
-             .str.split("/").explode().str.strip().replace("", "Blank"))
-    t = pairs.value_counts().reset_index()
+    exploded = (df.assign(_c=df["Customer"].fillna("Blank").astype(str).str.split("/"))
+                  .explode("_c"))
+    keys = exploded["_c"].str.strip().replace("", "Blank")
+    t = keys.value_counts().reset_index()
     t.columns = ["Customer", "Records"]
+    parts = split_by_issue(exploded, keys, pd.Index(t["Customer"]))
+    for name in ("Complaints", "Inquiries"):
+        if name in parts.columns:
+            t[name] = parts[name].values
     denom = max(base or len(df), 1)
     t["% of Total"] = (t["Records"] / denom * 100).round(1).astype(str) + "%"
-    return t
+    return t[[c for c in ["Customer", "Complaints", "Inquiries", "Records", "% of Total"] if c in t.columns]]
 
 
 def repeat_patterns(df, minimum=2):
@@ -480,7 +522,7 @@ def source_page(title, df, col, key, primary=None):
     t = primary(page) if primary else count_table(page, col)
     note = (" A row naming two customers is counted for each of them, so one incident reported by two accounts "
             "adds to both tallies." if primary else "")
-    add_section(f"{label} summary table", f"Shows selected tracker records by {label.lower()}, with record count and share of the filtered total.{note}")
+    add_section(f"{label} summary table", f"Every record the customer sent in -- complaints and inquiries both -- by {label.lower()}, with count and share of the current filter.{note}")
     excel_bar_table(t, col); downloads(t, key)
     add_section(f"{label} chart", f"Visual ranking of {label.lower()} categories so leaders can quickly see the biggest drivers.", "#80cbc4")
     fig = chart(t, col, title=f"{label} distribution"); downloads(t, f"{key}_chart_data", fig)
@@ -560,10 +602,10 @@ if selected_page == "Executive Summary":
     people = int((page.get("Root Cause", pd.Series(dtype=str)).astype(str) == "People").sum()) if "Root Cause" in page.columns else 0; process = int((page.get("Root Cause", pd.Series(dtype=str)).astype(str) == "Process").sum()) if "Root Cause" in page.columns else 0; product = int((page.get("Root Cause", pd.Series(dtype=str)).astype(str) == "Product").sum()) if "Root Cause" in page.columns else 0
     kpis([("Total records", len(page), f"{len(complaints)} complaints · {len(inquiries)} inquiries", "#8ab4f8"), ("Complaints %", f"{len(complaints)/total*100:.1f}%", "Share of selected records", "#f28b82"), ("Missed events", missed, f"{missed/total*100:.1f}% of selected records", "#f6c177"), ("People misses", people, "People-rooted · all records", "#b6beca"), ("Process/Product", f"{process}/{product}", "Process vs Product · all records", "#80cbc4")])
     kpis([("High severity", int((page.get("Severity", pd.Series(dtype=str)).astype(str) == "High").sum()) if "Severity" in page.columns else 0, "Records needing leadership attention", "#f28b82"), ("RCA requested", int((page.get("RCA Requested", pd.Series(dtype=str)).astype(str) == "Yes").sum()) if "RCA Requested" in page.columns else 0, "RCA asks · all records", "#f6c177"), ("Fixed", int((page.get("Short Term Fix Status", pd.Series(dtype=str)).astype(str) == "Fixed").sum()) if "Short Term Fix Status" in page.columns else 0, "Short-term fixes · all records", "#a8dab5"), ("RCA shared", int((page.get("Short Term Fix Status", pd.Series(dtype=str)).astype(str) == "RCA Shared").sum()) if "Short Term Fix Status" in page.columns else 0, "RCA shared · all records", "#80cbc4"), ("Clarified", int((page.get("Short Term Fix Status", pd.Series(dtype=str)).astype(str) == "Clarification Provided").sum()) if "Short Term Fix Status" in page.columns else 0, "Clarified · all records", "#8ab4f8")])
-    add_section("Event Summary Intelligence", "Customer pain, complaint nature, missed-event patterns, root causes, severity, and automation opportunities for the selected date range. Unlike the cards above, every table in this section counts complaint records only — the same basis the SOURCE pages and the Excel Dashboard use.")
+    add_section("Event Summary Intelligence", "Customer pain, complaint nature, missed-event patterns, root causes, severity, and automation opportunities for the selected date range. Every table here counts the same population as the cards above and as the SOURCE pages: all records the customer sent in, complaints and inquiries together.")
     for title, col in [("Top complaints by customer", "Customer"), ("Nature of complaints", "Reason"), ("Missed event types", "Event type"), ("Root cause split", "Root Cause"), ("Severity split", "Severity"), ("Automation opportunities", "Standard Automation Focus")]:
-        if col in complaints.columns:
-            t = (customer_exposure(complaints) if col == "Customer" else count_table(complaints, col)).head(10); add_section(title, f"Shows the leading {col.lower()} values for complaint records, with count and percentage of total complaints."); excel_bar_table(t, col); fig = chart(t, col, title=title); downloads(t, title.lower().replace(" ", "_"), fig)
+        if col in page.columns:
+            t = (customer_exposure(page) if col == "Customer" else count_table(page, col)).head(10); add_section(title, f"Leading {col.lower()} values across every record in the current filter, with count and share of the total."); excel_bar_table(t, col); fig = chart(t, col, title=title); downloads(t, title.lower().replace(" ", "_"), fig)
 elif selected_page == "Open items":
     page_header(selected_page); page = date_filter(filtered, "open_items")
     pending, owed = open_items(page)
@@ -680,10 +722,11 @@ elif selected_page == "SOURCE 05 · Top customers":
     complaints = page[page["Issue Type"].astype(str).eq("Complaint")] if "Issue Type" in page.columns else page
     multi = int(complaints["Customer"].astype(str).str.contains("/").sum()) if "Customer" in complaints.columns else 0
     exact = count_table(complaints, "Customer")
-    add_section("As the Excel Dashboard counts it", f"The workbook's COUNTIFS matches the Customer field as a whole "
-                f"string, so each of the {multi} multi-customer complaint row(s) appears as its own category rather "
-                f"than being added to either account. Kept here so the two artefacts can be reconciled; the table "
-                f"above is the one that answers how many incidents touched a customer.", "#b6beca")
+    add_section("As the Excel Dashboard counts it", f"The workbook differs on two counts: it includes complaint "
+                f"records only, and it matches the Customer field as a whole string, so each of the {multi} "
+                f"multi-customer complaint row(s) becomes its own category instead of being added to either "
+                f"account. Kept here so the two artefacts can be reconciled. The table above is the one that "
+                f"answers how many emails and questions a customer sent in.", "#b6beca")
     styled_table(exact, height=420); downloads(exact, "top_customers_exact")
 elif selected_page == "SOURCE 06 · Automation focus": source_page(selected_page, filtered, "Standard Automation Focus", "automation_focus")
 elif selected_page == "DETAIL · Event workload": source_page(selected_page, filtered, "Event type", "event_workload")
