@@ -7,7 +7,6 @@ from pathlib import Path
 
 import pandas as pd
 import plotly.express as px
-import requests
 import streamlit as st
 
 st.set_page_config(page_title="EventWatch Executive Dashboard", layout="wide")
@@ -23,7 +22,7 @@ PAGES = [
     "Executive Summary", "Open items", "SOURCE 01 · Monthly trend", "SOURCE 02 · Fix status",
     "SOURCE 03 · Severity", "SOURCE 04 · Root cause", "SOURCE 05 · Top customers",
     "SOURCE 06 · Automation focus", "DETAIL · Event workload", "Repeat patterns", "Automation urgency",
-    "Dynamic Source Discovery", "Jira Lookup", "Outlook Lookup", "Definitions", "Complaint Tracker",
+    "Dynamic Source Discovery", "Definitions", "Complaint Tracker",
 ]
 
 DESCRIPTIONS = {
@@ -39,8 +38,6 @@ DESCRIPTIONS = {
     "Repeat patterns": "Customer and reason combinations that keep recurring. A pattern repeated many times is one systemic problem, not many incidents.",
     "Automation urgency": "Ranked automation priorities using volume, severity, RCA pressure, misses, and customer concentration.",
     "Dynamic Source Discovery": "Source coverage, feed, keyword, vendor monitoring, and event-discovery gaps.",
-    "Jira Lookup": "Look up a linked Jira ticket by key and see which complaint records still need one linked, so the duplicate check against Jira is a real lookup instead of a manual guess.",
-    "Outlook Lookup": "Search a shared mailbox for the email thread behind a complaint, so the Outlook side of the duplicate check is a real search instead of a manual mailbox trawl.",
     "Definitions": "Structured glossary for tracker fields, classification, statuses, root causes, and automation terms.",
     "Complaint Tracker": "Filtered tracker records with download and controlled manual-entry staging.",
 }
@@ -140,97 +137,6 @@ def load_data():
     return df
 
 
-def jira_credentials():
-    base, email, token = (get_secret(k) for k in ("JIRA_BASE_URL", "JIRA_EMAIL", "JIRA_API_TOKEN"))
-    return (base.rstrip("/"), email, token) if base and email and token else None
-
-
-def fetch_jira_issue(key):
-    creds = jira_credentials()
-    if not creds:
-        return None, "Jira lookup is not configured. Set JIRA_BASE_URL, JIRA_EMAIL, and JIRA_API_TOKEN in Streamlit secrets."
-    key = key.strip().upper()
-    if not key:
-        return None, "Enter a Jira key, e.g. EAO-33."
-    base, email, token = creds
-    try:
-        resp = requests.get(
-            f"{base}/rest/api/3/issue/{key}",
-            params={"fields": "summary,status,issuetype,project,assignee,labels,updated"},
-            auth=(email, token), timeout=10,
-        )
-    except requests.RequestException as exc:
-        return None, f"Could not reach Jira: {exc}"
-    if resp.status_code == 404: return None, f"{key} was not found in Jira."
-    if resp.status_code == 401: return None, "Jira rejected the configured credentials (401)."
-    if resp.status_code != 200: return None, f"Jira returned {resp.status_code}: {resp.text[:200]}"
-    fields = resp.json().get("fields", {})
-    assignee = fields.get("assignee") or {}
-    return {
-        "Key": key, "Summary": fields.get("summary"),
-        "Status": (fields.get("status") or {}).get("name"),
-        "Type": (fields.get("issuetype") or {}).get("name"),
-        "Project": (fields.get("project") or {}).get("key"),
-        "Assignee": assignee.get("displayName", "Unassigned"),
-        "Labels": ", ".join(fields.get("labels", [])) or "None",
-        "Updated": fields.get("updated"), "URL": f"{base}/browse/{key}",
-    }, None
-
-
-def outlook_credentials():
-    tenant, client_id, secret, mailbox = (
-        get_secret(k) for k in ("GRAPH_TENANT_ID", "GRAPH_CLIENT_ID", "GRAPH_CLIENT_SECRET", "GRAPH_MAILBOX")
-    )
-    return (tenant, client_id, secret, mailbox) if tenant and client_id and secret and mailbox else None
-
-
-@st.cache_data(ttl=1500, show_spinner=False)
-def fetch_outlook_token(tenant, client_id, secret):
-    resp = requests.post(
-        f"https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token",
-        data={"grant_type": "client_credentials", "client_id": client_id, "client_secret": secret,
-              "scope": "https://graph.microsoft.com/.default"},
-        timeout=10,
-    )
-    resp.raise_for_status()
-    return resp.json()["access_token"]
-
-
-def search_outlook_messages(query):
-    creds = outlook_credentials()
-    if not creds:
-        return None, "Outlook lookup is not configured. Set GRAPH_TENANT_ID, GRAPH_CLIENT_ID, GRAPH_CLIENT_SECRET, and GRAPH_MAILBOX in Streamlit secrets."
-    query = query.strip()
-    if not query:
-        return None, "Enter a subject keyword, sender, or customer name to search for."
-    tenant, client_id, secret, mailbox = creds
-    try:
-        token = fetch_outlook_token(tenant, client_id, secret)
-    except requests.RequestException as exc:
-        return None, f"Could not authenticate with Microsoft Graph: {exc}"
-    try:
-        resp = requests.get(
-            f"https://graph.microsoft.com/v1.0/users/{mailbox}/messages",
-            headers={"Authorization": f"Bearer {token}", "ConsistencyLevel": "eventual"},
-            params={"$search": f"\"{query}\"", "$top": "15",
-                    "$select": "subject,from,receivedDateTime,conversationId,webLink"},
-            timeout=10,
-        )
-    except requests.RequestException as exc:
-        return None, f"Could not reach Microsoft Graph: {exc}"
-    if resp.status_code == 401: return None, "Microsoft Graph rejected the configured credentials (401)."
-    if resp.status_code == 403: return None, "The Graph app registration lacks Mail.Read permission for this mailbox (403)."
-    if resp.status_code != 200: return None, f"Microsoft Graph returned {resp.status_code}: {resp.text[:200]}"
-    rows = []
-    for m in resp.json().get("value", []):
-        sender = (m.get("from") or {}).get("emailAddress") or {}
-        rows.append({
-            "Received": m.get("receivedDateTime"), "From": sender.get("name") or sender.get("address"),
-            "Subject": m.get("subject"), "Conversation ID": m.get("conversationId"), "Link": m.get("webLink"),
-        })
-    return rows, None
-
-
 PAGE_KICKERS = {
     "Executive Summary": ("Overview", "#8ab4f8"),
     "Open items": ("Outstanding", "#f28b82"),
@@ -244,8 +150,6 @@ PAGE_KICKERS = {
     "Repeat patterns": ("Recurrence", "#f6c177"),
     "Automation urgency": ("Prioritization", "#f6c177"),
     "Dynamic Source Discovery": ("Coverage gap", "#f6c177"),
-    "Jira Lookup": ("Integration", "#a8dab5"),
-    "Outlook Lookup": ("Integration", "#a8dab5"),
     "Definitions": ("Reference", "#b6beca"),
     "Complaint Tracker": ("Data entry", "#f28b82"),
 }
@@ -746,47 +650,9 @@ elif selected_page == "Dynamic Source Discovery":
         lt = long_pair_table(disc, first, second, base=max(len(page), 1))
         if not lt.empty: add_section(name, f"Readable detail table showing {first.lower()} and {second.lower()} as separate columns instead of a wide cross-tab.", "#a8dab5"); styled_table(lt, height=420); downloads(lt, name.lower().replace(" ", "_"))
     add_section("Complete Dynamic Source Discovery records", "All filtered records classified under Dynamic Source Discovery for detailed review.", "#b6beca"); styled_table(disc, height=420); downloads(disc, "dynamic_source_discovery_complete")
-elif selected_page == "Jira Lookup":
-    page_header(selected_page)
-    add_section("Look up a Jira ticket", "Paste a Jira key to pull its live summary, status, assignee, and labels, so a complaint can be confirmed against Jira before it's marked a duplicate or a new row is added.")
-    if jira_credentials() is None:
-        st.info("Jira lookup is not configured. Add JIRA_BASE_URL, JIRA_EMAIL, and JIRA_API_TOKEN to Streamlit secrets to enable it.")
-    key_input = st.text_input("Jira key", placeholder="e.g. EAO-33")
-    if st.button("Look up") and key_input:
-        info, err = fetch_jira_issue(key_input)
-        if err: st.error(err)
-        else:
-            st.success(f"{info['Key']} · {info['Status']}"); st.write(info["Summary"])
-            styled_table(pd.DataFrame(info.items(), columns=["Field", "Value"]))
-    add_section("Complaint records missing a Jira Key", "Complaint rows in the current filter with no Jira Key on file, so the link to Jira can be filled in during the next review pass.", "#f6c177")
-    if "Jira Key" in filtered.columns and "Issue Type" in filtered.columns:
-        complaints_only = filtered[filtered["Issue Type"].astype(str) == "Complaint"]
-        missing = complaints_only[complaints_only["Jira Key"].isna() | (complaints_only["Jira Key"].astype(str).str.strip() == "")]
-        show_cols = [c for c in ["Month Label", "Customer", "Event/Bulletin Title", "Reason", "Jira Key"] if c in missing.columns]
-        styled_table(missing[show_cols], height=320)
-        st.caption(f"{len(missing)} of {len(complaints_only)} filtered complaint record(s) have no Jira Key on file.")
-        downloads(missing[show_cols], "complaints_missing_jira_key")
-    else:
-        st.info("Jira Key column not found in the loaded data source.")
-    add_section("Where to search", "The EAO project (EventWatch_AI_Ops) is the primary home for EventWatch complaint/investigation tickets, e.g. `project = EAO ORDER BY created DESC`. A small number of older or misrouted tickets also live in DATA, TS, BI, TENAR and others; apply the label `eventwatch-complaint` to any of those so `labels = \"eventwatch-complaint\"` catches them too. Record the resulting ticket key in the tracker's Jira Key column.", "#80cbc4")
-elif selected_page == "Outlook Lookup":
-    page_header(selected_page)
-    add_section("Search the shared mailbox", "Search by subject keyword, sender, or customer name to find the email thread behind a complaint, so a duplicate check against Outlook is a real search instead of a manual mailbox trawl.")
-    if outlook_credentials() is None:
-        st.info("Outlook lookup is not configured. Add GRAPH_TENANT_ID, GRAPH_CLIENT_ID, GRAPH_CLIENT_SECRET, and GRAPH_MAILBOX to Streamlit secrets to enable it.")
-    query_input = st.text_input("Search Outlook", placeholder="e.g. Micron missed alert, or a customer name")
-    if st.button("Search") and query_input:
-        results, err = search_outlook_messages(query_input)
-        if err: st.error(err)
-        elif not results: st.info("No matching messages found.")
-        else:
-            st.success(f"{len(results)} matching message(s)")
-            styled_table(pd.DataFrame(results))
-    add_section("Recording a match", "There is no Outlook Conversation ID column in the tracker today. If a search here confirms the email behind a complaint, note the Conversation ID or a link to the thread in that row's Comments field until a dedicated column is requested.", "#f6c177")
-    add_section("Enabling this page", "Requires an Azure AD app registration with **application-type** `Mail.Read` permission (admin consent) against the shared mailbox used for EventWatch complaints. This is an IT/security decision, not something this app can do on its own — once the app is registered, put its tenant ID, client ID, client secret, and the mailbox address (e.g. eventwatch@resilinc.com) into Streamlit secrets as GRAPH_TENANT_ID, GRAPH_CLIENT_ID, GRAPH_CLIENT_SECRET, and GRAPH_MAILBOX.", "#80cbc4")
 elif selected_page == "Definitions":
     page_header(selected_page)
-    groups = {"Tracker fields":[("Month / Reporting Month","Month used for trend reporting and date filtering."),("Email/JIRA Date","Formal received/logged date for the complaint, inquiry, or Jira trail."),("Customer","Account that raised the concern, not the affected supplier."),("Event/Bulletin Title","Published EventWatch title or concise factual event title."),("Comments","Concise evidence-backed summary of complaint, finding, action, and status."),("RCA Details","Root cause summary taken from the RCA shared on the linked Jira ticket. Blank where no RCA was requested or none has been issued yet; where the RCA went out only as a PDF attachment the entry says so rather than paraphrasing a document that is not in the ticket."),("Routed To","Which team the record is directed to for action. People- and Process-rooted records go to EventWatch Ops (Nitin Rindhe); Product-rooted records go to Product & Platform. EventWatch Ops still owns the customer-facing RCA on Product-routed records — routing says who investigates, not who replies.")],"Issue and reason types":[("Complaint","Confirmed or alleged EventWatch service miss, delay, incorrect handling, visibility issue, duplicate/missing WarRoom, or RCA-driven concern."),("Inquiry","Coverage, methodology, supplier/site, or threshold clarification without confirmed service failure."),("Reason","Specific operational issue such as Missed Event, Missed WarRoom, Delayed Event, Duplicate WarRooms, Incorrect Action, or Mapping Clarification.")],"Root cause groups":[("People","Human review, prioritization, judgment, communication, or execution miss."),("Process","Workflow, policy, methodology, handoff, or procedural gap."),("Product","Ingestion, source coverage, keyword, clustering, mapping, visibility, platform, or automation defect/gap.")],"Severity and status":[("High","Material operational or customer-trust impact requiring elevated attention."),("Medium","Standard tracked complaint or quality issue."),("Low","Limited-impact inquiry or minor quality signal."),("Fixed","Corrective action completed."),("RCA Shared","RCA approved/shared for customer communication."),("Clarification Provided","Explanation provided where no fix/RCA is required.")],"Automation focus":[("Dynamic Source Discovery","Source, feed, keyword, vendor monitoring, or article discovery gap."),("WarRoom & Decision Validation","Missing, delayed, duplicate, or incorrect WarRoom/decision handling."),("Entity & Supplier Resolution","Supplier, customer, entity, or mapping quality issue."),("AI-Assisted Geofencing","Location/polygon/proximity validation opportunity."),("Notification Visibility Monitoring","Delivery, profile visibility, and notification path monitoring."),("Cluster Integrity & Duplicate Prevention","Duplicate/split clusters or inconsistent event grouping."),("Automated Industry Tagging","Industry tagging validation or automation."),("Multilingual Keyword Expansion","Language/keyword coverage expansion from observed misses."),("Other Control Automation","Targeted control not covered by the standard categories.")],"Evidence and deduplication":[("Missed_Flag","Yes when expected alerting, coverage, notification, escalation, or WarRoom creation was missed or materially delayed."),("Confidence","HIGH, MEDIUM, or LOW based on evidence quality and duplicate checks."),("Jira Key","The linked Jira issue key for the complaint (e.g. EAO-33), normally filed in the EAO project (EventWatch_AI_Ops). Verify it on the Jira Lookup page before adding or updating a row."),("Duplicate check","Match against Jira Key (via the Jira Lookup page), Outlook conversation (via the Outlook Lookup page, once configured), customer/event title, facility, date/type, and source message ID before adding a new row. Both lookups degrade to a clear \"not configured\" message until their credentials are set in Streamlit secrets; until then, Outlook matching stays a manual step performed in the mailbox.")]}
+    groups = {"Tracker fields":[("Month / Reporting Month","Month used for trend reporting and date filtering."),("Email/JIRA Date","Formal received/logged date for the complaint, inquiry, or Jira trail."),("Customer","Account that raised the concern, not the affected supplier."),("Event/Bulletin Title","Published EventWatch title or concise factual event title."),("Comments","Concise evidence-backed summary of complaint, finding, action, and status."),("RCA Details","Root cause summary taken from the RCA shared on the linked Jira ticket. Blank where no RCA was requested or none has been issued yet; where the RCA went out only as a PDF attachment the entry says so rather than paraphrasing a document that is not in the ticket."),("Routed To","Which team the record is directed to for action. People- and Process-rooted records go to EventWatch Ops (Nitin Rindhe); Product-rooted records go to Product & Platform. EventWatch Ops still owns the customer-facing RCA on Product-routed records — routing says who investigates, not who replies.")],"Issue and reason types":[("Complaint","Confirmed or alleged EventWatch service miss, delay, incorrect handling, visibility issue, duplicate/missing WarRoom, or RCA-driven concern."),("Inquiry","Coverage, methodology, supplier/site, or threshold clarification without confirmed service failure."),("Reason","Specific operational issue such as Missed Event, Missed WarRoom, Delayed Event, Duplicate WarRooms, Incorrect Action, or Mapping Clarification.")],"Root cause groups":[("People","Human review, prioritization, judgment, communication, or execution miss."),("Process","Workflow, policy, methodology, handoff, or procedural gap."),("Product","Ingestion, source coverage, keyword, clustering, mapping, visibility, platform, or automation defect/gap.")],"Severity and status":[("High","Material operational or customer-trust impact requiring elevated attention."),("Medium","Standard tracked complaint or quality issue."),("Low","Limited-impact inquiry or minor quality signal."),("Fixed","Corrective action completed."),("RCA Shared","RCA approved/shared for customer communication."),("Clarification Provided","Explanation provided where no fix/RCA is required.")],"Automation focus":[("Dynamic Source Discovery","Source, feed, keyword, vendor monitoring, or article discovery gap."),("WarRoom & Decision Validation","Missing, delayed, duplicate, or incorrect WarRoom/decision handling."),("Entity & Supplier Resolution","Supplier, customer, entity, or mapping quality issue."),("AI-Assisted Geofencing","Location/polygon/proximity validation opportunity."),("Notification Visibility Monitoring","Delivery, profile visibility, and notification path monitoring."),("Cluster Integrity & Duplicate Prevention","Duplicate/split clusters or inconsistent event grouping."),("Automated Industry Tagging","Industry tagging validation or automation."),("Multilingual Keyword Expansion","Language/keyword coverage expansion from observed misses."),("Other Control Automation","Targeted control not covered by the standard categories.")],"Evidence and deduplication":[("Missed_Flag","Yes when expected alerting, coverage, notification, escalation, or WarRoom creation was missed or materially delayed."),("Confidence","HIGH, MEDIUM, or LOW based on evidence quality and duplicate checks."),("Jira Key","The linked Jira issue key for the complaint (e.g. EAO-33), normally filed in the EAO project (EventWatch_AI_Ops). Blank on records that predate the project."),("Duplicate check","Match a new row against Jira Key, customer and event title, facility, date and type before adding it. Jira itself is the place to confirm a key; the tracker records it once confirmed.")]}
     for group, rows in groups.items(): st.markdown(f"<div class='definition-group'><h3>{group}</h3>", unsafe_allow_html=True); styled_table(pd.DataFrame(rows, columns=["Term", "Definition"])); st.markdown("</div>", unsafe_allow_html=True)
 elif selected_page == "Complaint Tracker":
     page_header(selected_page); page = date_filter(filtered, "tracker"); concise = [c for c in ["Month Label", "Email/JIRA Date", "Jira Key", "Customer", "Event type", "Event/Bulletin Title", "Issue Type", "Reason", "Root Cause", "Short Term Fix Status", "RCA Requested", "Severity", "Standard Automation Focus", "Comments"] if c in page.columns]
