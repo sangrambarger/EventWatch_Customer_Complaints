@@ -130,7 +130,7 @@ def load_data():
         return pd.DataFrame()
     if not df.empty and str(df.columns[0]).startswith("Unnamed"):
         df = df.drop(columns=df.columns[0])
-    for c in ["Month", "Email/JIRA Date", "Reporting Month"]:
+    for c in ["Month", "Email/JIRA Date", "Reporting Month", "Resolution Date"]:
         if c in df.columns: df[c] = pd.to_datetime(df[c], errors="coerce")
     source = next((c for c in ["Reporting Month", "Month", "Email/JIRA Date"] if c in df.columns), None)
     if source and "Month Label" not in df.columns:
@@ -292,10 +292,12 @@ def cell(v):
     """
     if v is None or (isinstance(v, float) and pd.isna(v)):
         return ""
-    if isinstance(v, pd.Timestamp):
+    # pd.NaT satisfies isinstance(v, datetime) as well as the Timestamp check above,
+    # and strftime raises on it -- so both date branches have to guard, not just one.
+    # Nothing rendered a date column containing blanks until Resolution Date arrived,
+    # which is why this only surfaced now.
+    if isinstance(v, (pd.Timestamp, datetime)):
         return "" if pd.isna(v) else v.strftime("%d-%b-%Y")
-    if isinstance(v, datetime):
-        return v.strftime("%d-%b-%Y")
     if isinstance(v, float) and v == int(v):
         return str(int(v))
     text = str(v)
@@ -382,9 +384,31 @@ def open_items(df):
     return pending, owed
 
 
+def resolved_on(df):
+    return pd.to_datetime(df.get("Resolution Date"), errors="coerce")
+
+
 def days_open(df):
-    dates = pd.to_datetime(df.get("Email/JIRA Date"), errors="coerce")
-    return (pd.Timestamp.today().normalize() - dates).dt.days
+    """Days a record has been open. NaN once it closed -- a closed record has an age,
+    not a wait, and reporting `today - raised` for one made February's records look
+    like a 200-day backlog on the Open items page."""
+    raised = pd.to_datetime(df.get("Email/JIRA Date"), errors="coerce")
+    days = (pd.Timestamp.today().normalize() - raised).dt.days
+    return days.where(resolved_on(df).isna())
+
+
+def days_to_close(df):
+    """Days from the record being raised to the customer being closed out. NaN where
+    no resolution date exists -- most of the tracker predates the EAO project and has
+    no ticket to read one from, and counting those as zero would flatter the median."""
+    raised = pd.to_datetime(df.get("Email/JIRA Date"), errors="coerce")
+    return (resolved_on(df) - raised).dt.days
+
+
+def age_days(df):
+    """One column for a mixed table: time to close where closed, time open where not."""
+    closed = days_to_close(df)
+    return closed.where(closed.notna(), days_open(df))
 
 
 def missed_rate(df):
@@ -540,7 +564,7 @@ def apply_staged(df):
     if extra.empty:
         return df
     out = pd.concat([df, extra], ignore_index=True)
-    for col in ("Month", "Email/JIRA Date", "Reporting Month"):
+    for col in ("Month", "Email/JIRA Date", "Reporting Month", "Resolution Date"):
         if col in out.columns:
             out[col] = pd.to_datetime(out[col], errors="coerce")
     source = next((c for c in ["Reporting Month", "Month", "Email/JIRA Date"] if c in out.columns), None)
@@ -606,6 +630,9 @@ def manual_entry_form(df):
             row["Improvement VS Bug"] = c15.selectbox(
                 "Improvement VS Bug", [""] + taxonomy(df, "Improvement VS Bug"))
             row["Delay"] = c16.text_input("Delay (free text, e.g. '2 days')")
+            resolved = st.date_input("Resolution Date (leave as-is and tick below only if closed)",
+                                     value=None, format="DD/MM/YYYY")
+            row["Resolution Date"] = resolved
             row["Comments"] = st.text_area("Comments / evidence summary *")
             row["RCA Details"] = st.text_area(
                 "RCA Details (leave blank where no RCA has been issued; do not paraphrase a PDF)")
@@ -617,6 +644,8 @@ def manual_entry_form(df):
             required = ["Customer", "Event/Bulletin Title", "Event type", "Reason",
                         "Root Cause", "Severity", "Standard Automation Focus", "Comments"]
             missing = [c for c in required if not str(row.get(c, "")).strip()]
+            if row.get("Resolution Date") and row.get("Short Term Fix Status") == "Pending":
+                missing.append("(a Pending record cannot have a Resolution Date)")
             if missing:
                 st.error("Missing required fields: " + ", ".join(missing))
             else:
@@ -636,7 +665,7 @@ def manual_entry_form(df):
     styled_table(staged_frame(source_cols)[preview])
     combined = apply_staged(df.drop(columns=[STAGED_FLAG], errors="ignore"))
     combined = combined.drop(columns=[STAGED_FLAG, "Month Label"], errors="ignore")
-    for col in ("Month", "Email/JIRA Date", "Reporting Month"):
+    for col in ("Month", "Email/JIRA Date", "Reporting Month", "Resolution Date"):
         if col in combined.columns:
             combined[col] = pd.to_datetime(combined[col], errors="coerce").dt.strftime("%d-%b-%Y")
     c1, c2 = st.columns(2)
@@ -677,7 +706,7 @@ elif selected_page == "Open items":
     page_header(selected_page); page = date_filter(filtered, "open_items")
     pending, owed = open_items(page)
     ages = days_open(pending)
-    oldest = int(ages.max()) if len(ages.dropna()) else 0
+    oldest = int(ages.max()) if ages.notna().any() else 0
     with_rca = int(filled(page.get("RCA Details")).sum())
     kpis([
         ("Awaiting a fix", len(pending), "Short Term Fix Status is Pending", "#f28b82"),
@@ -685,6 +714,37 @@ elif selected_page == "Open items":
         ("Oldest open item", f"{oldest}d", "Days since the record was raised", "#8ab4f8"),
         ("RCA on file", with_rca, "Records carrying RCA text", "#a8dab5"),
     ])
+
+    # Cycle time is only honest over the records that carry a resolution date. Most of
+    # the tracker predates the EAO project and has no ticket to read one from, so the
+    # denominator is stated rather than hidden -- a median over a quarter of the rows
+    # is useful, a median presented as if it covered all of them is not.
+    closed = days_to_close(page).dropna()
+    dated = int(closed.count())
+    resolvable = int((~page.get("Short Term Fix Status", pd.Series(dtype=str))
+                      .astype(str).str.strip().eq("Pending")).sum()) if "Short Term Fix Status" in page.columns else 0
+    add_section("How long records take to close", "Measured from the date the record was raised to the "
+                "resolution date on its Jira ticket. Only records carrying a resolution date can be "
+                "measured; the rest are counted separately rather than assumed to be fast.", "#80cbc4")
+    if dated:
+        within = int((closed <= 14).sum())
+        kpis([
+            ("Median days to close", int(closed.median()), f"Across {dated} dated record(s)", "#80cbc4"),
+            ("Closed within 14 days", f"{within / dated * 100:.0f}%", f"{within} of {dated}", "#a8dab5"),
+            ("Slowest close", f"{int(closed.max())}d", "Longest measured turnaround", "#f6c177"),
+            ("No resolution date", resolvable - dated, "Closed records that cannot be measured", "#b6beca"),
+        ])
+        buckets = pd.cut(closed, [-1, 7, 14, 30, 60, 10**6],
+                         labels=["0-7 days", "8-14 days", "15-30 days", "31-60 days", "60+ days"])
+        spread = (buckets.value_counts().reindex(
+            ["0-7 days", "8-14 days", "15-30 days", "31-60 days", "60+ days"]).fillna(0).astype(int)
+            .rename_axis("Time to close").reset_index(name="Records"))
+        spread["% of Total"] = (spread["Records"] / dated * 100).round(1)
+        excel_bar_table(spread, "Time to close")
+        fig = chart(spread, "Time to close", title="Time to close")
+        downloads(spread, "time_to_close", fig)
+    else:
+        st.info("No record in this filter carries a resolution date, so nothing can be timed.")
 
     COLS = ["Email/JIRA Date", "Jira Key", "Customer", "Event/Bulletin Title", "Reason",
             "Severity", "Routed To", "Short Term Fix Status", "RCA Requested"]
@@ -712,13 +772,20 @@ elif selected_page == "Open items":
         cols = [c for c in COLS if c in t.columns] + ["Days open"]
         styled_table(t[cols]); downloads(t[cols], "open_pending")
 
+    # `owed` mixes genuinely open records with ones already closed by a clarification,
+    # so it needs the age column that copes with both rather than "Days open".
     add_section("RCA requested but not delivered", "The customer asked for a root cause analysis and the "
-                "record is neither RCA Shared nor Fixed. This is the commitment backlog.", "#f6c177")
+                "record is neither RCA Shared nor Fixed. This is the commitment backlog. Rows carrying a "
+                "resolution date were closed another way; their figure is time to close, not time waiting.",
+                "#f6c177")
     if owed.empty:
         st.success("No outstanding RCA commitments.")
     else:
-        t = owed.assign(**{"Days open": days_open(owed)}).sort_values("Days open", ascending=False)
-        cols = [c for c in COLS if c in t.columns] + ["Days open"]
+        t = owed.assign(**{"Days": age_days(owed), "Still open": owed["Resolution Date"].isna().map(
+            {True: "Yes", False: "No"}) if "Resolution Date" in owed.columns else "Yes"})
+        t = t.sort_values("Days", ascending=False)
+        cols = [c for c in COLS if c in t.columns] + ["Resolution Date", "Days", "Still open"]
+        cols = [c for c in cols if c in t.columns]
         styled_table(t[cols]); downloads(t[cols], "open_rca_owed")
 
     add_section("Root cause analyses on file", "The RCA text for every record that has one, newest first. "
@@ -730,8 +797,8 @@ elif selected_page == "Open items":
             st.info("No RCA text on file for the current filter.")
         else:
             rows = rows.sort_values("Email/JIRA Date", ascending=False)
-            show = [c for c in ["Email/JIRA Date", "Jira Key", "Customer", "Short Term Fix Status", "RCA Details"]
-                    if c in rows.columns]
+            show = [c for c in ["Email/JIRA Date", "Jira Key", "Customer", "Short Term Fix Status",
+                                "Resolution Date", "RCA Details"] if c in rows.columns]
             styled_table(rows[show]); downloads(rows[show], "rca_details")
     else:
         st.info("The tracker has no RCA Details column.")
@@ -755,7 +822,6 @@ elif selected_page == "Repeat patterns":
         excel_bar_table(top[["Pattern", "Records", "% of Total"]], "Pattern")
         fig = chart(top, "Pattern", title="Most repeated customer and reason")
         downloads(pat[["Customer", "Reason", "Records", "% of Total"]], "repeat_patterns", fig)
-
 elif selected_page == "SOURCE 01 · Monthly trend":
     page_header(selected_page); page = date_filter(filtered, "monthly")
     if "Month Label" in page.columns and "Issue Type" in page.columns:

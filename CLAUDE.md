@@ -35,7 +35,9 @@ row in the monthly trend block, CSV/workbook drift on **any** shared column, str
 dynamic-array metadata, stale caches, a `ComplaintTracker` table ref left short after an
 append (which silently undercounts every Dashboard COUNTIFS), Data rows appended in
 a different font, the same complaint logged twice, a tracker column with no row in the
-workbook's own data dictionary, an enumerated *value* in use with no row in that
+workbook's own data dictionary, a resolution date that contradicts
+its own record (dated but still `Pending`, or dated before the record was raised --
+a negative cycle time), an enumerated *value* in use with no row in that
 dictionary (six event types, four reason labels and the `Pending` fix status were all
 in circulation undefined), a `DefinitionsTable` ref left short after an append, and a
 `ComplaintTracker[...]` reference on any sheet
@@ -43,7 +45,7 @@ naming a column that no longer exists (which turns the Management Readout -- twe
 formulas, no cached values -- into #REF! on next open). Read its output instead of re-deriving the checks.
 
 `selftest.py` is why you can trust that list. It breaks the data on purpose, one fault
-per failure mode (19 fixtures over 18 rules), and asserts the rule blocks — a validator nobody has watched fail is a
+per failure mode (20 fixtures over 19 rules), and asserts the rule blocks — a validator nobody has watched fail is a
 validator nobody should trust. Two checks here were silent no-ops when first written,
 and the mojibake pattern passed clean for months over four corrupted cells because its
 regex needed a letter beside the `?` and the real corruption had spaces both sides.
@@ -98,6 +100,17 @@ makes no network calls. Appended rows follow the house convention for pre-triage
 records: `Comments` opens with `Staged from Jira EAO-NN (<status>).` so a row a human
 has not yet reviewed is identifiable at a glance. If any gate fails the run opens a PR
 instead of pushing, so a bad row cannot reach the dashboard silently.
+
+`Resolution Date` is what makes any timing metric possible, and the app treats it as
+the record's closing date. `days_open()` returns NaN once a record has one -- before
+this column existed it returned `today - raised` for *every* row, so the Open items
+page reported February's closed records as a 200-day backlog. `days_to_close()` is the
+real cycle time and `age_days()` picks whichever applies, for the RCA-owed table that
+mixes open and closed rows. The column is blank on 73 closed records: those predate the
+EAO project and carry no ticket to read a date from, so every cycle-time figure names
+its own denominator rather than treating a blank as zero. Backfill came from each
+ticket's Jira `resolutiondate` via the connector -- never guessed, and never taken for
+a merged incident unless every one of its keys resolved.
 
 `audit_pages.py` covers what `smoke_app.py` cannot: whether the numbers are *right*.
 It scrapes every `excel-table` off every page and reconciles each label against counts

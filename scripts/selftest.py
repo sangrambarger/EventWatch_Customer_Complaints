@@ -16,6 +16,8 @@ A case that passes clean is a rule that is not doing its job.
 from __future__ import annotations
 
 import argparse
+import csv as csv_module
+import io
 import re
 import shutil
 import subprocess
@@ -165,6 +167,27 @@ def break_duplicates(csv: Path, xlsx: Path) -> None:
     write_lines(csv, lines)
 
 
+def break_resolution_dates(csv: Path, xlsx: Path) -> None:
+    """A Pending record given a resolution date: a closure that has not happened."""
+    # Quoted commas are everywhere in Comments, so parse rather than split.
+    lines = csv_lines(csv)
+    header = next(csv_module.reader([lines[0]]))
+    status, resolved = header.index("Short Term Fix Status"), header.index("Resolution Date")
+    for i, line in enumerate(lines[1:], start=1):
+        if not line.strip():
+            continue
+        fields = next(csv_module.reader([line]))
+        if fields[status] == "Pending" and not fields[resolved]:
+            fields[resolved] = "01-Jan-2026"
+            buf = io.StringIO()
+            csv_module.writer(buf, lineterminator="").writerow(fields)
+            lines[i] = buf.getvalue()
+            break
+    else:
+        raise AssertionError("no Pending row without a resolution date to break")
+    write_lines(csv, lines)
+
+
 def break_definitions(csv: Path, xlsx: Path) -> None:
     """A tracker column with no row in the workbook's data dictionary."""
     patch_zip(xlsx, "xl/worksheets/sheet3.xml",
@@ -221,6 +244,7 @@ CASES: list[tuple[str, str, object]] = [
     ("table_ref", "table_ref", break_table_ref),
     ("styling", "styling", break_styling),
     ("duplicates", "duplicates", break_duplicates),
+    ("resolution_dates", "resolution_dates", break_resolution_dates),
     ("definitions_column", "definitions", break_definitions),
     ("definitions_table_ref", "definitions", break_definitions_table_ref),
     ("enum_definitions", "enum_definitions", break_enum_definitions),
