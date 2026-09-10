@@ -20,6 +20,7 @@ Exits non-zero if any check fails, so it works as a pre-commit or CI gate.
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import sys
 import zipfile
@@ -493,6 +494,8 @@ def definitions_entries(xlsx_path: Path) -> list[dict] | None:
               if int(re.sub(r"\D", "", k)) == header_row}
     section_col = labels.get("Section")
     term_col = labels.get("Term / Field")
+    definition_col = labels.get("Definition")
+    allowed_col = labels.get("Allowed values / interpretation")
 
     rows: dict[int, dict[str, str]] = {}
     for ref, value in sheet.text.items():
@@ -502,6 +505,8 @@ def definitions_entries(xlsx_path: Path) -> list[dict] | None:
     return [{"row": r,
              "section": cells.get(section_col, ""),
              "term": cells.get(term_col, ""),
+             "definition": cells.get(definition_col, ""),
+             "allowed": cells.get(allowed_col, ""),
              "source": cells.get(source_col, "")}
             for r, cells in sorted(rows.items())]
 
@@ -607,6 +612,31 @@ def check_enum_definitions(df: pd.DataFrame, xlsx_path: Path, rep: Report) -> No
                  f"({total} terms)")
 
 
+def check_definitions_export(csv_path: Path, xlsx_path: Path, rep: Report) -> None:
+    """definitions.json must still match the sheet it was generated from.
+
+    The app's Definitions page reads that file rather than the workbook, so the CSV-only
+    deploy path still has a glossary. That is only safe while the file cannot silently
+    rot -- which is exactly what the hardcoded dict it replaced did, drifting until it
+    had no Event type section at all and defined a term the tracker never had.
+    """
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from export_definitions import DEFAULT_JSON, build, render
+
+    if not DEFAULT_JSON.exists():
+        rep.fail("definitions_export", f"{DEFAULT_JSON.name} is missing; the app's Definitions "
+                                       f"page will render empty. Run scripts/export_definitions.py")
+        return
+    want = render(build(csv_path, xlsx_path))
+    if DEFAULT_JSON.read_text(encoding="utf-8") != want:
+        rep.fail("definitions_export", f"{DEFAULT_JSON.name} no longer matches the Definitions "
+                                       f"sheet; run `python3 scripts/export_definitions.py`")
+        return
+    payload = json.loads(want)
+    rep.note(f"{DEFAULT_JSON.name} matches the sheet: {payload['terms']} terms in "
+             f"{len(payload['groups'])} groups, {payload['pruned']} pruned as unused")
+
+
 def check_formula_columns(df: pd.DataFrame, xlsx_path: Path, rep: Report) -> None:
     """Every ComplaintTracker[...] reference, on any sheet, must name a real column.
 
@@ -664,6 +694,7 @@ def main() -> int:
         check_styling(args.xlsx, rep)
         check_definitions(df, args.xlsx, rep)
         check_enum_definitions(df, args.xlsx, rep)
+        check_definitions_export(args.csv, args.xlsx, rep)
         check_formula_columns(df, args.xlsx, rep)
     else:
         rep.note(f"{args.xlsx.name} not found; ran CSV-only checks")

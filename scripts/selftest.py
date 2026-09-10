@@ -178,6 +178,17 @@ def break_definitions_table_ref(csv: Path, xlsx: Path) -> None:
                                lambda m: f"{m.group(1)}{int(m.group(2)) - 4}{m.group(3)}", x, count=1))
 
 
+def break_definitions_export(csv: Path, xlsx: Path) -> None:
+    """A Definitions sheet edit that never made it into the committed definitions.json.
+
+    The app renders that file, not the sheet, so a sheet edit nobody exported is a
+    glossary that reads correctly in Excel and wrongly in the dashboard -- the drift
+    the hardcoded dict used to have, now catchable.
+    """
+    patch_zip(xlsx, "xl/worksheets/sheet3.xml",
+              lambda x: x.replace("Root Cause Analysis;", "Root Cause Assessment;"))
+
+
 def break_enum_definitions(csv: Path, xlsx: Path) -> None:
     """A value in use across the tracker whose Definitions row was renamed away.
 
@@ -213,6 +224,7 @@ CASES: list[tuple[str, str, object]] = [
     ("definitions_column", "definitions", break_definitions),
     ("definitions_table_ref", "definitions", break_definitions_table_ref),
     ("enum_definitions", "enum_definitions", break_enum_definitions),
+    ("definitions_export", "definitions_export", break_definitions_export),
     ("formula_columns", "formula_columns", break_formula_columns),
 ]
 
