@@ -468,6 +468,51 @@ def check_duplicates(df: pd.DataFrame, rep: Report) -> None:
     rep.note(f"no two rows share a date, customer and title across {len(df)} records")
 
 
+def check_resolution_dates(df: pd.DataFrame, rep: Report) -> None:
+    """A resolution date must be real, and must agree with the fix status.
+
+    The Open items page reports how long things took, so a date that contradicts the
+    record is worse than a blank one: a `Pending` row with a resolution date claims a
+    closure that has not happened, and a date before the record was raised produces a
+    negative cycle time that silently drags the median down. Both are cheap to write by
+    hand and impossible to spot in a chart.
+
+    A closed record with no date is only reported, not blocked -- most of the tracker
+    predates the EAO project and has no ticket to read a date from, so requiring one
+    would fail on history nobody can reconstruct.
+    """
+    if "Resolution Date" not in df.columns:
+        rep.fail("resolution_dates", "the tracker has no Resolution Date column")
+        return
+    raw = df["Resolution Date"].fillna("").astype(str).str.strip()
+    present = raw != ""
+    parsed = pd.to_datetime(raw.where(present), format="%d-%b-%Y", errors="coerce")
+    bad = present & parsed.isna()
+    if bad.any():
+        rep.fail("resolution_dates", f"unparseable date(s) in {int(bad.sum())} row(s), first at "
+                                     f"row {int(bad.idxmax()) + 2}: {raw[bad].iloc[0]!r}")
+        return
+
+    raised = pd.to_datetime(df["Email/JIRA Date"], format="%d-%b-%Y", errors="coerce")
+    backwards = present & (parsed < raised)
+    if backwards.any():
+        rows = [int(i) + 2 for i in df.index[backwards]]
+        rep.fail("resolution_dates", f"resolved before it was raised in row(s) {rows[:5]}; "
+                                     f"that is a negative cycle time")
+
+    status = df.get("Short Term Fix Status", pd.Series("", index=df.index)).fillna("").astype(str).str.strip()
+    contradiction = present & status.eq("Pending")
+    if contradiction.any():
+        rows = [int(i) + 2 for i in df.index[contradiction]]
+        rep.fail("resolution_dates", f"row(s) {rows[:5]} are Pending but carry a resolution date; "
+                                     f"one of the two is wrong")
+
+    closed_no_date = (~present) & (~status.eq("Pending"))
+    if not (bad.any() or backwards.any() or contradiction.any()):
+        rep.note(f"{int(present.sum())} resolution date(s), none contradicting their status "
+                 f"({int(closed_no_date.sum())} closed record(s) carry no date)")
+
+
 def definitions_entries(xlsx_path: Path) -> list[dict] | None:
     """Read the Definitions sheet into one dict per row: section, term, source column.
 
@@ -681,6 +726,7 @@ def main() -> int:
     check_required_fields(df, rep)
     check_jira_keys(df, rep)
     check_duplicates(df, rep)
+    check_resolution_dates(df, rep)
 
     if args.xlsx.exists():
         blocks = dashboard_blocks(args.xlsx)

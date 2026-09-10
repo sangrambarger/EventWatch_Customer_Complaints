@@ -54,8 +54,10 @@ EPOCH = datetime(1899, 12, 30)
 # Sheet columns that are not inline strings, and the style each carries. Read off the
 # rows already on the sheet rather than invented; a mismatch here shows up as a cell
 # in the wrong font, which validate.py's `styling` rule blocks.
-NUMERIC = {"Month": 35, "Email/JIRA Date": 37, "Number of Customers": 39,
-           "Month_Sort": 39, "Delay (Hours)": 39}
+NUMERIC = {"Month": 35, "Email/JIRA Date": 37, "Resolution Date": 37,
+           "Number of Customers": 39, "Month_Sort": 39, "Delay (Hours)": 39}
+# Columns held as a date serial on the sheet rather than a plain number.
+DATE_COLUMNS = {"Month", "Email/JIRA Date", "Resolution Date"}
 STYLES = {"Reporting Month": 35}
 DEFAULT_STYLE = 33
 
@@ -111,7 +113,7 @@ def sheet_row(record: dict, header: dict[str, str], row_no: int) -> str:
             style = NUMERIC[column]
             if not value:
                 cells.append(f'<c r="{ref}" s="{style}" t="n" />')
-            elif column in ("Month", "Email/JIRA Date"):
+            elif column in DATE_COLUMNS:
                 cells.append(f'<c r="{ref}" s="{style}" t="n"><v>{serial(value)}</v></c>')
             else:
                 cells.append(f'<c r="{ref}" s="{style}" t="n"><v>{value}</v></c>')
