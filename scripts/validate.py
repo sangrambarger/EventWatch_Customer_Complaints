@@ -467,6 +467,45 @@ def check_duplicates(df: pd.DataFrame, rep: Report) -> None:
     rep.note(f"no two rows share a date, customer and title across {len(df)} records")
 
 
+def definitions_entries(xlsx_path: Path) -> list[dict] | None:
+    """Read the Definitions sheet into one dict per row: section, term, source column.
+
+    Both definitions rules read the same sheet, and the sheet identifies itself by its
+    "Source column" header rather than by name or position -- the same way the rest of
+    this file refuses to hardcode layout. Returns None when no such sheet exists.
+    """
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from dashboard_calc import Sheet
+
+    with zipfile.ZipFile(xlsx_path) as z:
+        names = {n for n in z.namelist() if re.match(r"xl/worksheets/sheet\d+\.xml$", n)}
+        sheets = {n: Sheet(z.read(n).decode("utf-8")) for n in sorted(names)}
+    sheet = next((sh for sh in sheets.values()
+                  if any(v.strip() == "Source column" for v in sh.text.values())), None)
+    if sheet is None:
+        return None
+    header = next(k for k, v in sheet.text.items() if v.strip() == "Source column")
+    source_col = re.sub(r"\d", "", header)
+    header_row = int(re.sub(r"\D", "", header))
+    # The section, term and source-column headers sit on that same row; find each by
+    # its own label so a reordered sheet still reads correctly.
+    labels = {v.strip(): re.sub(r"\d", "", k) for k, v in sheet.text.items()
+              if int(re.sub(r"\D", "", k)) == header_row}
+    section_col = labels.get("Section")
+    term_col = labels.get("Term / Field")
+
+    rows: dict[int, dict[str, str]] = {}
+    for ref, value in sheet.text.items():
+        r = int(re.sub(r"\D", "", ref))
+        if r > header_row:
+            rows.setdefault(r, {})[re.sub(r"\d", "", ref)] = value.strip()
+    return [{"row": r,
+             "section": cells.get(section_col, ""),
+             "term": cells.get(term_col, ""),
+             "source": cells.get(source_col, "")}
+            for r, cells in sorted(rows.items())]
+
+
 def check_definitions(df: pd.DataFrame, xlsx_path: Path, rep: Report) -> None:
     """Every tracker column needs a row in the workbook's own data dictionary.
 
@@ -475,22 +514,11 @@ def check_definitions(df: pd.DataFrame, xlsx_path: Path, rep: Report) -> None:
     from the day it was introduced. The Definitions page in the app renders this sheet,
     so the gap is user-facing, not just internal.
     """
-    sys.path.insert(0, str(Path(__file__).resolve().parent))
-    from dashboard_calc import Sheet
-
-    with zipfile.ZipFile(xlsx_path) as z:
-        names = {n for n in z.namelist() if re.match(r"xl/worksheets/sheet\d+\.xml$", n)}
-        sheets = {n: Sheet(z.read(n).decode("utf-8")) for n in sorted(names)}
-    dictionary = next((sh for sh in sheets.values()
-                       if any(v.strip() == "Source column" for v in sh.text.values())), None)
-    if dictionary is None:
+    entries = definitions_entries(xlsx_path)
+    if entries is None:
         rep.fail("definitions", "no Definitions sheet found (no 'Source column' header)")
         return
-    header = next(k for k, v in dictionary.text.items() if v.strip() == "Source column")
-    col = re.sub(r"\d", "", header)
-    row = int(re.sub(r"\D", "", header))
-    sourced = {v.strip() for k, v in dictionary.text.items()
-               if re.sub(r"\d", "", k) == col and int(re.sub(r"\D", "", k)) > row}
+    sourced = {e["source"] for e in entries}
 
     undocumented = [c for c in df.columns if c not in sourced]
     if undocumented:
@@ -498,8 +526,85 @@ def check_definitions(df: pd.DataFrame, xlsx_path: Path, rep: Report) -> None:
     unknown = sorted(v for v in sourced if v and v != "Various" and v not in df.columns)
     if unknown:
         rep.fail("definitions", f"Definitions cite source column(s) {unknown} that the tracker does not have")
-    if not undocumented and not unknown:
-        rep.note(f"Definitions sheet documents all {len(df.columns)} tracker columns")
+    # The Definitions sheet carries its own ListObject. A ref left short after an
+    # append hides the new rows from the table -- and from anything reading the table
+    # rather than the cells -- exactly as a short ComplaintTracker ref does.
+    with zipfile.ZipFile(xlsx_path) as z:
+        parts = [n for n in z.namelist() if re.match(r"xl/tables/table\d+\.xml$", n)]
+        tables = [z.read(n).decode("utf-8") for n in parts]
+    definitions_table = next((t for t in tables if 'displayName="DefinitionsTable"' in t), None)
+    last_row = max(e["row"] for e in entries)
+    short = False
+    if definitions_table is None:
+        rep.fail("definitions", "no DefinitionsTable found on the Definitions sheet")
+        short = True
+    else:
+        ref = re.search(r'<table[^>]*\sref="([^"]+)"', definitions_table).group(1)
+        bottom = int(re.sub(r"\D", "", ref.split(":")[1]))
+        if bottom != last_row:
+            rep.fail("definitions", f"DefinitionsTable covers {ref} but the sheet is populated "
+                                    f"through row {last_row}; rows appended past the ref are "
+                                    f"outside the table")
+            short = True
+
+    if not undocumented and not unknown and not short:
+        rep.note(f"Definitions sheet documents all {len(df.columns)} tracker columns "
+                 f"in {last_row - 3} rows, all inside DefinitionsTable")
+
+
+def check_enum_definitions(df: pd.DataFrame, xlsx_path: Path, rep: Report) -> None:
+    """Every value in an enumerated tracker column needs its own Definitions row.
+
+    `definitions` watches the sheet's *columns*; nothing watched its *values*. The
+    Definitions sheet is the only place a reader can look up what "Source Coverage"
+    or "Clarification Provided" means, and it is the taxonomy an analyst picks from
+    when logging a new row. A value used in the tracker but absent from the sheet is
+    a term in circulation that nobody defined -- which is how the tracker grew six
+    undocumented event types, four undocumented reason labels and a `Pending` fix
+    status while every other check stayed green.
+
+    Only value taxonomies are checked. Rows whose section is a field definition or a
+    general operational term describe a column or a piece of vocabulary, not a value.
+    Boolean flags are listed as "Yes -- Missed_Flag" so the sheet can define both
+    senses of a shared word; that suffix is stripped before matching.
+    """
+    entries = definitions_entries(xlsx_path)
+    if entries is None:
+        rep.fail("enum_definitions", "no Definitions sheet found (no 'Source column' header)")
+        return
+
+    documented: dict[str, set[str]] = {}
+    for e in entries:
+        source = e["source"]
+        if not source or source == "Various":
+            continue
+        if e["section"] in ("Field definition", "Operational term"):
+            continue
+        term = re.sub(r"\s+[\u2014-]\s+" + re.escape(source) + r"$", "", e["term"]).strip()
+        documented.setdefault(source, set()).add(term)
+
+    if not documented:
+        rep.fail("enum_definitions", "the Definitions sheet lists no value taxonomies at all")
+        return
+
+    gaps = []
+    checked = 0
+    for source in sorted(documented):
+        if source not in df.columns:
+            continue  # check_definitions already reports a source column the tracker lacks
+        checked += 1
+        used = {str(v).strip() for v in df[source].dropna() if str(v).strip()}
+        missing = sorted(used - documented[source])
+        if missing:
+            gaps.append((source, missing))
+    for source, missing in gaps:
+        rep.fail("enum_definitions",
+                 f"{source!r} value(s) {missing} are used in the tracker but have no row in the "
+                 f"Definitions sheet; a reader cannot look them up and an analyst cannot pick them")
+    if not gaps:
+        total = sum(len(v) for k, v in documented.items() if k in df.columns)
+        rep.note(f"Definitions sheet defines every value in {checked} enumerated column(s) "
+                 f"({total} terms)")
 
 
 def check_formula_columns(df: pd.DataFrame, xlsx_path: Path, rep: Report) -> None:
@@ -558,6 +663,7 @@ def main() -> int:
         check_table_ref(df, args.xlsx, rep)
         check_styling(args.xlsx, rep)
         check_definitions(df, args.xlsx, rep)
+        check_enum_definitions(df, args.xlsx, rep)
         check_formula_columns(df, args.xlsx, rep)
     else:
         rep.note(f"{args.xlsx.name} not found; ran CSV-only checks")

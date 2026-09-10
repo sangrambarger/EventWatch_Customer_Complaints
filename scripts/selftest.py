@@ -171,6 +171,24 @@ def break_definitions(csv: Path, xlsx: Path) -> None:
               lambda x: x.replace("<t>Jira Key</t>", "<t>Ticket Ref</t>"))
 
 
+def break_definitions_table_ref(csv: Path, xlsx: Path) -> None:
+    """DefinitionsTable left short after an append, hiding the new rows from the table."""
+    patch_zip(xlsx, "xl/tables/table2.xml",
+              lambda x: re.sub(r'(<table[^>]*\sref="A3:E)(\d+)(")',
+                               lambda m: f"{m.group(1)}{int(m.group(2)) - 4}{m.group(3)}", x, count=1))
+
+
+def break_enum_definitions(csv: Path, xlsx: Path) -> None:
+    """A value in use across the tracker whose Definitions row was renamed away.
+
+    'High' is a Severity used by dozens of records; rename the taxonomy row and the
+    value is in circulation with nothing defining it -- the exact shape of the six
+    undocumented event types this rule was written for.
+    """
+    patch_zip(xlsx, "xl/worksheets/sheet3.xml",
+              lambda x: x.replace("<t>High</t>", "<t>Critical</t>"))
+
+
 def break_formula_columns(csv: Path, xlsx: Path) -> None:
     """A column renamed out from under the Management Readout's formulas."""
     patch_zip(xlsx, "xl/worksheets/sheet4.xml",
@@ -192,7 +210,9 @@ CASES: list[tuple[str, str, object]] = [
     ("table_ref", "table_ref", break_table_ref),
     ("styling", "styling", break_styling),
     ("duplicates", "duplicates", break_duplicates),
-    ("definitions", "definitions", break_definitions),
+    ("definitions_column", "definitions", break_definitions),
+    ("definitions_table_ref", "definitions", break_definitions_table_ref),
+    ("enum_definitions", "enum_definitions", break_enum_definitions),
     ("formula_columns", "formula_columns", break_formula_columns),
 ]
 
