@@ -24,6 +24,7 @@ python3 scripts/sort_tracker.py --all       # ...or the whole tracker
 python3 scripts/selftest.py                 # prove each validate.py rule still fires
 python3 scripts/audit_pages.py              # every rendered figure vs the tracker, page by page
 python3 scripts/export_definitions.py       # regenerate definitions.json from the workbook sheet
+python3 scripts/append_row.py --json r.json # add one record to the CSV and the Data sheet together
 ```
 
 `validate.py` covers every bug class that has actually shipped here: characters decayed
@@ -73,6 +74,30 @@ Data row 55) travels with its record, and it rewrites the CSV line-by-line rathe
 re-serialising it, so quoting stays byte-identical and the diff shows only what moved.
 It also restyles cells appended in the wrong font: sorting scatters them, turning a
 tidy odd-looking block at the bottom into odd-looking rows throughout.
+
+`append_row.py` is the only supported way to add a record. Appending by hand is the
+most error-prone edit here and has gone wrong before: the workbook's column order is
+not the CSV's -- `Jira Key` is the third CSV column and column W on the sheet -- so a
+positional write lands one column off and only the full-width `parity` check notices.
+`ComplaintTracker`'s ref must grow with the row or every Dashboard COUNTIFS silently
+undercounts. `Month` is `Sep 2026` in the CSV and a first-of-month serial on the sheet,
+while `Reporting Month` is an inline string in both. The script reads the sheet's own
+header row for column order, derives Month / Reporting Month / Month_Sort / Number of
+Customers / Routed To, refuses to write unless all ten required fields are present, and
+writes both files or neither. It deliberately does not refresh caches: run
+`refresh_caches.py` then `validate.py` after.
+
+## The Jira scheduler
+
+A Routine (scheduled Claude session) runs daily with the Atlassian connector attached.
+It searches the EAO project, diffs the keys against the tracker, classifies each new
+ticket, appends it with `append_row.py`, refreshes the caches, runs the full gate and
+pushes. **No API credentials exist anywhere in this repo or in Streamlit** -- the
+connector belongs to the scheduled session, not to the app, which is why `app.py` still
+makes no network calls. Appended rows follow the house convention for pre-triage
+records: `Comments` opens with `Staged from Jira EAO-NN (<status>).` so a row a human
+has not yet reviewed is identifiable at a glance. If any gate fails the run opens a PR
+instead of pushing, so a bad row cannot reach the dashboard silently.
 
 `audit_pages.py` covers what `smoke_app.py` cannot: whether the numbers are *right*.
 It scrapes every `excel-table` off every page and reconciles each label against counts
