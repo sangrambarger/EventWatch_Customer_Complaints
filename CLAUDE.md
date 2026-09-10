@@ -84,7 +84,7 @@ Customers figures differ from the app on two axes; SOURCE 05 shows the workbook'
 in its own table so the two reconcile.
 
 `smoke_app.py` covers what `validate.py` cannot: the app itself. It starts Streamlit
-against the local CSV, clicks every page (16 of them), and fails on Streamlit exceptions, in-app
+against the local CSV, clicks every page (14 of them), and fails on Streamlit exceptions, in-app
 error text, or a page rendering fewer charts/tables than it should. Run against the
 commit before the `chart()` argument fix it flags 8 pages with "required fields are
 missing" and zero charts — the bug that previously only a screenshot caught. Prefer
@@ -177,9 +177,12 @@ If a resave already happened, restore the four `cm="1"` attributes and
 - `Short Term Fix Status` is `Fixed` / `RCA Shared` / `Clarification Provided`, plus
   `Pending` for tickets still open in Jira. Adding a new value means adding it to the
   Dashboard's Fix Status table too.
-- Jira and Outlook lookups are credential-gated and degrade to a "not configured"
-  message; neither has live credentials in this repo. The Atlassian MCP connector is a
-  separate path that works for a model in-session but does nothing for the deployed app.
+- The app has **no live Jira or Outlook lookup**. Both pages were removed: the tracker's
+  earlier months predate the EAO project, so a per-row lookup was empty for most records
+  and the credential-gated "not configured" placeholder was all most viewers ever saw.
+  Jira reconciliation lives in `scripts/jira_sync.py` and in the Atlassian MCP connector,
+  which works for a model in-session and does nothing for the deployed app. Do not
+  reintroduce `requests` or a network call into `app.py`.
 - `Routed To` says which team a record is directed to, derived from `Root Cause`:
   People/Process go to `EventWatch Ops - Nitin Rindhe`, Product goes to
   `Product & Platform`. EventWatch Ops still owns the customer-facing RCA on
