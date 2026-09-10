@@ -152,6 +152,11 @@ If a resave already happened, restore the four `cm="1"` attributes and
 - Jira and Outlook lookups are credential-gated and degrade to a "not configured"
   message; neither has live credentials in this repo. The Atlassian MCP connector is a
   separate path that works for a model in-session but does nothing for the deployed app.
+- `Routed To` says which team a record is directed to, derived from `Root Cause`:
+  People/Process go to `EventWatch Ops - Nitin Rindhe`, Product goes to
+  `Product & Platform`. EventWatch Ops still owns the customer-facing RCA on
+  Product-routed records — routing is who investigates, not who replies. It is a
+  derived default; a human override is expected and nothing recomputes it.
 - `RCA Details` holds the root cause summary from the linked ticket. Most RCAs went out
   as PDF attachments whose text is not in Jira, so those entries say so rather than
   paraphrasing a document nobody can read back. Do not invent RCA narrative.
