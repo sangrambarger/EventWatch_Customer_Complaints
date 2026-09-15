@@ -446,19 +446,22 @@ def missed_verdict(rate, window=3, noise=5.0):
     label = lambda m: pd.Period(m, freq="M").strftime("%b %Y")
     span = (f"{label(recent['Month'].iloc[0])} to {label(recent['Month'].iloc[-1])}, "
             f"against {label(prior['Month'].iloc[0])} to {label(prior['Month'].iloc[-1])}")
+    # One decimal on the gap and on both rates. Rounded to whole points, a 4.5-point
+    # move printed as "a 5-point move ... which is noise" against a 5-point threshold,
+    # which reads as the sentence contradicting itself.
     if delta <= -noise:
         verdict, colour = "Improving", "#a8dab5"
-        sentence = f"down {abs(delta):.0f} points on the previous {window} months"
+        sentence = f"down {abs(delta):.1f} points on the previous {window} months"
     elif delta >= noise:
         verdict, colour = "Getting worse", "#f28b82"
-        sentence = f"up {delta:.0f} points on the previous {window} months"
+        sentence = f"up {delta:.1f} points on the previous {window} months"
     else:
         verdict, colour = "Not improving", "#f6c177"
-        sentence = (f"a {abs(delta):.0f}-point move on the previous {window} months, "
+        sentence = (f"a {abs(delta):.1f}-point move on the previous {window} months, "
                     f"which is noise at this volume")
-    detail = (f"{now:.0f}% of the last {window} months' records were genuine misses "
+    detail = (f"{now:.1f}% of the last {window} months' records were genuine misses "
               f"({int(recent['Missed'].sum())} of {int(recent['Records'].sum())}), against "
-              f"{was:.0f}% before — {sentence}. {span}.")
+              f"{was:.1f}% before — {sentence}. {span}.")
     thin = rate.iloc[-1]
     if thin["Records"] < 8:
         detail += (f" {label(thin['Month'])} holds only {int(thin['Records'])} records so far, so the "
