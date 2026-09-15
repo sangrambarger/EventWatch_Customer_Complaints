@@ -112,6 +112,30 @@ its own denominator rather than treating a blank as zero. Backfill came from eac
 ticket's Jira `resolutiondate` via the connector -- never guessed, and never taken for
 a merged incident unless every one of its keys resolved.
 
+`date_filter()` filters on `Email/JIRA Date`. It used to prefer `Reporting Month`,
+which holds the first of the month on every row, so "2 Sep to 30 Sep" matched nothing
+while nine September records existed and the end-date box read 01-Sep against a newest
+record of the 14th. It now also prints how many rows survived, so an empty page reads as
+a filter choice rather than a broken dashboard -- which is exactly how that bug went
+unreported for months.
+
+The Open items page separates two things that are not the same. `open_items()` returns
+`pending` (genuinely open) and `owed` (an RCA the customer asked for and never got), and
+the page splits `owed` by whether the record is still open: 16 of 20 are CLOSED, answered
+with a fix or a clarification, so presenting them as open work made resolved records look
+unresolved. Closing a fix status does not discharge a promise that was never kept, so
+they stay visible -- under "RCA promised but never delivered", not under open items.
+
+`insights()` states what the data shows, in sentences, at the top of the Executive
+Summary. Six frequency tables answer "what is there"; nobody was reading "what changed"
+out of them. It computes sub-type drift over two windows, customer concentration,
+accounts whose every record was a confirmed miss, the worst recurring customer+sub-type
+pair, and the rise in ticket traceability -- all from the frame on screen, so it respects
+the filters and cannot disagree with the tables below it. **A finding that does not clear
+its own threshold is not shown**: an insight panel that always finds something is a
+horoscope. It is deterministic, so it is regression-testable and needs no API key, which
+is why the no-network rule in `app.py` still holds.
+
 The Executive Summary opens on the miss-rate question, because a grid of nine monthly
 percentages does not answer "are we getting better" and nobody was reading one out of
 it. `missed_verdict()` says it in a sentence: the last three months' pooled miss rate

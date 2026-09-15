@@ -189,7 +189,15 @@ def add_section(title, desc="", accent="#8ab4f8"):
 
 
 def date_filter(df, key):
-    date_col = next((c for c in ["Reporting Month", "Month", "Email/JIRA Date"] if c in df.columns), None)
+    """Filter a page by the date the record was actually raised.
+
+    `Email/JIRA Date` first, deliberately. This used to prefer `Reporting Month`, which
+    holds the FIRST of the month on every single row -- so "2 Sep to 30 Sep" matched
+    nothing at all while nine September records sat in the tracker, and the end-date box
+    read 01-Sep while the newest record was the 14th. A filter that silently returns an
+    empty page is worse than no filter: the reader concludes the data is broken.
+    """
+    date_col = next((c for c in ["Email/JIRA Date", "Month", "Reporting Month"] if c in df.columns), None)
     if df.empty or not date_col or df[date_col].dropna().empty: return df
     mn, mx = df[date_col].dropna().min().date(), df[date_col].dropna().max().date()
     a, b, c = st.columns([1, 1, 2])
@@ -198,11 +206,18 @@ def date_filter(df, key):
     # there yet. The defaults still open on the data's range.
     start = a.date_input("Start date", mn, key=f"{key}_start")
     end = b.date_input("End date", mx, key=f"{key}_end")
-    c.caption(f"Date filter uses **{date_col}** and applies to this page.")
     if start > end:
+        c.caption(f"Date filter uses **{date_col}** and applies to this page.")
         st.warning("Start date is after end date. Showing the full available range.")
         return df
-    return df[(df[date_col].dt.date >= start) & (df[date_col].dt.date <= end)].copy()
+    out = df[(df[date_col].dt.date >= start) & (df[date_col].dt.date <= end)].copy()
+    # Say how many rows survived. An empty page then reads as a filter choice rather
+    # than a broken dashboard, which is exactly how the bug above went unreported.
+    c.caption(f"Date filter uses **{date_col}**. Showing **{len(out)}** of {len(df)} record(s) "
+              f"between {start:%d-%b-%Y} and {end:%d-%b-%Y}.")
+    if out.empty:
+        st.info("No records fall in this date range. Widen the dates to see data again.")
+    return out
 
 
 def sidebar_filters(df):
@@ -380,6 +395,9 @@ def open_items(df):
     fix = df.get("Short Term Fix Status", pd.Series(dtype=str)).astype(str).str.strip()
     rca = df.get("RCA Requested", pd.Series(dtype=str)).astype(str).str.strip()
     pending = df[fix == "Pending"]
+    # An RCA the customer asked for and never got. Most of these sit on records that are
+    # otherwise CLOSED -- a clarification went out instead -- so this is a commitment
+    # backlog, not open work, and the page must not present the two as one thing.
     owed = df[(rca == "Yes") & (~fix.isin(["RCA Shared", "Fixed"]))]
     return pending, owed
 
@@ -421,6 +439,108 @@ def missed_rate(df):
     out = g.groupby("Month").agg(Records=("Missed", "size"), Missed=("Missed", "sum")).reset_index()
     out["Missed %"] = (out["Missed"] / out["Records"] * 100).round(0)
     return out.sort_values("Month")
+
+
+def _share(frame, col, value):
+    return (frame[col].astype(str).str.strip().eq(value).mean() * 100) if len(frame) else 0.0
+
+
+def insights(df, window=3, move=6.0):
+    """Findings the tracker already contains, stated as sentences.
+
+    Six frequency tables answer "what is there". None of them answer "what changed",
+    which is the only question an executive is actually asking. Everything here is
+    computed from the frame on screen, so it respects the filters and cannot drift from
+    the tables below it -- and it is deterministic, so it can be regression-tested. No
+    model, no API key, no per-view cost.
+
+    Each finding returns (headline, detail, colour). A finding that does not clear its
+    own threshold is not returned at all: an insight panel that always finds something
+    is a horoscope.
+    """
+    out = []
+    if df.empty or "Email/JIRA Date" not in df.columns:
+        return out
+    months = pd.to_datetime(df["Email/JIRA Date"], errors="coerce").dt.to_period("M")
+    order = sorted(m for m in months.dropna().unique())
+
+    # --- what kind of failure is growing -------------------------------------------
+    if len(order) >= window * 2 and "Sub-type" in df.columns:
+        recent = df[months.isin(order[-window:])]
+        prior = df[months.isin(order[-window * 2:-window])]
+        drift = []
+        for value in df["Sub-type"].dropna().astype(str).str.strip().unique():
+            if not value:
+                continue
+            now, was = _share(recent, "Sub-type", value), _share(prior, "Sub-type", value)
+            if abs(now - was) >= move and max(now, was) >= 10:
+                drift.append((now - was, value, now, was))
+        for delta, value, now, was in sorted(drift, key=lambda d: -abs(d[0]))[:2]:
+            rising = delta > 0
+            out.append((
+                f"{value} is {'rising' if rising else 'falling'}",
+                f"{value} accounts for {now:.0f}% of the last {window} months' records, against "
+                f"{was:.0f}% in the {window} before — {'up' if rising else 'down'} "
+                f"{abs(delta):.0f} points. "
+                + ("That is where the failures are moving, and where a fix pays back most."
+                   if rising else "Something in this area genuinely improved."),
+                "#f28b82" if rising else "#a8dab5"))
+
+    # --- which account carries the exposure ----------------------------------------
+    if "Customer" in df.columns:
+        exposure = customer_exposure(df)
+        if not exposure.empty and "Records" in exposure.columns:
+            top = exposure.iloc[0]
+            pct = top["Records"] / max(len(df), 1) * 100
+            if pct >= 25:
+                out.append((
+                    f"{top['Customer']} is {pct:.0f}% of all records",
+                    f"{int(top['Records'])} of {len(df)} records name {top['Customer']}. One account "
+                    f"carrying this much of the complaint load is a relationship risk before it is a "
+                    f"reporting one.",
+                    "#f6c177"))
+
+    # --- accounts where everything they raise turns out to be real -------------------
+    if {"Customer", "Missed_Flag"} <= set(df.columns):
+        spread = df.assign(_c=df["Customer"].astype(str).str.split("/")).explode("_c")
+        spread["_c"] = spread["_c"].str.strip()
+        grouped = spread.groupby("_c").agg(
+            n=("_c", "size"), missed=("Missed_Flag", lambda s: (s.astype(str).str.strip() == "Yes").sum()))
+        perfect = grouped[(grouped["n"] >= 4) & (grouped["missed"] == grouped["n"])]
+        if not perfect.empty:
+            names = ", ".join(f"{i} ({int(r.n)}/{int(r.n)})" for i, r in perfect.iterrows())
+            out.append((
+                "Some accounts are right every time they complain",
+                f"{names} — every record these accounts raised was a confirmed miss. They are not "
+                f"reporting noise, so each new ticket from them should be treated as a real failure "
+                f"until proven otherwise.",
+                "#f28b82"))
+
+    # --- one systemic problem, not many incidents ------------------------------------
+    if {"Customer", "Sub-type"} <= set(df.columns):
+        pairs = df.groupby(["Customer", "Sub-type"]).size().sort_values(ascending=False)
+        if len(pairs) and pairs.iloc[0] >= 5:
+            (customer, subtype), n = pairs.index[0], int(pairs.iloc[0])
+            out.append((
+                f"{customer} + {subtype} has recurred {n} times",
+                f"The same account raising the same failure mode {n} times is one unsolved problem, "
+                f"not {n} separate incidents. It is the highest-value thing on this page to fix.",
+                "#f6c177"))
+
+    # --- the improvement nobody can see ----------------------------------------------
+    if "Jira Key" in df.columns and len(order) >= window * 2:
+        recent = df[months.isin(order[-window:])]
+        prior = df[months.isin(order[:window])]
+        now = filled(recent.get("Jira Key")).mean() * 100 if len(recent) else 0
+        was = filled(prior.get("Jira Key")).mean() * 100 if len(prior) else 0
+        if now - was >= 25:
+            out.append((
+                "Ticket traceability is up sharply",
+                f"{now:.0f}% of the last {window} months' records carry a Jira key, against {was:.0f}% "
+                f"in the first {window} months. Every new complaint is now traceable to a ticket — a "
+                f"process win that none of the charts show.",
+                "#a8dab5"))
+    return out
 
 
 def missed_verdict(rate, window=3, noise=5.0):
@@ -762,6 +882,17 @@ if selected_page == "Executive Summary":
             st.caption("Fewer than six months of records in this filter — too short to call a trend.")
         f = rate_chart(rate, "Month", "Missed %", title="Missed events as a share of records")
         downloads(rate, "missed_event_rate", f)
+    found = insights(page)
+    add_section("What the complaints are telling us", "Findings computed from the records in the current "
+                "filter, not a fixed commentary. Each one states a conclusion and the number behind it; "
+                "a finding that does not clear its own threshold is not shown at all.", "#f6c177")
+    if not found:
+        st.info("Nothing in the current filter clears the thresholds for a finding. Widen the date range "
+                "or clear a sidebar filter.")
+    for headline, detail, colour in found:
+        st.markdown(f"<div class='insight-box' style='--accent:{colour}'>"
+                    f"<b style='color:{colour}'>{esc(headline)}.</b> {esc(detail)}</div>",
+                    unsafe_allow_html=True)
     add_section("Event Summary Intelligence", "Customer pain, complaint nature, missed-event patterns, root causes, severity, and automation opportunities for the selected date range. Every table here counts the same population as the cards above and as the SOURCE pages: all records the customer sent in, complaints and inquiries together.")
     for title, col in [("Top complaints by customer", "Customer"), ("Nature of complaints", "Reason"), ("Missed event types", "Event type"), ("Root cause split", "Root Cause"), ("Severity split", "Severity"), ("Automation opportunities", "Standard Automation Focus")]:
         if col in page.columns:
@@ -772,12 +903,20 @@ elif selected_page == "Open items":
     ages = days_open(pending)
     oldest = int(ages.max()) if ages.notna().any() else 0
     with_rca = int(filled(page.get("RCA Details")).sum())
+    # Split the owed list by whether the record is still open, because 16 of the 20 are
+    # closed and calling all of them "open items" is what made resolved work look unresolved.
+    owed_open = owed[owed.index.isin(pending.index)]
+    owed_closed = owed[~owed.index.isin(pending.index)]
     kpis([
-        ("Awaiting a fix", len(pending), "Short Term Fix Status is Pending", "#f28b82"),
-        ("RCA owed", len(owed), "Customer asked, none shared or fixed yet", "#f6c177"),
+        ("Open now", len(pending), "Short Term Fix Status is Pending", "#f28b82"),
         ("Oldest open item", f"{oldest}d", "Days since the record was raised", "#8ab4f8"),
+        ("RCA never delivered", len(owed_closed), "Closed another way; the RCA was still owed", "#f6c177"),
         ("RCA on file", with_rca, "Records carrying RCA text", "#a8dab5"),
     ])
+    st.caption(f"**{len(pending)} record(s) are genuinely open.** The {len(owed_closed)} below under "
+               f"*RCA promised but never delivered* are closed — they were answered with a fix or a "
+               f"clarification — but a root cause analysis the customer asked for was never written. "
+               f"They are a commitment backlog, not a work queue.")
 
     # Cycle time is only honest over the records that carry a resolution date. Most of
     # the tracker predates the EAO project and has no ticket to read one from, so the
@@ -838,19 +977,17 @@ elif selected_page == "Open items":
 
     # `owed` mixes genuinely open records with ones already closed by a clarification,
     # so it needs the age column that copes with both rather than "Days open".
-    add_section("RCA requested but not delivered", "The customer asked for a root cause analysis and the "
-                "record is neither RCA Shared nor Fixed. This is the commitment backlog. Rows carrying a "
-                "resolution date were closed another way; their figure is time to close, not time waiting.",
-                "#f6c177")
-    if owed.empty:
-        st.success("No outstanding RCA commitments.")
+    add_section("RCA promised but never delivered", "These records are CLOSED — answered with a fix or a "
+                "clarification — but the customer asked for a root cause analysis and none was written. "
+                "This is a commitment backlog, not open work: closing a fix status does not discharge a "
+                "promise that was never kept. Oldest first.", "#f6c177")
+    if owed_closed.empty:
+        st.success("Every RCA that was asked for has been written.")
     else:
-        t = owed.assign(**{"Days": age_days(owed), "Still open": owed["Resolution Date"].isna().map(
-            {True: "Yes", False: "No"}) if "Resolution Date" in owed.columns else "Yes"})
-        t = t.sort_values("Days", ascending=False)
-        cols = [c for c in COLS if c in t.columns] + ["Resolution Date", "Days", "Still open"]
-        cols = [c for c in cols if c in t.columns]
-        styled_table(t[cols]); downloads(t[cols], "open_rca_owed")
+        t = owed_closed.assign(**{"Age (days)": age_days(owed_closed)}).sort_values(
+            "Age (days)", ascending=False)
+        cols = [c for c in COLS if c in t.columns] + ["Age (days)"]
+        styled_table(t[cols]); downloads(t[cols], "rca_never_delivered")
 
     add_section("Root cause analyses on file", "The RCA text for every record that has one, newest first. "
                 "Where the RCA went out only as a PDF attached to the ticket, the entry says so rather than "
