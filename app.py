@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pandas as pd
 import plotly.express as px
+import plotly.graph_objects as go
 import streamlit as st
 
 st.set_page_config(page_title="EventWatch Executive Dashboard", layout="wide")
@@ -361,6 +362,155 @@ def chart(df, label_col, value_col="Records", title=""):
     return fig
 
 
+# Validated against scripts/validate_palette.js on the #1b1f26 dark surface. The app's
+# original palette sits at OKLCH L~0.75, outside the 0.48-0.67 dark band, so these are
+# darker steps of the same hues. RED_BLUE replaces the obvious red/green direction pair,
+# which fails colour-blind separation badly (deutan dE 3.6 against dE 18.0 here).
+ROOT_HUES = {"People": "#5b8fd9", "Process": "#c0851f", "Product": "#00a391"}
+RED_BLUE = ("#e06b5f", "#5b8fd9")
+BLUE_RAMP = ["#1b1f26", "#24364f", "#2d4d78", "#3a6ba6", "#5b8fd9"]
+
+
+def subtype_matrix(df):
+    """Sub-type by Root Cause. The taxonomy calls Sub-type the category *beneath* Root
+    Cause, but nothing ever showed the two together -- so the fact that the two biggest
+    sub-types are a pure People failure and a pure Product failure was invisible."""
+    if not {"Sub-type", "Root Cause"} <= set(df.columns) or df.empty:
+        return pd.DataFrame()
+    grid = pd.crosstab(df["Sub-type"].astype(str).str.strip(),
+                       df["Root Cause"].astype(str).str.strip())
+    if grid.empty:
+        return grid
+    return grid.loc[grid.sum(axis=1).sort_values(ascending=False).index]
+
+
+def heatmap(grid, title=""):
+    """A grid of magnitudes wants a heatmap, not sixteen coloured bars.
+
+    Sixteen sub-types is far past the point where categorical colour stays readable, and
+    a single sequential hue also shows the *sparsity* -- People and Product barely
+    overlap -- which a ranked bar chart cannot say at all.
+    """
+    if grid is None or grid.empty:
+        st.info("Chart cannot be rendered because required fields are missing: Sub-type, Root Cause.")
+        return None
+    fig = px.imshow(grid.values, x=list(grid.columns), y=list(grid.index),
+                    color_continuous_scale=BLUE_RAMP, aspect="auto", text_auto=True, title=title)
+    fig.update_traces(xgap=2, ygap=2,  # the 2px surface gap between fills
+                      hovertemplate="%{y} · %{x}<br>%{z} record(s)<extra></extra>")
+    fig.update_xaxes(side="top", tickfont=dict(size=13, color="#f3f4f6"), title="")
+    fig.update_yaxes(tickfont=dict(size=12, color="#f3f4f6"), title="")
+    fig.update_layout(template="plotly_dark", plot_bgcolor="#1b1f26", paper_bgcolor="#1b1f26",
+                      font=dict(color="#f3f4f6", size=13), coloraxis_showscale=False,
+                      margin=dict(l=20, r=30, t=70, b=30),
+                      height=max(380, len(grid.index) * 32 + 150))
+    st.plotly_chart(fig, use_container_width=True)
+    return fig
+
+
+def subtype_drift(df, window=3, minimum=3):
+    """Each sub-type's share of records in the last `window` months against the window
+    before it. This is the table behind the "Source Coverage is rising" finding."""
+    if not {"Sub-type", "Email/JIRA Date"} <= set(df.columns) or df.empty:
+        return pd.DataFrame()
+    months = pd.to_datetime(df["Email/JIRA Date"], errors="coerce").dt.to_period("M")
+    order = sorted(m for m in months.dropna().unique())
+    if len(order) < window * 2:
+        return pd.DataFrame()
+    recent, prior = df[months.isin(order[-window:])], df[months.isin(order[-window * 2:-window])]
+    rows = []
+    for value in sorted(df["Sub-type"].dropna().astype(str).str.strip().unique()):
+        if not value:
+            continue
+        now, was = _share(recent, "Sub-type", value), _share(prior, "Sub-type", value)
+        if max(now, was) < minimum:
+            continue
+        rows.append({"Sub-type": value, "Then %": round(was, 1), "Now %": round(now, 1),
+                     "Change": round(now - was, 1)})
+    out = pd.DataFrame(rows)
+    return out.sort_values("Change", ascending=False).reset_index(drop=True) if not out.empty else out
+
+
+def dumbbell(frame, label_col, start_col, end_col, title=""):
+    """Before and after per item, joined by a line -- the form built for exactly this.
+
+    Two bar charts side by side make the reader do the subtraction; the dumbbell draws
+    it. Direction is carried by the connector colour AND by a signed label, so identity
+    is never colour alone.
+    """
+    if frame is None or frame.empty:
+        st.info(f"Chart cannot be rendered because required fields are missing: {label_col}.")
+        return None
+    data = frame.sort_values(end_col).copy()
+    rise, fall = RED_BLUE
+    fig = go.Figure()
+    for _, row in data.iterrows():
+        colour = rise if row[end_col] >= row[start_col] else fall
+        fig.add_trace(go.Scatter(x=[row[start_col], row[end_col]], y=[row[label_col]] * 2,
+                                 mode="lines", line=dict(color=colour, width=3),
+                                 hoverinfo="skip", showlegend=False))
+    fig.add_trace(go.Scatter(x=data[start_col], y=data[label_col], mode="markers", name="Then",
+                             marker=dict(size=11, color="#8b95a5", line=dict(width=2, color="#1b1f26")),
+                             hovertemplate="%{y}<br>then %{x:.1f}%<extra></extra>"))
+    fig.add_trace(go.Scatter(x=data[end_col], y=data[label_col], mode="markers", name="Now",
+                             marker=dict(size=11, color="#f3f4f6", line=dict(width=2, color="#1b1f26")),
+                             hovertemplate="%{y}<br>now %{x:.1f}%<extra></extra>"))
+    # The delta sits beyond the OUTER dot, never beside the end dot. Anchored to the end
+    # dot it printed straight across its own connector on every falling row, because
+    # there the end dot is the left-hand one and the text runs back over the line.
+    outer = data[[start_col, end_col]].max(axis=1)
+    fig.add_trace(go.Scatter(x=outer, y=data[label_col], mode="text", showlegend=False,
+                             text=[f"  {v:+.0f} pts" for v in data[end_col] - data[start_col]],
+                             textposition="middle right", textfont=dict(size=12, color="#b6beca"),
+                             hoverinfo="skip", cliponaxis=False))
+    span = float(max(data[start_col].max(), data[end_col].max()))
+    fig.update_xaxes(ticksuffix="%", tickfont=dict(size=12, color="#f3f4f6"), gridcolor="#303846",
+                     title="Share of records", range=[0, span * 1.22 + 2])
+    fig.update_yaxes(tickfont=dict(size=12, color="#f3f4f6"), gridcolor="#303846", title="")
+    fig.update_layout(template="plotly_dark", plot_bgcolor="#1b1f26", paper_bgcolor="#1b1f26",
+                      font=dict(color="#f3f4f6", size=13), title=title,
+                      legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0), legend_title_text="",
+                      margin=dict(l=20, r=110, t=70, b=40),
+                      height=max(340, len(data) * 36 + 150))
+    st.plotly_chart(fig, use_container_width=True)
+    return fig
+
+
+def proportion_bar(frame, label_col, part_col, whole_col, part_name, rest_name, title=""):
+    """A ratio per row, drawn to a common 100% width.
+
+    These are ratios, not categories: a two-slice pie is the classic wrong answer and a
+    grouped bar makes the reader divide. Rows share a baseline, so a glance ranks them.
+    """
+    if frame is None or frame.empty:
+        st.info(f"Chart cannot be rendered because required fields are missing: {label_col}.")
+        return None
+    data = frame.copy()
+    data["_part"] = data[part_col] / data[whole_col] * 100
+    data["_rest"] = 100 - data["_part"]
+    part_hue, rest_hue = RED_BLUE
+    fig = go.Figure()
+    fig.add_trace(go.Bar(y=data[label_col], x=data["_part"], orientation="h", name=part_name,
+                         marker=dict(color=part_hue, line=dict(width=2, color="#1b1f26")),
+                         text=[f"{v:.0f}%" for v in data["_part"]], textposition="inside",
+                         insidetextanchor="middle", textfont=dict(color="#f3f4f6", size=12),
+                         customdata=data[[part_col, whole_col]].values,
+                         hovertemplate="%{y}<br>%{customdata[0]} of %{customdata[1]}<extra></extra>"))
+    fig.add_trace(go.Bar(y=data[label_col], x=data["_rest"], orientation="h", name=rest_name,
+                         marker=dict(color=rest_hue, line=dict(width=2, color="#1b1f26")),
+                         hoverinfo="skip"))
+    fig.update_xaxes(ticksuffix="%", range=[0, 100], tickfont=dict(size=12, color="#f3f4f6"),
+                     gridcolor="#303846", title="")
+    fig.update_yaxes(tickfont=dict(size=13, color="#f3f4f6"), title="")
+    fig.update_layout(barmode="stack", template="plotly_dark", plot_bgcolor="#1b1f26",
+                      paper_bgcolor="#1b1f26", font=dict(color="#f3f4f6", size=13), title=title,
+                      legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0), legend_title_text="",
+                      margin=dict(l=20, r=40, t=70, b=30),
+                      height=max(320, len(data) * 40 + 150))
+    st.plotly_chart(fig, use_container_width=True)
+    return fig
+
+
 def rate_chart(df, x_col, y_col, title="", suffix="%"):
     """A line over time. Volume charts answer "how many"; a rate answers "are we improving"."""
     if df.empty or x_col not in df.columns or y_col not in df.columns:
@@ -644,17 +794,59 @@ def source_page(title, df, col, key, primary=None):
     add_section(f"{label} chart", f"Visual ranking of {label.lower()} categories so leaders can quickly see the biggest drivers.", "#80cbc4")
     fig = chart(t, col, title=f"{label} distribution"); downloads(t, f"{key}_chart_data", fig)
     if col == "Customer":
+        if {"Customer", "Missed_Flag"} <= set(page.columns) and not page.empty:
+            spread = page.assign(_c=page["Customer"].astype(str).str.split("/")).explode("_c")
+            spread["_c"] = spread["_c"].str.strip()
+            rate = spread.groupby("_c").agg(
+                Records=("_c", "size"),
+                Missed=("Missed_Flag", lambda x: int((x.astype(str).str.strip() == "Yes").sum()))
+            ).reset_index().rename(columns={"_c": "Customer"})
+            rate = rate[rate["Records"] >= 3].copy()
+            rate["Missed %"] = (rate["Missed"] / rate["Records"] * 100).round(0)
+            # Keep the twelve busiest accounts, then order by RATE: the bars share a
+            # baseline so that ordering is the whole point, and sorting by raw count
+            # left 100% rows sitting below 50% ones. Ascending, because a horizontal
+            # bar draws its first row at the bottom.
+            rate = rate.sort_values("Records", ascending=False).head(12).sort_values("Missed %")
+            if not rate.empty:
+                add_section("How often each customer is right", "The share of each account's records that "
+                            "turned out to be a confirmed miss, on a common 100% width so the rows rank at "
+                            "a glance. An account near the top is not raising noise -- every ticket it "
+                            "sends is a real failure.", "#f28b82")
+                pb = proportion_bar(rate, "Customer", "Missed", "Records",
+                                    "Confirmed miss", "Not a miss", title="Confirmed misses as a share of each account's records")
+                downloads(rate, "customer_miss_rate", pb)
         for first, second, name, desc in [("Customer", "Reason", "Customer complaint reasons", "Shows each customer and the specific reasons tied to that customer."), ("Customer", "Event type", "Customer event-type patterns", "Shows which event types are driving records for each customer."), ("Customer", "Root Cause", "Customer root-cause patterns", "Shows whether each customer’s records are People, Process, or Product related.")]:
             lt = long_pair_table(page, first, second)
             if not lt.empty: add_section(name, desc, "#a8dab5"); styled_table(lt, height=420); downloads(lt, name.lower().replace(" ", "_"))
     if col == "Root Cause":
+        grid = subtype_matrix(page)
+        if not grid.empty:
+            add_section("Sub-type by root cause", "Sub-type is the category beneath Root Cause in the "
+                        "taxonomy, and until now nothing showed the two together. Darker means more "
+                        "records. The shape matters as much as the counts: where a row is dark in one "
+                        "column and empty in the others, that failure mode belongs to a single root "
+                        "cause and has a single owner.", "#80cbc4")
+            hm = heatmap(grid, title="Records by sub-type and root cause")
+            flat = grid.reset_index().rename(columns={"index": "Sub-type"})
+            flat["Total"] = grid.sum(axis=1).values
+            styled_table(flat); downloads(flat, "subtype_by_root_cause", hm)
+        drift = subtype_drift(page)
+        if not drift.empty:
+            add_section("Which failures are growing", "Each sub-type's share of records in the last three "
+                        "months against the three before. The dot on the left is where it was, the dot on "
+                        "the right is where it is now, and the join shows the distance travelled.", "#f6c177")
+            db = dumbbell(drift, "Sub-type", "Then %", "Now %", title="Sub-type share: then and now")
+            downloads(drift, "subtype_drift", db)
         for root in ["Product", "People", "Process"]:
             root_df = page[page["Root Cause"].astype(str).eq(root)] if "Root Cause" in page.columns else page.iloc[0:0]
             if root_df.empty: continue
             add_section(f"{root} drill-down", f"Breaks {root.lower()} root-cause records into reasons, event types, customers, and automation focus areas for action planning.", "#f6c177" if root == "Process" else "#8ab4f8" if root == "Product" else "#b6beca")
             c1, c2 = st.columns(2)
             with c1: st.markdown(f"**{root} reasons**"); styled_table(count_table(root_df, "Reason") if "Reason" in root_df.columns else pd.DataFrame())
-            with c2: st.markdown(f"**{root} event types**"); styled_table(count_table(root_df, "Event type") if "Event type" in root_df.columns else pd.DataFrame())
+            with c2: st.markdown(f"**{root} sub-types**"); styled_table(count_table(root_df, "Sub-type") if "Sub-type" in root_df.columns else pd.DataFrame())
+            c3, _ = st.columns(2)
+            with c3: st.markdown(f"**{root} event types**"); styled_table(count_table(root_df, "Event type") if "Event type" in root_df.columns else pd.DataFrame())
             pair = long_pair_table(root_df, "Customer", "Reason")
             if not pair.empty: st.markdown(f"**{root} customer and reason detail**"); styled_table(pair, height=320); downloads(pair, f"{root.lower()}_customer_reason_detail")
 
@@ -1068,6 +1260,21 @@ elif selected_page == "Automation urgency":
     page_header(selected_page); page = date_filter(filtered, "urgency"); complaints = page[page["Issue Type"].astype(str).eq("Complaint")] if "Issue Type" in page.columns else page; t = urgency_table(complaints)
     add_section("Automation urgency table", "Ranks pressing control areas by volume, severity, RCA pressure, missed flags, and customer concentration.", "#f6c177"); styled_table(t); downloads(t, "automation_urgency")
     if not t.empty: add_section("Automation urgency score chart", "Visual ranking of the most urgent automation/control opportunities.", "#80cbc4"); fig = chart(t, "Standard Automation Focus", "Urgency Score", "Automation urgency score"); downloads(t, "automation_urgency_chart_data", fig)
+    # `Automation Opportunity` is filled on every record and appeared on no page at all:
+    # a whole column of per-record proposals nobody could read.
+    if "Automation Opportunity" in page.columns:
+        proposals = page[filled(page["Automation Opportunity"])]
+        add_section("What was proposed, record by record", "The specific automation or control written "
+                    "against each record, grouped by its standardised focus area. This column is filled on "
+                    "every record and was not shown anywhere until now.", "#f6c177")
+        if proposals.empty:
+            st.info("No automation proposals in the current filter.")
+        else:
+            show = [c for c in ["Email/JIRA Date", "Jira Key", "Customer", "Standard Automation Focus",
+                                "Severity", "Automation Opportunity"] if c in proposals.columns]
+            ordered = proposals.sort_values(["Standard Automation Focus", "Email/JIRA Date"],
+                                            ascending=[True, False])
+            styled_table(ordered[show], height=520); downloads(ordered[show], "automation_proposals")
 elif selected_page == "Dynamic Source Discovery":
     page_header(selected_page); page = date_filter(filtered, "discovery"); disc = page[page["Standard Automation Focus"].astype(str).eq("Dynamic Source Discovery")] if "Standard Automation Focus" in page.columns else page.iloc[0:0]
     add_section("Source-miss meaning", "Dynamic Source Discovery identifies event types, customers, reasons, feeds, keywords, or source coverage patterns that current sources are missing or under-detecting.", "#80cbc4")
@@ -1095,6 +1302,6 @@ elif selected_page == "Definitions":
             styled_table(rows)
             st.markdown("</div>", unsafe_allow_html=True)
 elif selected_page == "Complaint Tracker":
-    page_header(selected_page); page = date_filter(filtered, "tracker"); concise = [c for c in ["Month Label", "Email/JIRA Date", "Jira Key", "Customer", "Event type", "Event/Bulletin Title", "Issue Type", "Reason", "Root Cause", "Short Term Fix Status", "RCA Requested", "Severity", "Standard Automation Focus", "Comments"] if c in page.columns]
+    page_header(selected_page); page = date_filter(filtered, "tracker"); concise = [c for c in ["Month Label", "Email/JIRA Date", "Jira Key", "Customer", "Event type", "Event/Bulletin Title", "Issue Type", "Reason", "Root Cause", "Sub-type", "Missed_Flag", "Short Term Fix Status", "Resolution Date", "RCA Requested", "Severity", "Standard Automation Focus", "Routed To", "Comments"] if c in page.columns]
     c1, c2 = st.columns(2); c1.download_button("Download visible tracker CSV", page[concise].to_csv(index=False).encode(), "customer_tracker_visible.csv", "text/csv"); c2.download_button("Download full filtered source CSV", page.drop(columns=[STAGED_FLAG], errors="ignore").to_csv(index=False).encode(), "customer_tracker_full_filtered.csv", "text/csv")
     styled_table(page[concise], height=560); manual_entry_form(df)
