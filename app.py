@@ -221,14 +221,45 @@ def date_filter(df, key):
     return out
 
 
+def customer_names(series):
+    """Every individual account named in a Customer column, slashes split out.
+
+    `Ford/GM` is one incident both companies raised, not a company called "Ford/GM".
+    Listing it as its own option put three non-existent customers in the filter and left
+    Penske unselectable, since its only record is the Penske/Ford row.
+    """
+    if series is None:
+        return []
+    names = set()
+    for value in series.dropna().astype(str):
+        names.update(part.strip() for part in value.split("/") if part.strip())
+    return sorted(names)
+
+
+def names_match(series, chosen):
+    """Rows naming any of `chosen`. A row naming two selected accounts matches once.
+
+    This is the rule `customer_exposure()` already uses for the Executive Summary tally,
+    so filtering to Ford now returns the same 42 records the summary counts rather than
+    the 37 an exact string match found.
+    """
+    wanted = set(chosen)
+    return series.fillna("").astype(str).apply(
+        lambda value: bool(wanted & {part.strip() for part in value.split("/")}))
+
+
 def sidebar_filters(df):
     st.sidebar.markdown("---"); st.sidebar.markdown("### Filters")
     out = df.copy()
     for col in ["Routed To", "Customer", "Event type", "Issue Type", "Severity", "Root Cause", "Reason", "Short Term Fix Status", "RCA Requested", "Standard Automation Focus"]:
         if col in out.columns:
-            vals = sorted(out[col].dropna().astype(str).unique())
+            # Customer is the one column whose cells can name more than one account.
+            # Everything else is a single value per row and matches on the whole string.
+            multi = col == "Customer"
+            vals = customer_names(out[col]) if multi else sorted(out[col].dropna().astype(str).unique())
             chosen = st.sidebar.multiselect(col, vals, key=f"filter_{col}")
-            if chosen: out = out[out[col].astype(str).isin(chosen)]
+            if chosen:
+                out = out[names_match(out[col], chosen)] if multi else out[out[col].astype(str).isin(chosen)]
     q = st.sidebar.text_input("Search tracker")
     if q: out = out[out.astype(str).apply(lambda r: r.str.contains(q, case=False, na=False).any(), axis=1)]
     return out
@@ -826,14 +857,32 @@ def source_page(title, df, col, key, primary=None):
             lt = long_pair_table(page, first, second)
             if not lt.empty: add_section(name, desc, "#a8dab5"); styled_table(lt, height=420); downloads(lt, name.lower().replace(" ", "_"))
     if col == "Root Cause":
-        grid = subtype_matrix(page)
-        if not grid.empty:
-            add_section("Sub-type by root cause", "Sub-type is the category beneath Root Cause in the "
-                        "taxonomy, and until now nothing showed the two together. Darker means more "
-                        "records. The shape matters as much as the counts: where a row is dark in one "
-                        "column and empty in the others, that failure mode belongs to a single root "
-                        "cause and has a single owner.", "#80cbc4")
-            hm = heatmap(grid, title="Records by sub-type and root cause")
+        add_section("Sub-type by root cause", "Sub-type is the category beneath Root Cause in the "
+                    "taxonomy, and until now nothing showed the two together. Darker means more "
+                    "records. The shape matters as much as the counts: where a row is dark in one "
+                    "column and empty in the others, that failure mode belongs to a single root "
+                    "cause and has a single owner.", "#80cbc4")
+        # A selector here rather than only in the sidebar: this is the question the page
+        # is for -- "for Ford, how many were a source miss" -- and it should not depend on
+        # knowing the sidebar exists. It narrows THIS block only; the drill-downs below
+        # keep following the sidebar, so the two never silently disagree.
+        options = ["All customers"] + customer_names(page.get("Customer"))
+        picked = st.selectbox("Customer", options, key=f"{key}_subtype_customer",
+                              help="Applies to this section only. A record naming two accounts "
+                                   "counts for each of them.")
+        focus = page if picked == "All customers" else page[names_match(page["Customer"], [picked])]
+        if picked != "All customers":
+            complaints = int(focus["Issue Type"].astype(str).eq("Complaint").sum()) if "Issue Type" in focus.columns else 0
+            inquiries = int(focus["Issue Type"].astype(str).eq("Inquiry").sum()) if "Issue Type" in focus.columns else 0
+            st.caption(f"**{picked}: {len(focus)} record(s)** — {complaints} complaint(s), "
+                       f"{inquiries} inquiry(ies). Records naming {picked} alongside another account "
+                       f"are included, which is how the Executive Summary counts them too.")
+        grid = subtype_matrix(focus)
+        if grid.empty:
+            st.info(f"No records for {picked} in the current filter.")
+        else:
+            hm = heatmap(grid, title=f"Records by sub-type and root cause"
+                                     f"{'' if picked == 'All customers' else ' — ' + picked}")
             flat = grid.reset_index().rename(columns={"index": "Sub-type"})
             flat["Total"] = grid.sum(axis=1).values
             styled_table(flat); downloads(flat, "subtype_by_root_cause", hm)

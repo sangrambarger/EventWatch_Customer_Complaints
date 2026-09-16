@@ -146,7 +146,10 @@ flagged so nobody leans on a point that will move. At 103 records over nine mont
 current answer is 73% against 70%: flat, and the page now says so.
 
 `Sub-type` sits beneath `Root Cause` in the taxonomy and was charted nowhere until
-SOURCE 04 gained a heatmap of the two together. The shape is the point: `Review` is 18
+SOURCE 04 gained a heatmap of the two together, with a customer selector above it. The
+selector narrows that block only -- the drill-downs below keep following the sidebar --
+because the question the page exists to answer is "for Ford, how many were a source
+miss", and answering it should not depend on knowing the sidebar has a filter at all. The shape is the point: `Review` is 18
 People and 0 Process, `Source Coverage` is 20 Product and 0 anything else -- two
 sub-types tied at 20 records that are entirely different failures with different owners.
 Sixteen sub-types is far past the 7-8 ceiling where categorical colour stays readable,
@@ -290,13 +293,21 @@ If a resave already happened, restore the four `cm="1"` attributes and
 - Multi-customer rows use a slash: `Ford/GM`, `Penske/Ford`, `Eaton/Ford`, with `Number of
   Customers` set. One incident reported by two customers is **one row**, not two.
   A merged incident may also carry slash-separated Jira keys (`EAO-35/EAO-36`).
-- **The app and the workbook count customers differently, on purpose.** `app.py`'s
-  `customer_exposure()` splits on the slash so a row naming two accounts is counted for
-  each -- that is the tally on SOURCE 05 and the Executive Summary. The workbook's
-  `COUNTIFS` matches the whole string, so `Eaton/Ford` is its own category there. SOURCE
-  05 shows the exact-match table too, labelled, so the two can be reconciled. Making
-  Excel agree means rewriting `Dashboard!A64`, `B64` and the `B74` "Other customers"
-  formula to be token-aware -- not done.
+- **The app counts customers one way throughout: split on the slash.**
+  `customer_exposure()` does it for the Executive Summary and SOURCE 05, and
+  `customer_names()` / `names_match()` do it for the sidebar filter and the SOURCE 04
+  selector. It was not always so: the sidebar matched the whole cell, so filtering to
+  Ford returned 37 records where the Executive Summary counted 42 -- the five
+  `Ford/GM`, `Eaton/Ford` and `Penske/Ford` rows silently vanished, all of them
+  complaints, which is why the complaint count moved but the inquiry count did not. The
+  dropdown also listed those three combined strings as if they were companies, and left
+  Penske unselectable because its only record is the `Penske/Ford` row. Selecting two
+  accounts that share a row returns it once, not twice.
+- **The workbook still counts customers the other way, and that is the remaining
+  divergence.** Excel's `COUNTIFS` matches the whole string, so `Eaton/Ford` is its own
+  category there and Ford reads 37. SOURCE 05 shows the exact-match table too, labelled,
+  so the two reconcile. Making Excel agree means rewriting `Dashboard!A64`, `B64` and the
+  `B74` "Other customers" formula to be token-aware -- not done.
 - `Jira Key` links to the `EAO` project (EventWatch_AI_Ops); older strays live in
   DATA/TS/BI/TENAR.
 - `Short Term Fix Status` is `Fixed` / `RCA Shared` / `Clarification Provided`, plus
