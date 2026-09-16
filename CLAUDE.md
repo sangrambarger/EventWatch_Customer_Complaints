@@ -145,6 +145,31 @@ with 4 records must not weigh the same as one with 18. A move under 5 points rea
 flagged so nobody leans on a point that will move. At 103 records over nine months the
 current answer is 73% against 70%: flat, and the page now says so.
 
+`Sub-type` sits beneath `Root Cause` in the taxonomy and was charted nowhere until
+SOURCE 04 gained a heatmap of the two together. The shape is the point: `Review` is 18
+People and 0 Process, `Source Coverage` is 20 Product and 0 anything else -- two
+sub-types tied at 20 records that are entirely different failures with different owners.
+Sixteen sub-types is far past the 7-8 ceiling where categorical colour stays readable,
+which is why it is a single-hue heatmap and not sixteen coloured bars.
+
+Chart colours are **validated, not eyeballed** -- `scripts/validate_palette.js` in the
+bundled `dataviz` skill, run against the `#1b1f26` dark surface. Two findings worth
+keeping: the app's original palette sits at OKLCH L~0.75, outside the 0.48-0.67 dark
+band, so `ROOT_HUES`, `RED_BLUE` and `BLUE_RAMP` are darker steps of the same hues; and
+the obvious red/green pair for rising/falling **fails colour-blind separation** at
+deutan dE 3.6, against dE 18.0 for the red/blue pair actually used. Direction is also
+carried by a signed label, so it is never colour alone.
+
+Three forms beyond the bar charts, each chosen for its job rather than for variety:
+a **heatmap** for the Root Cause x Sub-type grid, a **dumbbell** for each sub-type's
+share then against now (two dots and the distance between them, rather than making the
+reader subtract two bar charts), and **proportion bars** for ratios such as each
+account's confirmed-miss share -- ratios on a shared 100% baseline, where a two-slice
+pie is the classic wrong answer. Both layout faults found by screenshotting them are
+worth remembering: a delta label anchored to the end dot printed across its own
+connector on every falling row, and proportion bars sorted by raw count do not rank by
+rate no matter what the caption claims.
+
 `audit_pages.py` covers what `smoke_app.py` cannot: whether the numbers are *right*.
 It scrapes every `excel-table` off every page and reconciles each label against counts
 computed independently from the CSV. A page bound to a stale frame, a filter quietly
