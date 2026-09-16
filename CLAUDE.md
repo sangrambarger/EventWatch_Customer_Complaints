@@ -152,13 +152,21 @@ sub-types tied at 20 records that are entirely different failures with different
 Sixteen sub-types is far past the 7-8 ceiling where categorical colour stays readable,
 which is why it is a single-hue heatmap and not sixteen coloured bars.
 
-Chart colours are **validated, not eyeballed** -- `scripts/validate_palette.js` in the
-bundled `dataviz` skill, run against the `#1b1f26` dark surface. Two findings worth
-keeping: the app's original palette sits at OKLCH L~0.75, outside the 0.48-0.67 dark
-band, so `ROOT_HUES`, `RED_BLUE` and `BLUE_RAMP` are darker steps of the same hues; and
-the obvious red/green pair for rising/falling **fails colour-blind separation** at
-deutan dE 3.6, against dE 18.0 for the red/blue pair actually used. Direction is also
-carried by a signed label, so it is never colour alone.
+**Every chart draws from the app's own CSS tokens.** `RED_BLUE` is `--red`/`--blue`
+and `BLUE_RAMP` grades `--panel` up to `--blue`; no chart introduces a hue of its own.
+This was briefly not true -- the first cut of these three used darker, individually
+better-validated steps, and the pages read as a different product. One palette across
+the dashboard beats a locally optimal one, and a new view is never the place to
+introduce a new colour.
+
+Within that constraint the pair that carries meaning is still checked with
+`scripts/validate_palette.js` (bundled `dataviz` skill) against the `#1b1f26` surface:
+`--red` against `--blue` scores CVD dE 17.0 protan and 21.1 to normal vision, clear of
+the dE 8 floor, and `BLUE_RAMP` is monotonic in luminance. What is deliberately never
+used is the obvious red/green for rising and falling, which collapses to **dE 3.6 under
+deuteranopia**; direction carries a signed label as well, so it never rests on colour
+alone. In-bar labels wear `--panel` rather than `--ink`: white on `--red` is 2.2:1,
+dark is 6.9:1, and the label sits on the fill rather than the surface.
 
 Three forms beyond the bar charts, each chosen for its job rather than for variety:
 a **heatmap** for the Root Cause x Sub-type grid, a **dumbbell** for each sub-type's

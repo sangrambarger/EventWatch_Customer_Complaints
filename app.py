@@ -362,13 +362,19 @@ def chart(df, label_col, value_col="Records", title=""):
     return fig
 
 
-# Validated against scripts/validate_palette.js on the #1b1f26 dark surface. The app's
-# original palette sits at OKLCH L~0.75, outside the 0.48-0.67 dark band, so these are
-# darker steps of the same hues. RED_BLUE replaces the obvious red/green direction pair,
-# which fails colour-blind separation badly (deutan dE 3.6 against dE 18.0 here).
-ROOT_HUES = {"People": "#5b8fd9", "Process": "#c0851f", "Product": "#00a391"}
-RED_BLUE = ("#e06b5f", "#5b8fd9")
-BLUE_RAMP = ["#1b1f26", "#24364f", "#2d4d78", "#3a6ba6", "#5b8fd9"]
+# The app's own CSS tokens, not new hues. Every chart on every page draws from --blue,
+# --amber and --red, and a new page in a different set of blues reads as a different
+# product even when each chart is individually fine; one palette across the dashboard
+# beats a locally optimal one. BLUE_RAMP is --panel graded up to --blue, so the heatmap
+# sits on the same surface the panels do.
+#
+# The pair that matters is still checked: --red against --blue scores CVD dE 17.0
+# (protan) and 21.1 to normal vision through scripts/validate_palette.js, comfortably
+# clear of the dE 8 floor. What is deliberately NOT used is the obvious red/green for
+# rising and falling, which collapses to dE 3.6 under deuteranopia -- direction carries
+# a signed label too, so it never rests on colour alone.
+RED_BLUE = ("#f28b82", "#8ab4f8")           # --red, --blue
+BLUE_RAMP = ["#1b1f26", "#24384f", "#2f5580", "#4e7bb8", "#8ab4f8"]   # --panel -> --blue
 
 
 def subtype_matrix(df):
@@ -450,7 +456,7 @@ def dumbbell(frame, label_col, start_col, end_col, title=""):
                                  mode="lines", line=dict(color=colour, width=3),
                                  hoverinfo="skip", showlegend=False))
     fig.add_trace(go.Scatter(x=data[start_col], y=data[label_col], mode="markers", name="Then",
-                             marker=dict(size=11, color="#8b95a5", line=dict(width=2, color="#1b1f26")),
+                             marker=dict(size=11, color="#b6beca", line=dict(width=2, color="#1b1f26")),
                              hovertemplate="%{y}<br>then %{x:.1f}%<extra></extra>"))
     fig.add_trace(go.Scatter(x=data[end_col], y=data[label_col], mode="markers", name="Now",
                              marker=dict(size=11, color="#f3f4f6", line=dict(width=2, color="#1b1f26")),
@@ -493,7 +499,7 @@ def proportion_bar(frame, label_col, part_col, whole_col, part_name, rest_name, 
     fig.add_trace(go.Bar(y=data[label_col], x=data["_part"], orientation="h", name=part_name,
                          marker=dict(color=part_hue, line=dict(width=2, color="#1b1f26")),
                          text=[f"{v:.0f}%" for v in data["_part"]], textposition="inside",
-                         insidetextanchor="middle", textfont=dict(color="#f3f4f6", size=12),
+                         insidetextanchor="middle", textfont=dict(color="#1b1f26", size=12),
                          customdata=data[[part_col, whole_col]].values,
                          hovertemplate="%{y}<br>%{customdata[0]} of %{customdata[1]}<extra></extra>"))
     fig.add_trace(go.Bar(y=data[label_col], x=data["_rest"], orientation="h", name=rest_name,
