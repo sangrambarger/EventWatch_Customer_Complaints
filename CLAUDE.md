@@ -26,6 +26,7 @@ python3 scripts/audit_pages.py              # every rendered figure vs the track
 python3 scripts/export_definitions.py       # regenerate definitions.json from the workbook sheet
 python3 scripts/append_row.py --json r.json # add one record to the CSV and the Data sheet together
 python3 scripts/update_row.py --json c.json # change fields on records already in both files
+python3 scripts/delete_row.py --json d.json # remove records from both files, renumbering the sheet
 ```
 
 `validate.py` covers every bug class that has actually shipped here: characters decayed
@@ -102,6 +103,17 @@ reproduce byte-for-byte is refused untouched), locates the sheet row by position
 then *verifies* it against the CSV row's own key columns, and keeps each cell's
 existing style. Same rule on caches: `refresh_caches.py` then `validate.py` after.
 
+`delete_row.py` completes the trio, and was missing the first time it was needed. A row
+logged in good faith turns out not to be a record at all -- a customer's follow-up
+question on a query already in the tracker is part of that query, not a second incident
+-- and taking it back out by hand is worse than putting it in: every `<row r>` and every
+`<c r>` below the gap has to be renumbered, and the sheet `dimension` and
+`ComplaintTracker`'s ref both have to shrink, that ref being the one that silently
+undercounts every Dashboard COUNTIFS when it disagrees with the data. It carries the
+same guards, and resolves every target against the original row numbers before applying
+any of them, so deleting two rows at once cannot have the first shift the second out
+from under it.
+
 ## The Jira scheduler
 
 A Routine (scheduled Claude session) runs daily with the Atlassian connector attached.
@@ -126,7 +138,15 @@ its own denominator rather than treating a blank as zero. Backfill came from eac
 ticket's Jira `resolutiondate` via the connector -- never guessed, and never taken for
 a merged incident unless every one of its keys resolved.
 
-`date_filter()` filters on `Email/JIRA Date`. It used to prefer `Reporting Month`,
+`date_filter()` filters on `Email/JIRA Date`, and re-seeds its own date boxes when the
+data moves. Streamlit ignores a widget's `value` once its key exists in session state,
+so the pickers froze at whatever span the tracker had when the page first rendered:
+records that arrived afterwards -- a merge to main, a row staged on the Complaint
+Tracker, a sidebar filter changing the population -- fell outside an end date nobody
+chose, and the page went on showing the old set while looking like a working filter.
+It now remembers the span the widgets were built from and moves a bound only while that
+bound still sits on the old edge, so growth is followed and a range narrowed on purpose
+is left alone. It used to prefer `Reporting Month`,
 which holds the first of the month on every row, so "2 Sep to 30 Sep" matched nothing
 while nine September records existed and the end-date box read 01-Sep against a newest
 record of the 14th. It now also prints how many rows survived, so an empty page reads as
