@@ -25,6 +25,7 @@ python3 scripts/selftest.py                 # prove each validate.py rule still 
 python3 scripts/audit_pages.py              # every rendered figure vs the tracker, page by page
 python3 scripts/export_definitions.py       # regenerate definitions.json from the workbook sheet
 python3 scripts/append_row.py --json r.json # add one record to the CSV and the Data sheet together
+python3 scripts/update_row.py --json c.json # change fields on records already in both files
 ```
 
 `validate.py` covers every bug class that has actually shipped here: characters decayed
@@ -89,11 +90,24 @@ Customers / Routed To, refuses to write unless all ten required fields are prese
 writes both files or neither. It deliberately does not refresh caches: run
 `refresh_caches.py` then `validate.py` after.
 
+`update_row.py` is its counterpart, for the edit that always follows. A row is staged
+from an open ticket before anyone knows why the event was missed, and the answer lands
+days later in a comment: EAO-41 and EAO-42 were both staged as `Source Coverage` misses
+and both turned out to be keyword gaps in the same bankruptcy algorithm, a week apart.
+That is four fields on a row that already exists in two files, with the same failure
+modes as appending by hand. It takes `{"match": {...}, "set": {...}}`, refuses a match
+that selects anything other than exactly one row, re-serialises every CSV line and
+compares it to itself before touching anything (so a file whose quoting it could not
+reproduce byte-for-byte is refused untouched), locates the sheet row by position and
+then *verifies* it against the CSV row's own key columns, and keeps each cell's
+existing style. Same rule on caches: `refresh_caches.py` then `validate.py` after.
+
 ## The Jira scheduler
 
 A Routine (scheduled Claude session) runs daily with the Atlassian connector attached.
 It searches the EAO project, diffs the keys against the tracker, classifies each new
-ticket, appends it with `append_row.py`, refreshes the caches, runs the full gate and
+ticket, appends it with `append_row.py` (and carries established causes back onto
+earlier rows with `update_row.py`), refreshes the caches, runs the full gate and
 pushes. **No API credentials exist anywhere in this repo or in Streamlit** -- the
 connector belongs to the scheduled session, not to the app, which is why `app.py` still
 makes no network calls. Appended rows follow the house convention for pre-triage
