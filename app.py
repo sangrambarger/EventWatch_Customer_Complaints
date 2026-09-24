@@ -201,6 +201,23 @@ def date_filter(df, key):
     date_col = next((c for c in ["Email/JIRA Date", "Month", "Reporting Month"] if c in df.columns), None)
     if df.empty or not date_col or df[date_col].dropna().empty: return df
     mn, mx = df[date_col].dropna().min().date(), df[date_col].dropna().max().date()
+    # Streamlit ignores a widget's `value` once its key exists in session state, so these
+    # boxes froze at whatever span the data had when the page first rendered. Records that
+    # arrived afterwards -- a merge to main, a row staged on the Complaint Tracker, a
+    # sidebar filter changing the population -- then fell outside an end date nobody chose,
+    # and the page went on showing the old set while looking like a working filter. That is
+    # the same failure as the `Reporting Month` bug above: the filter is silently wrong, so
+    # the reader concludes the data is. Remember the span the widgets were built from and
+    # move a bound only while it still sits on the old edge, so growth is followed and a
+    # range the reader narrowed on purpose is left alone.
+    span_key, lo_key, hi_key = f"{key}_span", f"{key}_start", f"{key}_end"
+    span = st.session_state.get(span_key)
+    if span != (mn, mx):
+        for wkey, was, now in ((lo_key, span[0] if span else None, mn),
+                               (hi_key, span[1] if span else None, mx)):
+            if wkey in st.session_state and st.session_state[wkey] == was:
+                st.session_state[wkey] = now
+        st.session_state[span_key] = (mn, mx)
     a, b, c = st.columns([1, 1, 2])
     # No min_value/max_value: clamping the picker to the data's own span meant you could
     # not select a date outside it -- including next month, to check nothing has landed
