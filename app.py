@@ -695,29 +695,6 @@ def close_trend(df):
         ["Month", "Median days", "Closed records"]]
 
 
-def outcome_share(df, first="Fixed", second="RCA Shared"):
-    """Each month's records by how they were closed out, as a share.
-
-    Two series rather than a four-way stack: the story is one outcome displacing
-    another, and four categorical slices would need four colours this palette does not
-    have. `--red` and `--blue` are the validated pair, so the comparison that carries
-    the meaning gets them.
-    """
-    raised = pd.to_datetime(df.get("Email/JIRA Date"), errors="coerce")
-    status = df.get("Short Term Fix Status", pd.Series(dtype=str)).astype(str).str.strip()
-    frame = pd.DataFrame({"month": raised.dt.to_period("M"), "status": status}).dropna(subset=["month"])
-    if frame.empty:
-        return pd.DataFrame(columns=["Month", first, second, "Records"])
-    out = []
-    for month, block in frame.groupby("month"):
-        total = max(len(block), 1)
-        out.append({"month": month, "Month": month.strftime("%b %Y"),
-                    first: round((block["status"] == first).sum() / total * 100, 1),
-                    second: round((block["status"] == second).sum() / total * 100, 1),
-                    "Records": len(block)})
-    return pd.DataFrame(out).sort_values("month").drop(columns="month").reset_index(drop=True)
-
-
 def rca_funnel(df):
     """How the RCAs customers asked for were discharged.
 
@@ -782,33 +759,6 @@ def account_scorecard(df, minimum=2):
     if not rows:
         return pd.DataFrame()
     return pd.DataFrame(rows).sort_values("Records", ascending=False).reset_index(drop=True)
-
-
-def two_series_chart(df, x_col, first, second, title=""):
-    """Two shares over time on the validated red/blue pair.
-
-    Not a four-way stacked bar: four categorical slices would need four colours this
-    palette does not have, and a sequential ramp encodes magnitude, not category. The
-    comparison that carries the meaning gets the pair that survives CVD.
-    """
-    if df.empty or x_col not in df.columns:
-        st.info(f"Chart cannot be rendered because required fields are missing: {x_col}."); return None
-    long = df.melt(id_vars=[x_col], value_vars=[first, second], var_name="Outcome", value_name="Share")
-    fig = px.line(long, x=x_col, y="Share", color="Outcome", markers=True, title=title,
-                  color_discrete_map={first: RED_BLUE[0], second: RED_BLUE[1]})
-    fig.update_traces(line=dict(width=3), marker=dict(size=9),
-                      hovertemplate="%{x}<br>%{fullData.name}: %{y:.0f}%<extra></extra>")
-    fig.update_xaxes(tickfont=dict(size=12, color="#f3f4f6"), gridcolor="#303846", title="")
-    fig.update_yaxes(tickfont=dict(size=12, color="#f3f4f6"), gridcolor="#303846", title="",
-                     ticksuffix="%", rangemode="tozero")
-    fig.update_layout(template="plotly_dark", plot_bgcolor="#1b1f26", paper_bgcolor="#1b1f26",
-                      font=dict(color="#f3f4f6", size=13), margin=dict(l=20, r=40, t=44, b=64),
-                      height=400,
-                      # Legend under the plot, not above it: at the top it printed across
-                      # the chart's own title on every render.
-                      legend=dict(orientation="h", yanchor="top", y=-0.16, x=0, title=""))
-    st.plotly_chart(fig, use_container_width=True)
-    return fig
 
 
 def filled(series):
@@ -1419,19 +1369,6 @@ elif selected_page == "Delivery performance":
         f = rate_chart(trend, "Month", "Median days", title="Median days to close", suffix=" d")
         styled_table(trend)
         downloads(trend, "days_to_close", f)
-
-    add_section("What does closing a record look like now?",
-                "The share of each month's records closed by a fix against the share closed by a shared RCA. "
-                "These are the two ends of the same shift: work that used to be quietly corrected is now "
-                "formally explained. Both series are shares of that month's records, so a heavy month and a "
-                "thin one are comparable.", "#f6c177")
-    mix = outcome_share(page)
-    if mix.empty:
-        st.info("No dated records in the current filter.")
-    else:
-        f = two_series_chart(mix, "Month", "Fixed", "RCA Shared", title="How records were closed, by month")
-        styled_table(mix)
-        downloads(mix, "outcome_mix", f)
 
     add_section("What happened to every RCA a customer asked for?",
                 "The funnel behind the Open items page's owed count. A record closed by a fix counts as "

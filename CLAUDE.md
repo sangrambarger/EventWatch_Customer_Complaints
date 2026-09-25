@@ -159,23 +159,25 @@ a filter choice rather than a broken dashboard -- which is exactly how that bug 
 unreported for months.
 
 The Delivery performance page answers "how well are we responding", which no page did.
-Three blocks, none of them a frequency count. **Time to close** (`close_stats`,
-`close_trend`) is median, p90, worst and the share closed inside 14 days -- and every
-one of them prints its denominator, because only 28 of 111 records carry a
-`Resolution Date` and a median quoted bare invites a reader to apply it to the whole
-book. A month whose median rests on fewer than three closes is named as thin rather
-than drawn like the rest. **Outcome mix** (`outcome_share`, `two_series_chart`) is the
-finding that made the page worth building: `Fixed` ran at 100% of January and reached 0%
-by September while `RCA Shared` went the other way, crossing in June. Work that used to
-be quietly corrected is now formally explained, and that is also the likeliest cause of
-the cycle time roughly doubling over the same months. It is two lines rather than a
-four-way stacked bar on purpose -- four categorical slices would need four colours this
-palette does not have, and a sequential ramp encodes magnitude, not category, so the
-comparison that carries the meaning gets `--red`/`--blue`, the pair that survives CVD.
-**The RCA funnel** (`rca_funnel`) states the rule `open_items()` already applies: of 84
-asks, 28 got an RCA, 36 closed by a fix (counted as discharged -- the fix was the
-answer), and the rest are owed. The page shows the funnel, not the records; Open items
-keeps the list, so neither page duplicates the other.
+**Time to close** (`close_stats`, `close_trend`) is median, p90, worst and the share
+closed inside 14 days -- and every one of them prints its denominator, because only 28 of
+111 records carry a `Resolution Date` and a median quoted bare invites a reader to apply
+it to the whole book. A month whose median rests on fewer than three closes is named as
+thin rather than drawn like the rest. **The RCA funnel** (`rca_funnel`) states the rule
+`open_items()` already applies: of the asks, some got an RCA, some closed by a fix
+(counted as discharged -- the fix was the answer), and the rest are owed. The page shows
+the funnel, not the records; Open items keeps the list, so neither duplicates the other.
+
+The page briefly carried a third block charting `Fixed` against `RCA Shared` as a share
+of each month, and it was removed because it was an artifact, not a finding. `Fixed` ran
+at 100% of January and reached 0% by September while `RCA Shared` went the other way,
+crossing in June -- which reads as operations changing until you check what else changed
+in June. The EAO project did. Jan-May had 5 ticketed records of 53; Jun-Sep had 49 of 58,
+and records with no Jira key split 36 `Fixed` to 4 `RCA Shared` while ticketed ones split
+9 to 25. Before there was a ticket to record an RCA against, work got written down as
+`Fixed`. **Any trend that starts in June is suspect for this reason**: the tracker's
+recording practice changed then, so a shift in what the fields say is not evidence that
+the work changed. Test the June hypothesis before publishing a trend line.
 
 `account_scorecard()` on SOURCE 05 is one row per account -- records, complaint/inquiry
 split, miss rate, median close with its own count in brackets, RCAs owed, last contact,
