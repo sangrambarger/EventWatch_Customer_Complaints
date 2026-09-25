@@ -233,6 +233,16 @@ charts stacked to match. The Excel Dashboard still counts complaints only, so it
 Customers figures differ from the app on two axes; SOURCE 05 shows the workbook's basis
 in its own table so the two reconcile.
 
+The sidebar navigation is a list with a left accent bar, not fourteen radio buttons.
+It is still `st.radio` underneath -- that is what carries the selection -- but the dot is
+hidden and the pill boxes are gone, because fourteen bordered boxes stacked in a narrow
+column read as compressed and the dot duplicates what the highlight already says. Two
+selectors matter and neither uses Streamlit's hashed emotion classes, which are rewritten
+between releases: `label[data-testid="stRadioOption"][data-selected="true"]` carries the
+active state, and `div:has(+[data-testid="stMarkdownContainer"])` matches the radio circle
+by its position before the label text. Check both against the live DOM after a Streamlit
+upgrade; a silently failing selector here brings the dots back or loses the highlight.
+
 The Complaint Tracker table serves two readers without a second page. Someone reading
 the tracker wants a grid they can scan; someone exporting a slice wants every field.
 A `Show all fields` checkbox switches between the eighteen reading columns
