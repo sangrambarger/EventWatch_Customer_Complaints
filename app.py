@@ -21,7 +21,7 @@ WORKBOOK_NAME = "EventWatch_Customer_Complaints_2026.xlsx"
 APP_DIR = Path(__file__).resolve().parent
 
 PAGES = [
-    "Executive Summary", "Open items", "SOURCE 01 · Monthly trend", "SOURCE 02 · Fix status",
+    "Executive Summary", "Delivery performance", "Open items", "SOURCE 01 · Monthly trend", "SOURCE 02 · Fix status",
     "SOURCE 03 · Severity", "SOURCE 04 · Root cause", "SOURCE 05 · Top customers",
     "SOURCE 06 · Automation focus", "DETAIL · Event workload", "Repeat patterns", "Automation urgency",
     "Dynamic Source Discovery", "Definitions", "Complaint Tracker",
@@ -29,6 +29,7 @@ PAGES = [
 
 DESCRIPTIONS = {
     "Executive Summary": "Leadership cockpit for complaint volume, customer pain, missed events, RCA exposure, root causes, and automation opportunities.",
+    "Delivery performance": "How long we take to close a record, how the outcome of that work has shifted, and what happened to every RCA a customer asked for.",
     "Open items": "Everything still outstanding: records awaiting a fix, and records where the customer asked for an RCA that has not been delivered. Includes the RCA text where one has been shared.",
     "SOURCE 01 · Monthly trend": "Month-by-month complaint and inquiry trend, sorted chronologically from January onward, with the missed-event rate that volume alone hides.",
     "SOURCE 02 · Fix status": "Resolution posture across fixed, RCA-shared, and clarification-provided records.",
@@ -160,6 +161,7 @@ def definitions_payload():
 
 PAGE_KICKERS = {
     "Executive Summary": ("Overview", "#8ab4f8"),
+    "Delivery performance": ("Overview", "#f6c177"),
     "Open items": ("Outstanding", "#f28b82"),
     "SOURCE 01 · Monthly trend": ("Chart source", "#80cbc4"),
     "SOURCE 02 · Fix status": ("Chart source", "#80cbc4"),
@@ -656,6 +658,155 @@ def rate_chart(df, x_col, y_col, title="", suffix="%"):
     fig.update_layout(template="plotly_dark", plot_bgcolor="#1b1f26", paper_bgcolor="#1b1f26",
                       font=dict(color="#f3f4f6", size=13), margin=dict(l=20, r=40, t=44, b=28),
                       height=380, showlegend=False)
+    st.plotly_chart(fig, use_container_width=True)
+    return fig
+
+
+def close_stats(df):
+    """Cycle time over the records that actually carry a resolution date.
+
+    Returns the denominator alongside the figures, and every caller prints it. Most of
+    the tracker predates the EAO project and has no ticket to read a closing date from,
+    so a median quoted without saying what share of records it speaks for invites a
+    reader to apply it to the whole book.
+    """
+    days = days_to_close(df).dropna()
+    if days.empty:
+        return None
+    return {"n": int(len(days)), "total": int(len(df)),
+            "median": float(days.median()), "p90": float(days.quantile(0.9)),
+            "worst": int(days.max()), "within14": int((days <= 14).sum())}
+
+
+def close_trend(df):
+    """Median days-to-close per month, carrying the count each point rests on.
+
+    A median over two records is not a trend, so the count travels with the figure and
+    the chart names the thin months rather than drawing them the same as the rest.
+    """
+    raised = pd.to_datetime(df.get("Email/JIRA Date"), errors="coerce")
+    days = days_to_close(df)
+    frame = pd.DataFrame({"month": raised.dt.to_period("M"), "days": days}).dropna()
+    if frame.empty:
+        return pd.DataFrame(columns=["Month", "Median days", "Closed records"])
+    grouped = frame.groupby("month")["days"].agg(["median", "count"]).reset_index()
+    grouped["Month"] = grouped["month"].dt.strftime("%b %Y")
+    return grouped.rename(columns={"median": "Median days", "count": "Closed records"})[
+        ["Month", "Median days", "Closed records"]]
+
+
+def outcome_share(df, first="Fixed", second="RCA Shared"):
+    """Each month's records by how they were closed out, as a share.
+
+    Two series rather than a four-way stack: the story is one outcome displacing
+    another, and four categorical slices would need four colours this palette does not
+    have. `--red` and `--blue` are the validated pair, so the comparison that carries
+    the meaning gets them.
+    """
+    raised = pd.to_datetime(df.get("Email/JIRA Date"), errors="coerce")
+    status = df.get("Short Term Fix Status", pd.Series(dtype=str)).astype(str).str.strip()
+    frame = pd.DataFrame({"month": raised.dt.to_period("M"), "status": status}).dropna(subset=["month"])
+    if frame.empty:
+        return pd.DataFrame(columns=["Month", first, second, "Records"])
+    out = []
+    for month, block in frame.groupby("month"):
+        total = max(len(block), 1)
+        out.append({"month": month, "Month": month.strftime("%b %Y"),
+                    first: round((block["status"] == first).sum() / total * 100, 1),
+                    second: round((block["status"] == second).sum() / total * 100, 1),
+                    "Records": len(block)})
+    return pd.DataFrame(out).sort_values("month").drop(columns="month").reset_index(drop=True)
+
+
+def rca_funnel(df):
+    """How the RCAs customers asked for were discharged.
+
+    `open_items()` already decides what counts as owed -- RCA Requested with a fix
+    status that is neither `RCA Shared` nor `Fixed`, because a fix can be the answer.
+    This states the whole funnel behind that one number, so a reader can see the rule
+    rather than having to trust it.
+    """
+    rca = df.get("RCA Requested", pd.Series(dtype=str)).astype(str).str.strip()
+    fix = df.get("Short Term Fix Status", pd.Series(dtype=str)).astype(str).str.strip()
+    asked = df[rca == "Yes"]
+    if asked.empty:
+        return pd.DataFrame(columns=["Outcome", "Records", "% of asks"]), 0
+    status = fix[asked.index]
+    rows = [("RCA shared", int((status == "RCA Shared").sum()), "the promise was kept directly"),
+            ("Closed by a fix", int((status == "Fixed").sum()), "treated as discharged: the fix was the answer"),
+            ("Clarification instead", int((status == "Clarification Provided").sum()), "an explanation went out, no RCA"),
+            ("Still pending", int((status == "Pending").sum()), "open in Jira, nothing issued yet")]
+    total = max(len(asked), 1)
+    table = pd.DataFrame([{"Outcome": name, "Records": n,
+                           "% of asks": f"{n / total * 100:.1f}%", "Meaning": why}
+                          for name, n, why in rows])
+    return table, len(asked)
+
+
+def account_scorecard(df, minimum=2):
+    """One row per account, answering "how is this customer doing" in five numbers.
+
+    Every other page makes you hold one account in your head across five pages to
+    assemble this. Accounts are split on the slash, so a record naming two of them
+    counts for both -- the same rule `customer_exposure()` uses, so the totals agree.
+    Single-record accounts are folded out by default: a 100% miss rate over one record
+    ranks above a real pattern and says nothing.
+    """
+    if df.empty or "Customer" not in df.columns:
+        return pd.DataFrame()
+    raised = pd.to_datetime(df.get("Email/JIRA Date"), errors="coerce")
+    closed = days_to_close(df)
+    missed = df.get("Missed_Flag", pd.Series(dtype=str)).astype(str).str.strip().eq("Yes")
+    issue = df.get("Issue Type", pd.Series(dtype=str)).astype(str).str.strip()
+    _, owed = open_items(df)
+    rows = []
+    for name in customer_names(df["Customer"]):
+        hit = names_match(df["Customer"], [name])
+        block = df[hit]
+        if len(block) < minimum:
+            continue
+        sub = block.get("Sub-type", pd.Series(dtype=str)).astype(str).str.strip()
+        sub = sub[sub.ne("") & sub.ne("nan")]
+        days = closed[hit].dropna()
+        rows.append({
+            "Customer": name,
+            "Records": len(block),
+            "Complaints": int(issue[hit].eq("Complaint").sum()),
+            "Inquiries": int(issue[hit].eq("Inquiry").sum()),
+            "Miss rate": f"{missed[hit].mean() * 100:.0f}%",
+            "Median close": f"{days.median():.0f}d ({len(days)})" if not days.empty else "no dated closes",
+            "RCA owed": int(names_match(owed["Customer"], [name]).sum()) if not owed.empty else 0,
+            "Last raised": raised[hit].max().strftime("%d-%b-%Y") if raised[hit].notna().any() else "",
+            "Most common failure": sub.value_counts().index[0] if not sub.empty else "",
+        })
+    if not rows:
+        return pd.DataFrame()
+    return pd.DataFrame(rows).sort_values("Records", ascending=False).reset_index(drop=True)
+
+
+def two_series_chart(df, x_col, first, second, title=""):
+    """Two shares over time on the validated red/blue pair.
+
+    Not a four-way stacked bar: four categorical slices would need four colours this
+    palette does not have, and a sequential ramp encodes magnitude, not category. The
+    comparison that carries the meaning gets the pair that survives CVD.
+    """
+    if df.empty or x_col not in df.columns:
+        st.info(f"Chart cannot be rendered because required fields are missing: {x_col}."); return None
+    long = df.melt(id_vars=[x_col], value_vars=[first, second], var_name="Outcome", value_name="Share")
+    fig = px.line(long, x=x_col, y="Share", color="Outcome", markers=True, title=title,
+                  color_discrete_map={first: RED_BLUE[0], second: RED_BLUE[1]})
+    fig.update_traces(line=dict(width=3), marker=dict(size=9),
+                      hovertemplate="%{x}<br>%{fullData.name}: %{y:.0f}%<extra></extra>")
+    fig.update_xaxes(tickfont=dict(size=12, color="#f3f4f6"), gridcolor="#303846", title="")
+    fig.update_yaxes(tickfont=dict(size=12, color="#f3f4f6"), gridcolor="#303846", title="",
+                     ticksuffix="%", rangemode="tozero")
+    fig.update_layout(template="plotly_dark", plot_bgcolor="#1b1f26", paper_bgcolor="#1b1f26",
+                      font=dict(color="#f3f4f6", size=13), margin=dict(l=20, r=40, t=44, b=64),
+                      height=400,
+                      # Legend under the plot, not above it: at the top it printed across
+                      # the chart's own title on every render.
+                      legend=dict(orientation="h", yanchor="top", y=-0.16, x=0, title=""))
     st.plotly_chart(fig, use_container_width=True)
     return fig
 
@@ -1239,6 +1390,67 @@ if selected_page == "Executive Summary":
     for title, col in [("Top complaints by customer", "Customer"), ("Nature of complaints", "Reason"), ("Missed event types", "Event type"), ("Root cause split", "Root Cause"), ("Severity split", "Severity"), ("Automation opportunities", "Standard Automation Focus")]:
         if col in page.columns:
             t = (customer_exposure(page) if col == "Customer" else count_table(page, col)).head(10); add_section(title, f"Leading {col.lower()} values across every record in the current filter, with count and share of the total."); excel_bar_table(t, col); fig = chart(t, col, title=title); downloads(t, title.lower().replace(" ", "_"), fig)
+elif selected_page == "Delivery performance":
+    page_header(selected_page); page = filtered; filter_note()
+    stats = close_stats(page)
+    if not stats:
+        st.info("No record in the current filter carries a Resolution Date, so cycle time "
+                "cannot be computed. Clear a filter or widen the date range.")
+    else:
+        cover = stats["n"] / max(stats["total"], 1) * 100
+        kpis([("Median days to close", f"{stats['median']:.0f}", f"over {stats['n']} dated close(s)", "#8ab4f8"),
+              ("Slowest 10%", f"{stats['p90']:.0f} days", "90th percentile", "#f6c177"),
+              ("Worst case", f"{stats['worst']} days", "longest single record", "#f28b82"),
+              ("Closed within 14 days", f"{stats['within14'] / max(stats['n'], 1) * 100:.0f}%",
+               f"{stats['within14']} of {stats['n']}", "#a8dab5"),
+              ("Coverage", f"{cover:.0f}%", f"{stats['n']} of {stats['total']} records are dated", "#b6beca")])
+    add_section("How long does a record take to close?",
+                "Days from the customer raising it to the record being closed out. Only records carrying a "
+                "Resolution Date can answer this -- most of the tracker predates the EAO project and has no "
+                "ticket to read a closing date from -- so every figure here names the denominator it rests on "
+                "rather than treating a blank as a zero.", "#f6c177")
+    trend = close_trend(page)
+    if trend.empty:
+        st.info("No dated closes in the current filter.")
+    else:
+        thin = trend[trend["Closed records"] < 3]["Month"].tolist()
+        if thin:
+            st.caption(f"Median over fewer than three records in {', '.join(thin)} — those points will move.")
+        f = rate_chart(trend, "Month", "Median days", title="Median days to close", suffix=" d")
+        styled_table(trend)
+        downloads(trend, "days_to_close", f)
+
+    add_section("What does closing a record look like now?",
+                "The share of each month's records closed by a fix against the share closed by a shared RCA. "
+                "These are the two ends of the same shift: work that used to be quietly corrected is now "
+                "formally explained. Both series are shares of that month's records, so a heavy month and a "
+                "thin one are comparable.", "#f6c177")
+    mix = outcome_share(page)
+    if mix.empty:
+        st.info("No dated records in the current filter.")
+    else:
+        f = two_series_chart(mix, "Month", "Fixed", "RCA Shared", title="How records were closed, by month")
+        styled_table(mix)
+        downloads(mix, "outcome_mix", f)
+
+    add_section("What happened to every RCA a customer asked for?",
+                "The funnel behind the Open items page's owed count. A record closed by a fix counts as "
+                "discharged -- the fix was the answer -- which is the rule open_items() applies; this states "
+                "it so a reader can judge it rather than having to trust it. The records still owed are listed "
+                "on the Open items page.", "#f6c177")
+    funnel, asked = rca_funnel(page)
+    if funnel.empty:
+        st.info("No record in the current filter has RCA Requested set to Yes.")
+    else:
+        owed_n = int(funnel.loc[funnel["Outcome"].isin(["Clarification instead", "Still pending"]), "Records"].sum())
+        kpis([("RCAs requested", asked, "customers who asked for one", "#8ab4f8"),
+              ("Promise kept", int(funnel.loc[funnel["Outcome"] == "RCA shared", "Records"].iloc[0]),
+               "an RCA was shared", "#a8dab5"),
+              ("Discharged by a fix", int(funnel.loc[funnel["Outcome"] == "Closed by a fix", "Records"].iloc[0]),
+               "the fix was the answer", "#80cbc4"),
+              ("Still owed", owed_n, "clarified or pending, no RCA", "#f28b82")])
+        styled_table(funnel)
+        downloads(funnel, "rca_funnel")
 elif selected_page == "Open items":
     page_header(selected_page); page = filtered; filter_note()
     pending, owed = open_items(page)
@@ -1404,6 +1616,17 @@ elif selected_page == "SOURCE 05 · Top customers":
                 f"account. Kept here so the two artefacts can be reconciled. The table above is the one that "
                 f"answers how many emails and questions a customer sent in.", "#b6beca")
     styled_table(exact, height=420); downloads(exact, "top_customers_exact")
+    add_section("Account scorecard", "One row per account, so \"how is Ford doing\" is answered here rather "
+                "than by holding one name in your head across five pages. Miss rate is the share of that "
+                "account's records that were a confirmed miss; median close carries the number of dated closes "
+                "behind it in brackets; RCA owed uses the same rule as the Open items page. Accounts with a "
+                "single record are left out -- a 100% miss rate over one record outranks a real pattern and "
+                "says nothing.", "#8ab4f8")
+    card = account_scorecard(page)
+    if card.empty:
+        st.info("No account in the current filter has more than one record.")
+    else:
+        styled_table(card, height=460, variant="wide"); downloads(card, "account_scorecard")
 elif selected_page == "SOURCE 06 · Automation focus": source_page(selected_page, filtered, "Standard Automation Focus", "automation_focus")
 elif selected_page == "DETAIL · Event workload": source_page(selected_page, filtered, "Event type", "event_workload")
 elif selected_page == "Automation urgency":
