@@ -49,7 +49,7 @@ CSS = """
 :root{--bg:#0f1115;--panel:#1b1f26;--panel2:#202631;--ink:#f3f4f6;--muted:#b6beca;--line:#3a414d;--line2:#515a68;--blue:#8ab4f8;--teal:#80cbc4;--amber:#f6c177;--red:#f28b82;--green:#a8dab5}
 html,body,[data-testid="stAppViewContainer"],[data-testid="stMain"]{background:var(--bg)!important;color:var(--ink)!important}.main .block-container{padding-top:.75rem;max-width:1450px;background:var(--bg)!important}[data-testid="stHeader"],[data-testid="stToolbar"]{background:#0c0e12!important}[data-testid="stSidebar"]{background:#171b22!important;border-right:1px solid var(--line)}[data-testid="stSidebar"] *{color:var(--ink)!important}[data-testid="stSidebar"] label{color:var(--muted)!important}
 [data-testid="stSidebar"] .stRadio div[role="radiogroup"]>label{height:42px;width:100%;box-sizing:border-box;background:var(--panel2)!important;border:1px solid var(--line)!important;border-radius:8px!important;padding:9px 12px!important;margin:7px 0!important;display:flex!important;align-items:center!important;box-shadow:none!important}[data-testid="stSidebar"] .stRadio div[role="radiogroup"]>label:hover{background:#2a313d!important}[data-testid="stSidebar"] .stRadio div[role="radiogroup"]>label:has(input:checked){background:#374151!important;border-color:var(--blue)!important}[data-testid="stSidebar"] .stRadio input{display:none!important}
-h1,h2,h3,h4,h5,h6,p,span,div,label{color:var(--ink)!important}.page-hero,.section-card,.kpi,.insight-box,.definition-group{background:var(--panel)!important;border:1px solid var(--line);box-shadow:0 2px 8px rgba(0,0,0,.28)}.page-hero{position:relative;overflow:hidden;border-left:5px solid var(--accent,var(--blue));padding:14px 18px;margin-bottom:16px}.page-hero:after{content:"";position:absolute;inset:0;background:linear-gradient(120deg,rgba(255,255,255,.05),transparent 55%);pointer-events:none}.page-kicker{display:flex;align-items:center;gap:7px;font-size:11px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--accent,var(--blue))!important;margin-bottom:5px}.page-kicker .dot{width:7px;height:7px;border-radius:50%;background:var(--accent,var(--blue));box-shadow:0 0 0 3px color-mix(in srgb,var(--accent,var(--blue)) 25%,transparent)}.page-hero h1{margin:0 0 4px 0;font-size:25px}.page-hero p,.section-card p{margin:0;color:var(--muted)!important;font-size:14px;line-height:1.4}.section-card{border-left:4px solid var(--accent,var(--blue));border-radius:8px;padding:12px 14px;margin:18px 0 10px;display:flex;flex-direction:column;gap:2px}.section-card h3{margin:0 0 2px 0;font-size:20px;display:flex;align-items:center;gap:8px}.section-card h3:before{content:"";width:9px;height:9px;border-radius:3px;background:var(--accent,var(--blue));display:inline-block;flex:none}.kpi-grid{display:grid;grid-template-columns:repeat(5,minmax(145px,1fr));gap:10px;margin:10px 0 14px}.kpi{position:relative;min-height:92px;border-top:4px solid var(--accent);border-radius:8px;padding:11px 13px;transition:transform .15s ease,box-shadow .15s ease}.kpi:hover{transform:translateY(-3px);box-shadow:0 10px 22px rgba(0,0,0,.4)}.kpi-label{font-size:11px;color:var(--muted)!important;font-weight:800;text-transform:uppercase;letter-spacing:.04em}.kpi-num{font-size:29px;font-weight:900;line-height:1.05;margin:6px 0 4px;background:linear-gradient(180deg,#fff,var(--ink));-webkit-background-clip:text;background-clip:text}.kpi-foot{font-size:12px;color:var(--muted)!important}.insight-row{display:grid;grid-template-columns:repeat(2,minmax(260px,1fr));gap:10px}.insight-box{border-left:4px solid var(--accent);border-radius:8px;padding:11px 12px;font-size:14px}
+h1,h2,h3,h4,h5,h6,p,span,div,label{color:var(--ink)!important}.page-hero,.section-card,.kpi,.insight-box,.excel-table.wide{width:auto;min-width:100%}.excel-table.wide td,.excel-table.wide th{white-space:nowrap}.excel-table.wide td:first-child{overflow-wrap:normal}.excel-table.record td{text-align:left;overflow-wrap:anywhere;white-space:normal}.excel-table.record td:first-child{width:220px;color:var(--muted)!important;font-weight:700}.definition-group{background:var(--panel)!important;border:1px solid var(--line);box-shadow:0 2px 8px rgba(0,0,0,.28)}.page-hero{position:relative;overflow:hidden;border-left:5px solid var(--accent,var(--blue));padding:14px 18px;margin-bottom:16px}.page-hero:after{content:"";position:absolute;inset:0;background:linear-gradient(120deg,rgba(255,255,255,.05),transparent 55%);pointer-events:none}.page-kicker{display:flex;align-items:center;gap:7px;font-size:11px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--accent,var(--blue))!important;margin-bottom:5px}.page-kicker .dot{width:7px;height:7px;border-radius:50%;background:var(--accent,var(--blue));box-shadow:0 0 0 3px color-mix(in srgb,var(--accent,var(--blue)) 25%,transparent)}.page-hero h1{margin:0 0 4px 0;font-size:25px}.page-hero p,.section-card p{margin:0;color:var(--muted)!important;font-size:14px;line-height:1.4}.section-card{border-left:4px solid var(--accent,var(--blue));border-radius:8px;padding:12px 14px;margin:18px 0 10px;display:flex;flex-direction:column;gap:2px}.section-card h3{margin:0 0 2px 0;font-size:20px;display:flex;align-items:center;gap:8px}.section-card h3:before{content:"";width:9px;height:9px;border-radius:3px;background:var(--accent,var(--blue));display:inline-block;flex:none}.kpi-grid{display:grid;grid-template-columns:repeat(5,minmax(145px,1fr));gap:10px;margin:10px 0 14px}.kpi{position:relative;min-height:92px;border-top:4px solid var(--accent);border-radius:8px;padding:11px 13px;transition:transform .15s ease,box-shadow .15s ease}.kpi:hover{transform:translateY(-3px);box-shadow:0 10px 22px rgba(0,0,0,.4)}.kpi-label{font-size:11px;color:var(--muted)!important;font-weight:800;text-transform:uppercase;letter-spacing:.04em}.kpi-num{font-size:29px;font-weight:900;line-height:1.05;margin:6px 0 4px;background:linear-gradient(180deg,#fff,var(--ink));-webkit-background-clip:text;background-clip:text}.kpi-foot{font-size:12px;color:var(--muted)!important}.insight-row{display:grid;grid-template-columns:repeat(2,minmax(260px,1fr));gap:10px}.insight-box{border-left:4px solid var(--accent);border-radius:8px;padding:11px 12px;font-size:14px}
 .table-wrap{overflow-x:auto;border-radius:8px;border:1px solid var(--line);box-shadow:0 2px 8px rgba(0,0,0,.22)}.excel-table{width:100%;border-collapse:collapse;background:var(--panel)!important;font-size:13px}.excel-table th{background:#2d3542!important;color:#fff!important;border:1px solid var(--line2);padding:9px 10px;text-align:center;font-weight:800;font-size:12px;text-transform:uppercase;letter-spacing:.03em;position:sticky;top:0}.excel-table td{border:1px solid var(--line);padding:8px 10px;background:#1f242d!important;color:var(--ink)!important;font-size:13px}.excel-table tr:nth-child(even) td{background:#242a34!important}.excel-table tbody tr{transition:background .1s ease}.excel-table tbody tr:hover td{background:#2c3542!important}.excel-table td:first-child{text-align:left;overflow-wrap:anywhere;font-weight:600}.excel-table td:not(:first-child){text-align:center}.bar-cell{padding:0!important}.bar-box{position:relative;min-height:32px;display:flex;align-items:center;justify-content:center;overflow:hidden;border-radius:4px}.bar-box:before{content:"";position:absolute;inset:0 auto 0 0;width:var(--w);background:linear-gradient(90deg,rgba(138,180,248,.7),rgba(138,180,248,.18))}.bar-box span{position:relative;z-index:1;font-weight:900;color:#fff!important;text-shadow:0 1px 2px #000}.definition-group{border-left:4px solid var(--teal);border-radius:8px;padding:12px 14px;margin:12px 0}.stDownloadButton button,.stButton button,.stFormSubmitButton button{background:#374151!important;color:#fff!important;border:1px solid var(--blue)!important;border-radius:7px!important;font-weight:800!important;transition:border-color .15s ease,transform .1s ease}.stDownloadButton button:hover,.stButton button:hover,.stFormSubmitButton button:hover{border-color:var(--teal)!important;transform:translateY(-1px)}[data-testid="stDataFrame"],[data-testid="stTable"]{background:var(--panel)!important;border:1px solid var(--line)!important;border-radius:8px!important;overflow:hidden}
 @media(max-width:1200px){.kpi-grid{grid-template-columns:repeat(2,minmax(180px,1fr))}.insight-row{grid-template-columns:1fr}}@media(max-width:760px){.kpi-grid{grid-template-columns:1fr}}
 </style>
@@ -189,8 +189,14 @@ def add_section(title, desc="", accent="#8ab4f8"):
     st.markdown(f"<div class='section-card' style='--accent:{accent}'><h3>{title}</h3><p>{desc}</p></div>", unsafe_allow_html=True)
 
 
-def date_filter(df, key):
-    """Filter a page by the date the record was actually raised.
+def date_filter(df):
+    """Filter the whole dashboard by the date each record was actually raised.
+
+    One range in the sidebar, not fourteen. Every page used to own a private copy of
+    this control, so narrowing Executive Summary to September and then opening SOURCE 04
+    showed the full year with no hint that the two disagreed -- a reader comparing the
+    two pages was comparing different populations. The date now sits beside Customer and
+    Severity, because it is the same kind of thing: one choice the whole dashboard obeys.
 
     `Email/JIRA Date` first, deliberately. This used to prefer `Reporting Month`, which
     holds the FIRST of the month on every single row -- so "2 Sep to 30 Sep" matched
@@ -199,43 +205,59 @@ def date_filter(df, key):
     empty page is worse than no filter: the reader concludes the data is broken.
     """
     date_col = next((c for c in ["Email/JIRA Date", "Month", "Reporting Month"] if c in df.columns), None)
-    if df.empty or not date_col or df[date_col].dropna().empty: return df
+    if df.empty or not date_col or df[date_col].dropna().empty:
+        return df
     mn, mx = df[date_col].dropna().min().date(), df[date_col].dropna().max().date()
     # Streamlit ignores a widget's `value` once its key exists in session state, so these
-    # boxes froze at whatever span the data had when the page first rendered. Records that
-    # arrived afterwards -- a merge to main, a row staged on the Complaint Tracker, a
-    # sidebar filter changing the population -- then fell outside an end date nobody chose,
-    # and the page went on showing the old set while looking like a working filter. That is
-    # the same failure as the `Reporting Month` bug above: the filter is silently wrong, so
-    # the reader concludes the data is. Remember the span the widgets were built from and
-    # move a bound only while it still sits on the old edge, so growth is followed and a
-    # range the reader narrowed on purpose is left alone.
-    span_key, lo_key, hi_key = f"{key}_span", f"{key}_start", f"{key}_end"
-    span = st.session_state.get(span_key)
+    # boxes froze at whatever span the data had when they were first drawn. Records that
+    # arrived afterwards -- a merge to main, a row staged on the Complaint Tracker --
+    # then fell outside an end date nobody chose, and the dashboard went on showing the
+    # old set while looking like a working filter. That is the same failure as the
+    # `Reporting Month` bug above: the filter is silently wrong, so the reader concludes
+    # the data is. Remember the span the widgets were built from and move a bound only
+    # while it still sits on the old edge, so growth is followed and a range the reader
+    # narrowed on purpose is left alone.
+    span = st.session_state.get("date_span")
     if span != (mn, mx):
-        for wkey, was, now in ((lo_key, span[0] if span else None, mn),
-                               (hi_key, span[1] if span else None, mx)):
+        for wkey, was, now in (("date_start", span[0] if span else None, mn),
+                               ("date_end", span[1] if span else None, mx)):
             if wkey in st.session_state and st.session_state[wkey] == was:
                 st.session_state[wkey] = now
-        st.session_state[span_key] = (mn, mx)
-    a, b, c = st.columns([1, 1, 2])
+        st.session_state["date_span"] = (mn, mx)
+    st.sidebar.markdown("### Date range")
     # No min_value/max_value: clamping the picker to the data's own span meant you could
     # not select a date outside it -- including next month, to check nothing has landed
     # there yet. The defaults still open on the data's range.
-    start = a.date_input("Start date", mn, key=f"{key}_start")
-    end = b.date_input("End date", mx, key=f"{key}_end")
+    start = st.sidebar.date_input("Start date", mn, key="date_start")
+    end = st.sidebar.date_input("End date", mx, key="date_end")
     if start > end:
-        c.caption(f"Date filter uses **{date_col}** and applies to this page.")
-        st.warning("Start date is after end date. Showing the full available range.")
+        st.sidebar.warning("Start date is after end date — showing the full range.")
         return df
     out = df[(df[date_col].dt.date >= start) & (df[date_col].dt.date <= end)].copy()
-    # Say how many rows survived. An empty page then reads as a filter choice rather
-    # than a broken dashboard, which is exactly how the bug above went unreported.
-    c.caption(f"Date filter uses **{date_col}**. Showing **{len(out)}** of {len(df)} record(s) "
-              f"between {start:%d-%b-%Y} and {end:%d-%b-%Y}.")
-    if out.empty:
-        st.info("No records fall in this date range. Widen the dates to see data again.")
+    st.sidebar.caption(f"Filtering on **{date_col}**: **{len(out)}** of {len(df)} record(s) "
+                       f"between {start:%d-%b-%Y} and {end:%d-%b-%Y}.")
+    st.session_state["_filter_note"] = (len(out), len(df), date_col, start, end)
     return out
+
+
+def filter_note():
+    """Say on the page itself how many records survived the sidebar.
+
+    The date control moved to the sidebar, and a reader who has scrolled into a page has
+    no view of it. Without this an empty or thin page reads as broken data rather than as
+    a filter choice -- which is exactly how the `Reporting Month` bug went unreported for
+    months. Every page prints its own population, so the number is never more than one
+    line away from the tables it explains.
+    """
+    note = st.session_state.get("_filter_note")
+    if not note:
+        return
+    shown, total, date_col, start, end = note
+    st.caption(f"Showing **{shown}** of {total} record(s) — {date_col} between "
+               f"{start:%d-%b-%Y} and {end:%d-%b-%Y}, plus any sidebar filters.")
+    if not shown:
+        st.info("No records match the current filters. Widen the date range in the "
+                "sidebar, or clear a sidebar filter, to see data again.")
 
 
 def customer_names(series):
@@ -266,8 +288,9 @@ def names_match(series, chosen):
 
 
 def sidebar_filters(df):
-    st.sidebar.markdown("---"); st.sidebar.markdown("### Filters")
-    out = df.copy()
+    st.sidebar.markdown("---")
+    out = date_filter(df)
+    st.sidebar.markdown("### Filters")
     for col in ["Routed To", "Customer", "Event type", "Issue Type", "Severity", "Root Cause", "Reason", "Short Term Fix Status", "RCA Requested", "Standard Automation Focus"]:
         if col in out.columns:
             # Customer is the one column whose cells can name more than one account.
@@ -368,8 +391,16 @@ def cell(v):
     return "" if text in {"nan", "NaT", "None"} else text
 
 
-def styled_table(df, max_rows=None, height=None):
-    """Render any dataframe as a clean bordered table matching the Excel dashboard's table style."""
+def styled_table(df, max_rows=None, height=None, variant=None):
+    """Render any dataframe as a clean bordered table matching the Excel dashboard's table style.
+
+    `variant="wide"` is for a grid with more columns than fit the panel -- the tracker's
+    eighteen. The default table is `width:100%`, which squeezes those columns until every
+    multi-word cell wraps and the rows come out two and three lines tall; the wide variant
+    sizes to its content and scrolls sideways instead, so each row is one line.
+    `variant="record"` is the one-record card: two columns, left-aligned and wrapping,
+    because centring a paragraph of Comments across half the page is unreadable.
+    """
     if df is None or df.empty:
         st.info("No data available for this view."); return
     show = df.head(max_rows) if max_rows else df
@@ -379,9 +410,56 @@ def styled_table(df, max_rows=None, height=None):
         for row in show.itertuples(index=False)
     )
     wrap_style = f" style='max-height:{height}px;overflow-y:auto'" if height else ""
-    st.markdown(f"<div class='table-wrap'{wrap_style}><table class='excel-table'><thead><tr>{head}</tr></thead><tbody>{body}</tbody></table></div>", unsafe_allow_html=True)
+    klass = f"excel-table {variant}" if variant else "excel-table"
+    st.markdown(f"<div class='table-wrap'{wrap_style}><table class='{klass}'><thead><tr>{head}</tr></thead><tbody>{body}</tbody></table></div>", unsafe_allow_html=True)
     if max_rows and len(df) > max_rows:
         st.caption(f"Showing {max_rows} of {len(df)} rows — use the download button below for the full set.")
+
+
+# The Complaint Tracker's reading columns, in the order a reader scans them: when it
+# happened, who raised it, what it was, how it was classified, where it stands. The eight
+# left out are either derived (Month, Number of Customers, Month_Sort), near-constant
+# (Improvement VS Bug is `Improvement` on 110 of 111 rows), or prose too long for a grid.
+TRACKER_COLUMNS = ["Month Label", "Email/JIRA Date", "Jira Key", "Customer", "Event type",
+                   "Event/Bulletin Title", "Issue Type", "Reason", "Root Cause", "Sub-type",
+                   "Missed_Flag", "Short Term Fix Status", "Resolution Date", "RCA Requested",
+                   "Severity", "Standard Automation Focus", "Routed To", "Comments"]
+
+# How much of each free-text column the grid shows. One long cell sets the width of the
+# whole table, and a narrow column that wraps to three lines sets the height of its row,
+# so a grid with these untrimmed is both too wide and raggedly tall. The full text is
+# always one click away in the record card, so nothing is lost by cutting here.
+GRID_LIMITS = {"Comments": 110, "RCA Details": 110, "Automation Opportunity": 90,
+               "Event/Bulletin Title": 58, "Reason": 42}
+
+
+def shorten(value, limit=110):
+    """One line of a long field, cut on a word boundary so it does not end mid-word."""
+    text = "" if pd.isna(value) else str(value).strip()
+    if len(text) <= limit:
+        return text
+    head = text[:limit].rsplit(" ", 1)[0]
+    return f"{head or text[:limit]}\u2026"
+
+
+def record_labels(frame):
+    """Labels for the record picker, mapped back to the index they came from.
+
+    Date, key, customer and a trimmed title -- enough to find a specific record among a
+    hundred without opening each one. Duplicates are numbered rather than deduplicated,
+    because two genuinely similar records must both stay selectable.
+    """
+    labels, seen = {}, {}
+    for idx, row in frame.iterrows():
+        raised = row.get("Email/JIRA Date")
+        stamp = raised.strftime("%d-%b-%Y") if pd.notna(raised) and hasattr(raised, "strftime") else "undated"
+        key = str(row.get("Jira Key") or "").strip() or "no key"
+        label = f"{stamp} · {key} · {row.get('Customer', '')} · {shorten(row.get('Event/Bulletin Title', ''), 70)}"
+        seen[label] = seen.get(label, 0) + 1
+        if seen[label] > 1:
+            label = f"{label} ({seen[label]})"
+        labels[label] = idx
+    return labels
 
 
 def chart(df, label_col, value_col="Records", title=""):
@@ -839,7 +917,7 @@ def downloads(df, name, fig=None):
 def source_page(title, df, col, key, primary=None):
     """`primary` overrides how the main table is counted -- Customer needs a counter that
     credits every account named in a multi-customer row, not the whole string."""
-    page_header(title); page = date_filter(df, key); label = col.replace("Standard Automation Focus", "Automation focus")
+    page_header(title); page = df; filter_note(); label = col.replace("Standard Automation Focus", "Automation focus")
     t = primary(page) if primary else count_table(page, col)
     note = (" A row naming two customers is counted for each of them, so one incident reported by two accounts "
             "adds to both tallies." if primary else "")
@@ -1121,7 +1199,7 @@ if staged_count:
 filtered = sidebar_filters(df)
 
 if selected_page == "Executive Summary":
-    page_header(selected_page); page = date_filter(filtered, "executive")
+    page_header(selected_page); page = filtered; filter_note()
     complaints = page[page["Issue Type"].astype(str).eq("Complaint")] if "Issue Type" in page.columns else page
     inquiries = page[page["Issue Type"].astype(str).eq("Inquiry")] if "Issue Type" in page.columns else page.iloc[0:0]
     total = max(len(page), 1); missed = int((page.get("Missed_Flag", pd.Series(dtype=str)).astype(str) == "Yes").sum()) if "Missed_Flag" in page.columns else 0
@@ -1162,7 +1240,7 @@ if selected_page == "Executive Summary":
         if col in page.columns:
             t = (customer_exposure(page) if col == "Customer" else count_table(page, col)).head(10); add_section(title, f"Leading {col.lower()} values across every record in the current filter, with count and share of the total."); excel_bar_table(t, col); fig = chart(t, col, title=title); downloads(t, title.lower().replace(" ", "_"), fig)
 elif selected_page == "Open items":
-    page_header(selected_page); page = date_filter(filtered, "open_items")
+    page_header(selected_page); page = filtered; filter_note()
     pending, owed = open_items(page)
     ages = days_open(pending)
     oldest = int(ages.max()) if ages.notna().any() else 0
@@ -1269,7 +1347,7 @@ elif selected_page == "Open items":
         st.info("The tracker has no RCA Details column.")
 
 elif selected_page == "Repeat patterns":
-    page_header(selected_page); page = date_filter(filtered, "repeats")
+    page_header(selected_page); page = filtered; filter_note()
     pat = repeat_patterns(page)
     top = pat.head(15)
     recurring = int(pat["Records"].sum()) if not pat.empty else 0
@@ -1288,7 +1366,7 @@ elif selected_page == "Repeat patterns":
         fig = chart(top, "Pattern", title="Most repeated customer and reason")
         downloads(pat[["Customer", "Reason", "Records", "% of Total"]], "repeat_patterns", fig)
 elif selected_page == "SOURCE 01 · Monthly trend":
-    page_header(selected_page); page = date_filter(filtered, "monthly")
+    page_header(selected_page); page = filtered; filter_note()
     if "Month Label" in page.columns and "Issue Type" in page.columns:
         monthly = page.groupby("Month Label", dropna=False)["Issue Type"].value_counts().unstack(fill_value=0).reset_index()
         monthly["Month Date"] = pd.to_datetime(monthly["Month Label"], format="%b %Y", errors="coerce")
@@ -1329,7 +1407,7 @@ elif selected_page == "SOURCE 05 · Top customers":
 elif selected_page == "SOURCE 06 · Automation focus": source_page(selected_page, filtered, "Standard Automation Focus", "automation_focus")
 elif selected_page == "DETAIL · Event workload": source_page(selected_page, filtered, "Event type", "event_workload")
 elif selected_page == "Automation urgency":
-    page_header(selected_page); page = date_filter(filtered, "urgency"); complaints = page[page["Issue Type"].astype(str).eq("Complaint")] if "Issue Type" in page.columns else page; t = urgency_table(complaints)
+    page_header(selected_page); page = filtered; filter_note(); complaints = page[page["Issue Type"].astype(str).eq("Complaint")] if "Issue Type" in page.columns else page; t = urgency_table(complaints)
     add_section("Automation urgency table", "Ranks pressing control areas by volume, severity, RCA pressure, missed flags, and customer concentration.", "#f6c177"); styled_table(t); downloads(t, "automation_urgency")
     if not t.empty: add_section("Automation urgency score chart", "Visual ranking of the most urgent automation/control opportunities.", "#80cbc4"); fig = chart(t, "Standard Automation Focus", "Urgency Score", "Automation urgency score"); downloads(t, "automation_urgency_chart_data", fig)
     # `Automation Opportunity` is filled on every record and appeared on no page at all:
@@ -1348,7 +1426,7 @@ elif selected_page == "Automation urgency":
                                             ascending=[True, False])
             styled_table(ordered[show], height=520); downloads(ordered[show], "automation_proposals")
 elif selected_page == "Dynamic Source Discovery":
-    page_header(selected_page); page = date_filter(filtered, "discovery"); disc = page[page["Standard Automation Focus"].astype(str).eq("Dynamic Source Discovery")] if "Standard Automation Focus" in page.columns else page.iloc[0:0]
+    page_header(selected_page); page = filtered; filter_note(); disc = page[page["Standard Automation Focus"].astype(str).eq("Dynamic Source Discovery")] if "Standard Automation Focus" in page.columns else page.iloc[0:0]
     add_section("Source-miss meaning", "Dynamic Source Discovery identifies event types, customers, reasons, feeds, keywords, or source coverage patterns that current sources are missing or under-detecting.", "#80cbc4")
     for title, col in [("Event types missed by sources", "Event type"), ("Customers affected by source misses", "Customer"), ("Reasons linked to source misses", "Reason")]:
         if col in disc.columns: t = count_table(disc, col, base=max(len(page), 1)); add_section(title, f"Shows source-miss records by {col.lower()} with share of all selected records."); excel_bar_table(t, col); fig = chart(t, col, title=title); downloads(t, title.lower().replace(" ", "_"), fig)
@@ -1374,6 +1452,52 @@ elif selected_page == "Definitions":
             styled_table(rows)
             st.markdown("</div>", unsafe_allow_html=True)
 elif selected_page == "Complaint Tracker":
-    page_header(selected_page); page = date_filter(filtered, "tracker"); concise = [c for c in ["Month Label", "Email/JIRA Date", "Jira Key", "Customer", "Event type", "Event/Bulletin Title", "Issue Type", "Reason", "Root Cause", "Sub-type", "Missed_Flag", "Short Term Fix Status", "Resolution Date", "RCA Requested", "Severity", "Standard Automation Focus", "Routed To", "Comments"] if c in page.columns]
-    c1, c2 = st.columns(2); c1.download_button("Download visible tracker CSV", page[concise].to_csv(index=False).encode(), "customer_tracker_visible.csv", "text/csv"); c2.download_button("Download full filtered source CSV", page.drop(columns=[STAGED_FLAG], errors="ignore").to_csv(index=False).encode(), "customer_tracker_full_filtered.csv", "text/csv")
-    styled_table(page[concise], height=560); manual_entry_form(df)
+    page_header(selected_page); page = filtered; filter_note()
+    kpis([("Records shown", len(page), f"{int(page.get('Issue Type', pd.Series(dtype=str)).astype(str).eq('Complaint').sum())} complaints · "
+           f"{int(page.get('Issue Type', pd.Series(dtype=str)).astype(str).eq('Inquiry').sum())} inquiries", "#8ab4f8"),
+          ("Confirmed misses", int(page.get("Missed_Flag", pd.Series(dtype=str)).astype(str).eq("Yes").sum()), "Missed_Flag is Yes", "#f28b82"),
+          ("Still open", int(page.get("Short Term Fix Status", pd.Series(dtype=str)).astype(str).eq("Pending").sum()), "Short-term fix Pending", "#f6c177"),
+          ("High severity", int(page.get("Severity", pd.Series(dtype=str)).astype(str).eq("High").sum()), "Needs leadership attention", "#f28b82"),
+          ("With a Jira key", int(page.get("Jira Key", pd.Series(dtype=str)).fillna("").astype(str).str.strip().ne("").sum()), "Traceable to a ticket", "#80cbc4")])
+    # Two audiences, one page: someone reading the tracker wants a narrow grid they can
+    # scan, someone exporting a slice wants every field. A checkbox serves both without
+    # a second page to keep in sync. Month_Sort is an internal sort key and never shown.
+    show_all = st.checkbox("Show all fields", value=False, key="tracker_show_all",
+                           help="Off: the reading columns. On: every tracker field, which scrolls sideways.")
+    grid = [c for c in TRACKER_COLUMNS if c in page.columns] if not show_all else \
+           [c for c in page.columns if c not in (STAGED_FLAG, "Month_Sort")]
+    view = page[grid].copy()
+    # Comments and RCA Details run to several hundred characters, and a single one of
+    # them sets the width of the whole table. Truncate in the grid and keep the full
+    # text one click away in the record card below, rather than wrapping into rows tall
+    # enough to push everything else off screen.
+    for col, limit in GRID_LIMITS.items():
+        if col in view.columns:
+            view[col] = view[col].map(lambda v, n=limit: shorten(v, n))
+    styled_table(view, height=560, variant="wide")
+    st.caption("Titles, reasons and comments are shortened to keep every row one line tall. "
+               "Open a record below to read any of them in full.")
+
+    add_section("Open a record", "Every field of one record, including the full Comments, "
+                "RCA Details and Automation Opportunity that the grid above shortens.")
+    if page.empty:
+        st.info("No records to open under the current filters.")
+    else:
+        labels = record_labels(page)
+        pick = st.selectbox("Record", list(labels), key="tracker_record",
+                            help="Filtered by the sidebar, like every other page.")
+        record = page.loc[labels[pick]]
+        detail = pd.DataFrame(
+            [(c, cell(record[c])) for c in page.columns
+             if c not in (STAGED_FLAG, "Month_Sort") and str(record[c]).strip() not in ("", "nan", "NaT")],
+            columns=["Field", "Value"])
+        styled_table(detail, variant="record")
+
+    add_section("Export", "Both downloads follow the sidebar filters and the date range, "
+                "so what you take away is what you are looking at.")
+    c1, c2 = st.columns(2)
+    c1.download_button("Download visible columns", view.to_csv(index=False).encode(),
+                       "customer_tracker_visible.csv", "text/csv")
+    c2.download_button("Download every field", page.drop(columns=[STAGED_FLAG], errors="ignore").to_csv(index=False).encode(),
+                       "customer_tracker_full_filtered.csv", "text/csv")
+    manual_entry_form(df)

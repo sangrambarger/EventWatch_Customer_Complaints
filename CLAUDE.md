@@ -138,8 +138,13 @@ its own denominator rather than treating a blank as zero. Backfill came from eac
 ticket's Jira `resolutiondate` via the connector -- never guessed, and never taken for
 a merged incident unless every one of its keys resolved.
 
-`date_filter()` filters on `Email/JIRA Date`, and re-seeds its own date boxes when the
-data moves. Streamlit ignores a widget's `value` once its key exists in session state,
+`date_filter()` is one control in the sidebar, not fourteen. Every page used to own a
+private copy, so narrowing Executive Summary to September and then opening SOURCE 04
+showed the full year with nothing to say the two disagreed -- a reader comparing the
+pages was comparing different populations. It now sits beside Customer and Severity,
+inside `sidebar_filters()`, and `filter_note()` prints the surviving count at the top of
+each page so a thin page still reads as a filter choice rather than broken data. It
+filters on `Email/JIRA Date`, and re-seeds its own date boxes when the data moves. Streamlit ignores a widget's `value` once its key exists in session state,
 so the pickers froze at whatever span the tracker had when the page first rendered:
 records that arrived afterwards -- a merge to main, a row staged on the Complaint
 Tracker, a sidebar filter changing the population -- fell outside an end date nobody
@@ -227,6 +232,20 @@ table carries explicit `Complaints` and `Inquiries` columns beside the total, wi
 charts stacked to match. The Excel Dashboard still counts complaints only, so its Top
 Customers figures differ from the app on two axes; SOURCE 05 shows the workbook's basis
 in its own table so the two reconcile.
+
+The Complaint Tracker table serves two readers without a second page. Someone reading
+the tracker wants a grid they can scan; someone exporting a slice wants every field.
+A `Show all fields` checkbox switches between the eighteen reading columns
+(`TRACKER_COLUMNS`) and everything except `Month_Sort`, which is an internal sort key no
+reader needs. `GRID_LIMITS` trims the free-text columns in the grid only -- one untrimmed
+`Comments` cell sets the width of the whole table and one wrapped `Event/Bulletin Title`
+sets the height of its row -- and `styled_table(variant="wide")` lets the table size to
+its content and scroll sideways rather than be squeezed to `width:100%`, which is what
+turned every multi-word cell into two and three lines. Thirteen rows now fit where five
+did. Nothing is lost to the trimming: a record picker below the grid opens any one record
+as a `variant="record"` card carrying every populated field at full length. Filtering
+stays in the sidebar on purpose, so what this page shows is always the same population as
+the other thirteen.
 
 The Complaint Tracker page's entry form writes into `st.session_state`, and
 `apply_staged()` appends those rows to the frame **before** `sidebar_filters()`. Every
