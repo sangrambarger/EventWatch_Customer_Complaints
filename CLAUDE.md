@@ -14,7 +14,7 @@ no secrets so it exercises that middle path.
 
 ```bash
 python3 scripts/validate.py                 # data + workbook integrity, exits non-zero on failure
-python3 scripts/smoke_app.py                # loads all 14 pages, flags exceptions/empty charts
+python3 scripts/smoke_app.py                # loads all 15 pages, flags exceptions/empty charts
 python3 scripts/jira_sync.py                # EAO tickets vs tracker, prints only the delta
 python3 scripts/jira_sync.py --describe EAO-7 EAO-9   # bodies, when prose judgement is needed
 python3 scripts/refresh_caches.py --dry-run # what in the workbook has drifted from the CSV
@@ -158,6 +158,34 @@ record of the 14th. It now also prints how many rows survived, so an empty page 
 a filter choice rather than a broken dashboard -- which is exactly how that bug went
 unreported for months.
 
+The Delivery performance page answers "how well are we responding", which no page did.
+Three blocks, none of them a frequency count. **Time to close** (`close_stats`,
+`close_trend`) is median, p90, worst and the share closed inside 14 days -- and every
+one of them prints its denominator, because only 28 of 111 records carry a
+`Resolution Date` and a median quoted bare invites a reader to apply it to the whole
+book. A month whose median rests on fewer than three closes is named as thin rather
+than drawn like the rest. **Outcome mix** (`outcome_share`, `two_series_chart`) is the
+finding that made the page worth building: `Fixed` ran at 100% of January and reached 0%
+by September while `RCA Shared` went the other way, crossing in June. Work that used to
+be quietly corrected is now formally explained, and that is also the likeliest cause of
+the cycle time roughly doubling over the same months. It is two lines rather than a
+four-way stacked bar on purpose -- four categorical slices would need four colours this
+palette does not have, and a sequential ramp encodes magnitude, not category, so the
+comparison that carries the meaning gets `--red`/`--blue`, the pair that survives CVD.
+**The RCA funnel** (`rca_funnel`) states the rule `open_items()` already applies: of 84
+asks, 28 got an RCA, 36 closed by a fix (counted as discharged -- the fix was the
+answer), and the rest are owed. The page shows the funnel, not the records; Open items
+keeps the list, so neither page duplicates the other.
+
+`account_scorecard()` on SOURCE 05 is one row per account -- records, complaint/inquiry
+split, miss rate, median close with its own count in brackets, RCAs owed, last contact,
+most common failure. It exists because answering "how is Ford doing" previously meant
+holding one name in your head across five pages. Accounts are split on the slash like
+everywhere else, so the totals agree with `customer_exposure()`, and single-record
+accounts are folded out: a 100% miss rate over one record outranks a real pattern and
+says nothing. Ford reads 43 records, 79% miss rate, 8 RCAs owed and `Event
+Identification` as its most common failure, all in one line.
+
 The Open items page separates two things that are not the same. `open_items()` returns
 `pending` (genuinely open) and `owed` (an RCA the customer asked for and never got), and
 the page splits `owed` by whether the record is still open: 16 of 20 are CLOSED, answered
@@ -271,7 +299,7 @@ staged entries" button is the path to making it permanent. Durable in-app writes
 need a GitHub token or a database, and neither exists here.
 
 `smoke_app.py` covers what `validate.py` cannot: the app itself. It starts Streamlit
-against the local CSV, clicks every page (14 of them), and fails on Streamlit exceptions, in-app
+against the local CSV, clicks every page (15 of them), and fails on Streamlit exceptions, in-app
 error text, or a page rendering fewer charts/tables than it should. Run against the
 commit before the `chart()` argument fix it flags 8 pages with "required fields are
 missing" and zero charts — the bug that previously only a screenshot caught. Prefer
