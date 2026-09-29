@@ -47,9 +47,20 @@ def expectations(df: pd.DataFrame) -> dict[str, dict[str, int]]:
     monthly = (pd.DataFrame({"m": dates.dt.strftime("%b %Y"), "t": df["Issue Type"].astype(str).str.strip()})
                .groupby(["m", "t"]).size().unstack(fill_value=0))
 
+    # "Why the events were missed" on the Executive Summary. Recomputed here from the
+    # Sub-type column rather than imported from app.py, so a bucket quietly redefined in
+    # the app fails this audit instead of agreeing with itself.
+    missed = df[df["Missed_Flag"].astype(str).str.strip() == "Yes"]
+    sub = missed["Sub-type"].astype(str).str.strip()
+    buckets = {"Source Miss": ["Source Coverage"], "Keyword Miss": ["Keyword Update"],
+               "Analyst / Model Miss": ["Review", "Event Identification", "Prioritization"]}
+    named = [v for vs in buckets.values() for v in vs]
+    miss_cats = {k: int(sub.isin(v).sum()) for k, v in buckets.items()}
+    miss_cats["Other"] = int((~sub.isin(named)).sum())
+
     # Every page counts every record the customer sent in -- complaints and inquiries.
     return {
-        "Executive Summary": dict(split_all),
+        "Executive Summary": {**split_all, **miss_cats},
         "SOURCE 02 · Fix status": counts(df, "Short Term Fix Status"),
         "SOURCE 03 · Severity": counts(df, "Severity"),
         "SOURCE 04 · Root cause": counts(df, "Root Cause"),
