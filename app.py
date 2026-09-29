@@ -77,6 +77,7 @@ h1,h2,h3,h4,h5,h6,p,span,div,label{color:var(--ink)!important}.page-hero,.sectio
 .excel-table.grid td.wrap.narrow,.excel-table.grid th.wrap.narrow{min-width:170px;max-width:200px}
 .excel-table.grid td.wrap.mid,.excel-table.grid th.wrap.mid{min-width:220px;max-width:260px}
 .excel-table.grid td.wrap.bullets{white-space:pre-line}
+.excel-table.grid tbody tr.total td{--cell-bg:#1a202a;background:#1a202a!important;border-top:2px solid var(--line2);border-bottom:0;font-weight:800;color:var(--ink)!important}
 .excel-table.grid td.wrap>.cell{max-height:100px;overflow-y:auto;background:linear-gradient(var(--cell-bg) 32%,rgba(0,0,0,0)) top/100% 22px no-repeat local,linear-gradient(rgba(0,0,0,0),var(--cell-bg) 68%) bottom/100% 22px no-repeat local,radial-gradient(farthest-side at 50% 0,rgba(138,180,248,.42),rgba(0,0,0,0)) top/100% 11px no-repeat,radial-gradient(farthest-side at 50% 100%,rgba(138,180,248,.42),rgba(0,0,0,0)) bottom/100% 11px no-repeat}
 .excel-table.grid td.wrap>.cell::-webkit-scrollbar{width:8px}
 .excel-table.grid td.wrap>.cell::-webkit-scrollbar-thumb{background:var(--line2);border-radius:4px;border:2px solid transparent;background-clip:content-box}
@@ -444,7 +445,8 @@ def cell(v):
     return "" if text in {"nan", "NaT", "None"} else text
 
 
-def styled_table(df, max_rows=None, height=None, variant=None, wrap=(), styles=None):
+def styled_table(df, max_rows=None, height=None, variant=None, wrap=(), styles=None,
+                 total_row=False):
     """Render any dataframe as a clean bordered table matching the Excel dashboard's table style.
 
     `variant="wide"` is for a grid with more columns than fit the panel -- the tracker's
@@ -472,11 +474,13 @@ def styled_table(df, max_rows=None, height=None, variant=None, wrap=(), styles=N
     # A wrapped cell's text goes inside a div, because `max-height` on a `td` is advisory
     # -- the cell still grows to its content. The div is what the grid variant caps.
     wrapped = [c in wrap for c in show.columns]
+    last = len(show) - 1
+    mark = " class='total'"
     body = "".join(
-        "<tr>" + "".join(
+        "<tr" + (mark if total_row and i == last else "") + ">" + "".join(
             f"<td{k}><div class='cell'>{esc(cell(v))}</div></td>" if w else f"<td{k}>{esc(cell(v))}</td>"
             for v, k, w in zip(row, klasses, wrapped)) + "</tr>"
-        for row in show.itertuples(index=False)
+        for i, row in enumerate(show.itertuples(index=False))
     )
     wrap_style = f" style='max-height:{height}px;overflow-y:auto'" if height else ""
     klass = f"excel-table {variant}" if variant else "excel-table"
@@ -578,7 +582,7 @@ CATEGORY_MEANING = {
 }
 
 
-def category_table(df):
+def category_table(df, total=True):
     """One row per category, carrying the customer wordings folded into it.
 
     The wordings column is the point: it turns the fold from something a reader has to
@@ -606,7 +610,19 @@ def category_table(df):
             "Inquiries": int((group.get("Issue Type", pd.Series(dtype=str)).astype(str) == "Inquiry").sum()),
             "Misses": f"{missed} ({missed / max(len(group), 1) * 100:.0f}%)",
         })
-    return pd.DataFrame(rows)[cols].sort_values("Emails", ascending=False).reset_index(drop=True)
+    out = pd.DataFrame(rows)[cols].sort_values("Emails", ascending=False).reset_index(drop=True)
+    if total:
+        # Built here rather than by a generic helper, because two of these columns are
+        # formatted strings -- "62 (100%)" cannot be summed after the fact, only before.
+        every = int((frame.get("Missed_Flag", pd.Series(dtype=str)).astype(str).str.strip() == "Yes").sum())
+        out.loc[len(out)] = {
+            "Category": "Total", "What it means": "", "Their exact wordings": "",
+            "Emails": len(frame), "% of these": "100%",
+            "Complaints": int((frame.get("Issue Type", pd.Series(dtype=str)).astype(str) == "Complaint").sum()),
+            "Inquiries": int((frame.get("Issue Type", pd.Series(dtype=str)).astype(str) == "Inquiry").sum()),
+            "Misses": f"{every} ({every / max(len(frame), 1) * 100:.0f}%)",
+        }
+    return out
 
 
 UNCATEGORISED = "Uncategorised"
@@ -874,6 +890,49 @@ def miss_recent_note(df, window=3, span=6, move=5.0):
     parts = ", ".join(f"{k} {shares[k]:.0f}% (ring {base.get(k, 0):.0f}%)" for k in moved)
     return (f"The ring is all {len(order)} months. Over the last {window} "
             f"({label(order[-window])}–{label(order[-1])}, {total} misses): {parts}.")
+
+
+def inquiry_table(df):
+    """Inquiries only: what they asked about, and what went back to them.
+
+    An inquiry is one where the customer asked how something works rather than asserting
+    we failed, and the test that settles it is what we did next: an explanation means
+    inquiry, a bulletin or a correction means we were at fault and it is a complaint.
+    That distinction is invisible on a table that counts complaints and inquiries in one
+    column, so they get a table of their own.
+    """
+    cols = ["Category", "What they asked about", "Their exact wordings",
+            "Inquiries", "% of these", "How we answered", "Was a real miss"]
+    if df.empty or "Issue Type" not in df.columns:
+        return pd.DataFrame(columns=cols)
+    frame = df[df["Issue Type"].astype(str) == "Inquiry"].copy()
+    if frame.empty:
+        return pd.DataFrame(columns=cols)
+    frame["_cat"] = reason_category(frame)
+    total = len(frame)
+    rows = []
+    for name, group in frame.groupby("_cat"):
+        wordings = group["Reason"].astype(str).str.strip().value_counts()
+        answered = group.get("Short Term Fix Status", pd.Series(dtype=str)).astype(str).value_counts()
+        missed = int((group.get("Missed_Flag", pd.Series(dtype=str)).astype(str) == "Yes").sum())
+        rows.append({
+            "Category": name,
+            "What they asked about": CATEGORY_MEANING.get(name, ""),
+            "Their exact wordings": "\n".join(f"• {w} ({n})" for w, n in wordings.items()),
+            "Inquiries": len(group),
+            "% of these": f"{len(group) / total * 100:.0f}%",
+            "How we answered": "\n".join(f"• {k} ({n})" for k, n in answered.items()),
+            "Was a real miss": missed,
+        })
+    out = pd.DataFrame(rows)[cols].sort_values("Inquiries", ascending=False).reset_index(drop=True)
+    every = frame.get("Short Term Fix Status", pd.Series(dtype=str)).astype(str).value_counts()
+    out.loc[len(out)] = {
+        "Category": "Total", "What they asked about": "", "Their exact wordings": "",
+        "Inquiries": total, "% of these": "100%",
+        "How we answered": "\n".join(f"• {k} ({n})" for k, n in every.items()),
+        "Was a real miss": int((frame.get("Missed_Flag", pd.Series(dtype=str)).astype(str) == "Yes").sum()),
+    }
+    return out
 
 
 def donut(t, label_col="Category", value_col="Records", colours=None, centre="", title=""):
@@ -2068,7 +2127,8 @@ elif selected_page == "All customer emails":
                  wrap=("What it means", "Their exact wordings"),
                  styles={"Category": "wrapcol", "What it means": "narrow",
                          "Their exact wordings": "mid bullets",
-                         "Emails": "num", "Complaints": "num", "Inquiries": "num"})
+                         "Emails": "num", "Complaints": "num", "Inquiries": "num"},
+                 total_row=True)
     if elsewhere > 0:
         spread = (reason_category(page)[page.get("Missed_Flag", pd.Series(dtype=str)).astype(str) == "Yes"]
                   .value_counts().drop(labels=["Event missed"], errors="ignore"))
@@ -2110,8 +2170,26 @@ elif selected_page == "All customer emails":
         styled_table(breakdown, variant="wide grid",
                      wrap=("What it means", "Their exact wordings"),
                      styles={"Category": "wrapcol", "What it means": "narrow",
-                             "Their exact wordings": "mid bullets", "Emails": "num"})
+                             "Their exact wordings": "mid bullets", "Emails": "num"},
+                     total_row=True)
         downloads(breakdown, "complaints_not_missed")
+
+    add_section("What the inquiries asked", f"{inquiries} of the {len(page)} emails are inquiries — the "
+                "customer asked how something works rather than saying we had failed. The test that "
+                "settles which is which is what went back to them: an explanation means it was an "
+                "inquiry, a bulletin or a correction means we were at fault and it belongs with the "
+                "complaints.", "#80cbc4")
+    asked = inquiry_table(page)
+    if asked.empty:
+        st.info("No inquiries in the current filter.")
+    else:
+        styled_table(asked, variant="wide grid",
+                     wrap=("What they asked about", "Their exact wordings", "How we answered"),
+                     styles={"Category": "wrapcol", "What they asked about": "narrow",
+                             "Their exact wordings": "mid bullets", "How we answered": "narrow bullets",
+                             "Inquiries": "num", "Was a real miss": "num"},
+                     total_row=True)
+        downloads(asked, "inquiries")
 
     add_section("Open one email", "Every field of one customer email, including the full Comments, "
                 "RCA Details and Automation Opportunity that the grid above shortens.")
