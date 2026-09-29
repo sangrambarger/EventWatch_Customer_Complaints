@@ -208,14 +208,44 @@ with a fix or a clarification, so presenting them as open work made resolved rec
 unresolved. Closing a fix status does not discharge a promise that was never kept, so
 they stay visible -- under "RCA promised but never delivered", not under open items.
 
-`insights()` states what the data shows, in sentences, at the top of the Executive
+`insights()` states what the data shows, as KPI cards, at the top of the Executive
 Summary. Six frequency tables answer "what is there"; nobody was reading "what changed"
 out of them. It computes sub-type drift over two windows, customer concentration,
-accounts whose every record was a confirmed miss, the worst recurring customer+sub-type
-pair, and the rise in ticket traceability -- all from the frame on screen, so it respects
+accounts whose every record was a confirmed miss, and the worst recurring
+customer+sub-type pair -- all from the frame on screen, so it respects
 the filters and cannot disagree with the tables below it. **A finding that does not clear
 its own threshold is not shown**: an insight panel that always finds something is a
-horoscope. It is deterministic, so it is regression-testable and needs no API key, which
+horoscope. Each finding is a card -- claim, the number that *is* the claim, the count
+behind it -- because as full-sentence panels they read as a wall of prose nobody
+finished. A finding that needs three sentences to land is not a finding. The ticket-
+traceability finding was dropped: it measured when the EAO project started, which is
+the same recording artifact the June rule above warns about.
+
+Below it, **`miss_categories()`** splits the missed records by what actually failed:
+`Source Miss` (Sub-type `Source Coverage`), `Keyword Miss` (`Keyword Update`),
+`Analyst / Model Miss` (`Review`, `Event Identification`, `Prioritization`) and `Other`.
+The fourth bucket is the honest part -- the three named categories do not cover the
+taxonomy, and folding Mapping, Tagging, Visibility, Policy/Logic, Captured Late and
+WarRoom Creation into the analyst number would overstate it by the size of the residue.
+It runs 20 / 9 / 38 / 10 of 77, so the biggest category is analyst-and-model, not source
+coverage. `audit_pages.py` recomputes the four buckets from the CSV independently, so a
+bucket quietly redefined in `app.py` fails the audit rather than agreeing with itself.
+The four-slot palette fails the dataviz normal-vision floor (`--amber` against `--red`
+is dE 13.9, the grey residue against `--blue` dE 9.5), which is legal only with
+secondary encoding: every slice and every card carries its own label, count and share.
+Adding a fifth hue to clear the check would break the one-palette rule, which is worse.
+
+`Severity split` and `Automation opportunities` are no longer on this page -- SOURCE 03
+and SOURCE 06 are those pages, and repeating them here made the Executive Summary a
+scroll rather than a summary.
+
+`REASON_ALIASES` / `normalise_reason()` fold the `Reason` wordings that all mean "an
+event we should have reported was not reported" onto one `Missed Event` label for the
+Nature-of-complaints table: forty distinct strings for a handful of complaint kinds put
+a 4-record insolvency variant beside a 43-record general one as if they were different
+failures. Hybrids (`Missed / Delayed Event`, `Delayed / Missing WarRoom`) are left alone
+-- they carry a timing signal too. It is a **display** normalisation; the tracker keeps
+the customer's own wording, because that wording is the record of what they said. It is deterministic, so it is regression-testable and needs no API key, which
 is why the no-network rule in `app.py` still holds.
 
 The Executive Summary opens on the miss-rate question, because a grid of nine monthly
