@@ -269,6 +269,25 @@ def break_reason_categories(csv: Path, xlsx: Path) -> None:
     write_lines(csv, lines)
 
 
+def break_issue_type(csv: Path, xlsx: Path) -> None:
+    """A confirmed miss logged as an inquiry -- a record we failed on, filed as a question."""
+    lines = csv_lines(csv)
+    header = next(csv_module.reader([lines[0]]))
+    issue, flag = header.index("Issue Type"), header.index("Missed_Flag")
+    for i, line in enumerate(lines[1:], start=1):
+        if not line.strip():
+            continue
+        fields = next(csv_module.reader([line]))
+        if fields[flag] == "Yes" and fields[issue] == "Complaint":
+            fields[issue] = "Inquiry"
+            buf = io.StringIO()
+            csv_module.writer(buf, lineterminator="").writerow(fields)
+            lines[i] = buf.getvalue()
+            write_lines(csv, lines)
+            return
+    raise SystemExit("no confirmed miss to mislabel; fixture is stale")
+
+
 CASES: list[tuple] = [
     ("mojibake_adjacent", "mojibake", break_mojibake_adjacent),
     ("mojibake_lone_arrow", "mojibake", break_mojibake_lone),
@@ -292,6 +311,7 @@ CASES: list[tuple] = [
     ("formula_columns", "formula_columns", break_formula_columns),
     ("cause_agreement", "cause_agreement", break_cause_agreement, "warn"),
     ("reason_categories", "reason_categories", break_reason_categories),
+    ("issue_type", "issue_type", break_issue_type, "warn"),
 ]
 
 

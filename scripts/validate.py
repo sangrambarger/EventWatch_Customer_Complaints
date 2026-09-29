@@ -781,6 +781,36 @@ def check_reason_categories(df: pd.DataFrame, rep: Report) -> None:
              f"{len(set(REASON_CATEGORIES[v] for v in used))} reusable categories")
 
 
+def check_issue_type(df: pd.DataFrame, rep: Report) -> None:
+    """A confirmed miss should be a complaint, not an inquiry.
+
+    The tracker settles complaint against inquiry on what went back to the customer: an
+    explanation means they asked how something works, a bulletin or a correction or an
+    admitted fault means we failed. A record flagged `Missed_Flag = Yes` is by definition
+    one we failed on, so it cannot also be a record where nothing went wrong.
+
+    Eight records disagreed at one point or another -- the five coverage questions logged
+    as complaints where no fault was found, and three inquiries that were confirmed
+    misses (Ford's unmapped Eason & Co supplier, EAO-15's WarRoom that was never created,
+    EAO-41's bankruptcy keyword gap, fixed by adding keywords). All eight were settled by
+    reading what the row itself says was done, not by how the customer phrased it.
+
+    A warning rather than a failure: the daily Jira Routine stages a row before anyone has
+    triaged it, and a staged inquiry that later proves to be a miss is a normal waypoint,
+    not a defect. It should not stay that way.
+    """
+    if not {"Issue Type", "Missed_Flag"} <= set(df.columns):
+        return
+    issue = df["Issue Type"].fillna("").astype(str).str.strip()
+    missed = df["Missed_Flag"].fillna("").astype(str).str.strip()
+    off = df.index[(missed == "Yes") & (issue == "Inquiry")]
+    if len(off):
+        rep.warn("issue_type", f"{len(off)} confirmed miss(es) logged as an inquiry, at row(s) "
+                               f"{[int(i) + 2 for i in off[:5]]}; a record we failed on is a complaint")
+        return
+    rep.note(f"all {int((missed == 'Yes').sum())} confirmed miss(es) are logged as complaints")
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--csv", type=Path, default=DEFAULT_CSV)
@@ -804,6 +834,7 @@ def main() -> int:
     check_resolution_dates(df, rep)
     check_cause_agreement(df, rep)
     check_reason_categories(df, rep)
+    check_issue_type(df, rep)
 
     if args.xlsx.exists():
         blocks = dashboard_blocks(args.xlsx)
