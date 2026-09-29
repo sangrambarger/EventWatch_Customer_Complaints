@@ -632,6 +632,46 @@ def miss_categories(df):
     return out
 
 
+def miss_recent_note(df, window=3, span=6, move=5.0):
+    """One line naming the last `window` months' miss mix when the ring is wider than that.
+
+    The ring is cumulative over whatever the filter spans, and a cumulative mix buries a
+    quarter in which the mix changed. It did: read over nine months Source Miss is 26%
+    and third, but over Jul-Sep it is 38% and first, while Model Miss falls from 17% to
+    3%. A reader taking the ring as "the picture" gets the wrong two priorities, which is
+    exactly the misread this line exists to stop -- it is how a claim that source misses
+    had not moved survived, when 11 of the 20 had landed in the previous three months.
+
+    Only shown when the frame spans more than `span` months, because below that the two
+    windows are mostly the same records and the line says nothing.
+    """
+    if df.empty or "Email/JIRA Date" not in df.columns:
+        return None
+    months = pd.to_datetime(df["Email/JIRA Date"], errors="coerce").dt.to_period("M")
+    order = sorted(m for m in months.dropna().unique())
+    if len(order) <= span:
+        return None
+    recent = miss_categories(df[months.isin(order[-window:])])
+    overall = miss_categories(df)
+    if recent.empty or int(recent["Records"].sum()) == 0:
+        return None
+    total = int(recent["Records"].sum())
+    shares = {r["Category"]: r["Records"] / total * 100 for _, r in recent.iterrows()}
+    base = {r["Category"]: r["Records"] / max(int(overall["Records"].sum()), 1) * 100
+            for _, r in overall.iterrows()}
+    # Only the buckets that actually moved, biggest recent share first. Listing all five
+    # would restate the ring, and a category that shifted two points is not news -- the
+    # same threshold rule `insights()` applies, for the same reason.
+    moved = [k for k in shares if abs(shares[k] - base.get(k, 0)) >= move]
+    if not moved:
+        return None
+    moved.sort(key=lambda k: -shares[k])
+    label = lambda m: pd.Period(m, freq="M").strftime("%b %Y")
+    parts = ", ".join(f"{k} {shares[k]:.0f}% (ring {base.get(k, 0):.0f}%)" for k in moved)
+    return (f"The ring is all {len(order)} months. Over the last {window} "
+            f"({label(order[-window])}–{label(order[-1])}, {total} misses): {parts}.")
+
+
 def donut(t, label_col="Category", value_col="Records", colours=None, centre="", title=""):
     """Parts of one whole, labelled on the slice.
 
@@ -1478,6 +1518,9 @@ if selected_page == "Executive Summary":
                f"{cats.loc[cats['Category'] == label, '% of Total'].iloc[0]} of misses · {note}", colour)
               for label, _, _, colour, note in MISS_BUCKETS], auto=True)
         fig = donut(cats, centre="missed<br>events")
+        note = miss_recent_note(page)
+        if note:
+            st.caption(note)
         excel_bar_table(cats, "Category")
         downloads(cats, "miss_categories", fig)
 
