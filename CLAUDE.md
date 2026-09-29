@@ -277,13 +277,16 @@ The Complaint Tracker table serves two readers without a second page. Someone re
 the tracker wants a grid they can scan; someone exporting a slice wants every field.
 A `Show all fields` checkbox switches between the eighteen reading columns
 (`TRACKER_COLUMNS`) and everything except `Month_Sort`, which is an internal sort key no
-reader needs. `GRID_LIMITS` trims the free-text columns in the grid only -- one untrimmed
-`Comments` cell sets the width of the whole table and one wrapped `Event/Bulletin Title`
-sets the height of its row -- and `styled_table(variant="wide")` lets the table size to
-its content and scroll sideways rather than be squeezed to `width:100%`, which is what
-turned every multi-word cell into two and three lines. Thirteen rows now fit where five
-did. Nothing is lost to the trimming: a record picker below the grid opens any one record
-as a `variant="record"` card carrying every populated field at full length. Filtering
+reader needs. `styled_table(variant="wide")` lets the table size to its content and scroll sideways
+rather than be squeezed to `width:100%`, which is what turned every multi-word cell into
+two and three lines, and `wrap=WRAP_COLUMNS` lets the free-text columns wrap inside a
+bounded 280-520px width while every other column stays on one line. Those columns were
+briefly truncated with an ellipsis instead, on the reasoning that the full text sat one
+click away in the record card. It does, but **68 of 114 `Comments` run past 110
+characters**, so nearly every row showed a sentence that stopped mid-thought and the
+column a reader most wants to read was the one least readable. Wrapping costs row height;
+that is the honest price of showing the whole value. A record picker below the grid still
+opens any one record as a `variant="record"` card. Filtering
 stays in the sidebar on purpose, so what this page shows is always the same population as
 the other thirteen.
 
