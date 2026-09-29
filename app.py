@@ -554,50 +554,79 @@ def normalise_reason(df):
     return df.assign(Reason=reason.map(lambda v: REASON_ALIASES.get(v, v)))
 
 
-# Why an event was missed, in the three categories leadership actually asks about, plus
-# the residue. Each bucket is a set of `Sub-type` values, so the block is auditable
-# against the tracker rather than being a hand-kept number on a slide.
+# Why an event was missed, in the categories leadership actually asks about, plus the
+# residue. Each bucket is a set of `Sub-type` values and optionally a set of `Root Cause`
+# values, so the block is auditable against the tracker rather than being a hand-kept
+# number on a slide.
 #
-# The fourth bucket is the honest part. The three named categories do not cover the
-# taxonomy -- Mapping, Tagging, Visibility, Policy/Logic, Captured Late and WarRoom
-# Creation are none of source, keyword or analyst -- and folding them into
-# "Analyst / Model Miss" to keep the picture to three slices would overstate the
-# analyst number by the size of the residue. It is shown as its own slice instead.
+# Analyst and model are two slices, not one. They were merged while the split was only a
+# colour choice; they are not the same finding, because they have different owners. An
+# item that reached a human reviewer and was not raised is EventWatch Ops' to fix; one
+# the model did not identify is Product's. The taxonomy already separates them -- these
+# are the same `Sub-type` values under a different `Root Cause` -- so merging them threw
+# away the only part of the number that says who acts on it. Split, it reads 25 analyst
+# against 13 model, which is a staffing conversation and a model conversation, not one
+# undifferentiated 38.
+#
+# The last bucket is the honest part. The named categories do not cover the taxonomy --
+# Mapping, Tagging, Visibility, Policy/Logic, Captured Late and WarRoom Creation are none
+# of source, keyword, analyst or model, and neither is a Process-rooted Review -- and
+# folding them into the analyst number to keep the picture tidy would overstate it by the
+# size of the residue. It is shown as its own slice instead.
+#
+# Colour: Source and Keyword are one family in two steps of BLUE_RAMP, because both are
+# "it never reached a person" and the eye should group them. Analyst and model take --red
+# and --amber. --green is deliberately not used even though it measures clean against
+# --red here (dE 9.7 deutan, 20.5 normal -- the dE 3.6 pair CLAUDE.md warns about is a
+# saturated red/green, not these two tokens): every slice on this chart is a failure, and
+# green would say one of them went well.
 MISS_BUCKETS = (
-    ("Source Miss", ("Source Coverage",), "#8ab4f8",
+    ("Source Miss", ("Source Coverage",), (), "#8ab4f8",
      "The event was not in a source EventWatch monitors"),
-    ("Keyword Miss", ("Keyword Update",), "#f6c177",
+    ("Keyword Miss", ("Keyword Update",), (), "#4e7bb8",
      "A monitored source carried it; no filter keyword matched"),
-    ("Analyst / Model Miss", ("Review", "Event Identification", "Prioritization"), "#f28b82",
-     "It reached a reviewer or the model and was not raised"),
-    ("Other", (), "#b6beca",
+    ("Analyst Miss", ("Review", "Event Identification", "Prioritization"), ("People",), "#f28b82",
+     "Reached a human reviewer and was not raised · EventWatch Ops"),
+    ("Model Miss", ("Review", "Event Identification", "Prioritization"), ("Product",), "#f6c177",
+     "The model did not identify it as an event · Product"),
+    ("Other", (), (), "#b6beca",
      "Mapping, tagging, visibility, logic and timing failures"),
 )
-MISS_COLOURS = [c for _, _, c, _ in MISS_BUCKETS]
+MISS_COLOURS = [c for _, _, _, c, _ in MISS_BUCKETS]
 
 
 def miss_categories(df):
     """Missed events split by what actually failed. Counts every missed record once.
 
-    Colour here fails the dataviz normal-vision floor at four categorical slots --
-    --amber against --red scores dE 13.9, and the grey residue against --blue dE 9.5 --
-    which is legal only with secondary encoding, so every slice and every card carries
-    its own label, count and share, and nothing on this block rests on colour alone.
-    Introducing a fifth hue to clear the check would break the one-palette rule the rest
-    of the dashboard keeps, which is the worse trade.
+    Buckets are applied in order and are mutually exclusive by construction: the last
+    one has no sub-types and takes whatever the others did not claim, so the slices
+    always sum to the missed count however the taxonomy grows.
+
+    Colour here fails the dataviz normal-vision floor at five categorical slots -- the
+    grey residue against --blue scores dE 9.5 -- which is legal only with secondary
+    encoding, so every slice and every card carries its own label, count and share, and
+    nothing on this block rests on colour alone. CVD separation passes at dE 8.5 worst
+    all-pairs and 10.7 worst adjacent. Introducing a hue from outside the app's tokens to
+    clear the remaining check would break the one-palette rule the rest of the dashboard
+    keeps, which is the worse trade.
     """
     cols = ["Category", "Records", "% of Total"]
-    if df.empty or not {"Missed_Flag", "Sub-type"} <= set(df.columns):
+    if df.empty or not {"Missed_Flag", "Sub-type", "Root Cause"} <= set(df.columns):
         return pd.DataFrame(columns=cols)
     missed = df[df["Missed_Flag"].astype(str).str.strip() == "Yes"]
     if missed.empty:
         return pd.DataFrame(columns=cols)
     sub = missed["Sub-type"].fillna("Blank").astype(str).str.strip()
-    named = {v for _, values, _, _ in MISS_BUCKETS for v in values}
+    root = missed["Root Cause"].fillna("Blank").astype(str).str.strip()
+    claimed = pd.Series(False, index=missed.index)
     rows = []
-    for label, values, _, _ in MISS_BUCKETS:
-        n = int(sub.isin(values).sum()) if values else int((~sub.isin(named)).sum())
-        rows.append({"Category": label, "Records": n})
+    for label, subs, roots, _, _ in MISS_BUCKETS:
+        if subs:
+            hit = sub.isin(subs) & (root.isin(roots) if roots else True) & ~claimed
+        else:
+            hit = ~claimed
+        claimed |= hit
+        rows.append({"Category": label, "Records": int(hit.sum())})
     out = pd.DataFrame(rows)
     out["% of Total"] = (out["Records"] / max(len(missed), 1) * 100).round(1).astype(str) + "%"
     return out
@@ -1439,17 +1468,15 @@ if selected_page == "Executive Summary":
 
     cats = miss_categories(page)
     add_section("Why the events were missed", "Every record flagged a genuine miss, split by what "
-                "actually failed. Source and keyword misses are product gaps; analyst/model misses are "
-                "items that reached a reviewer or the model and were not raised. `Other` is the residue "
-                "the three categories do not cover — mapping, tagging, visibility, logic and timing — "
-                "shown rather than folded in, because folding it in would overstate the analyst number.",
-                "#f28b82")
+                "failed and who fixes it. Analyst and model are the same failure under a different "
+                "Root Cause, so they are separate slices. `Other` is the residue the named categories "
+                "do not cover, shown rather than folded in.", "#f28b82")
     if cats.empty or int(cats["Records"].sum()) == 0:
         st.info("No record in the current filter is flagged as a missed event.")
     else:
         kpis([(label, int(cats.loc[cats["Category"] == label, "Records"].iloc[0]),
                f"{cats.loc[cats['Category'] == label, '% of Total'].iloc[0]} of misses · {note}", colour)
-              for label, _, colour, note in MISS_BUCKETS], auto=True)
+              for label, _, _, colour, note in MISS_BUCKETS], auto=True)
         fig = donut(cats, centre="missed<br>events")
         excel_bar_table(cats, "Category")
         downloads(cats, "miss_categories", fig)

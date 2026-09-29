@@ -221,19 +221,38 @@ finished. A finding that needs three sentences to land is not a finding. The tic
 traceability finding was dropped: it measured when the EAO project started, which is
 the same recording artifact the June rule above warns about.
 
-Below it, **`miss_categories()`** splits the missed records by what actually failed:
-`Source Miss` (Sub-type `Source Coverage`), `Keyword Miss` (`Keyword Update`),
-`Analyst / Model Miss` (`Review`, `Event Identification`, `Prioritization`) and `Other`.
-The fourth bucket is the honest part -- the three named categories do not cover the
-taxonomy, and folding Mapping, Tagging, Visibility, Policy/Logic, Captured Late and
-WarRoom Creation into the analyst number would overstate it by the size of the residue.
-It runs 20 / 9 / 38 / 10 of 77, so the biggest category is analyst-and-model, not source
-coverage. `audit_pages.py` recomputes the four buckets from the CSV independently, so a
-bucket quietly redefined in `app.py` fails the audit rather than agreeing with itself.
-The four-slot palette fails the dataviz normal-vision floor (`--amber` against `--red`
-is dE 13.9, the grey residue against `--blue` dE 9.5), which is legal only with
-secondary encoding: every slice and every card carries its own label, count and share.
-Adding a fifth hue to clear the check would break the one-palette rule, which is worse.
+Below it, **`miss_categories()`** splits the missed records by what actually failed and
+**who fixes it**: `Source Miss` (Sub-type `Source Coverage`), `Keyword Miss` (`Keyword
+Update`), `Analyst Miss` and `Model Miss` (both `Review` / `Event Identification` /
+`Prioritization`, separated by `Root Cause` People against Product), and `Other`. It runs
+20 / 9 / 25 / 13 / 10 of 77, so the biggest single cause is an analyst miss, not source
+coverage -- which inverts the story on the slide this block reproduces (53% source, 38
+total; those were the numbers when the tracker held half as many records, and Source Miss
+is the one bucket that has not moved since).
+
+Analyst and model are two slices because they have **different owners**: an item a human
+reviewer saw and did not raise is EventWatch Ops' to fix, one the model did not identify
+is Product's. They were briefly merged, and merging them threw away the only part of the
+number that says who acts on it. The last bucket is the other honest part -- the named
+categories do not cover the taxonomy (Mapping, Tagging, Visibility, Policy/Logic,
+Captured Late, WarRoom Creation, and a Process-rooted `Review`), and folding them into
+the analyst number would overstate it by the size of the residue. Buckets apply in order
+and the last claims whatever is left, so the slices always sum to the missed count
+however the taxonomy grows. `audit_pages.py` recomputes all five from the CSV
+independently, so a bucket quietly redefined in `app.py` fails the audit rather than
+agreeing with itself.
+
+Colour: Source and Keyword are one family in two steps of `BLUE_RAMP` (both are "it never
+reached a person"); Analyst and Model take `--red` and `--amber`; the residue is
+`--muted`. `--green` is **deliberately unused here even though it measures clean** --
+`--red` against `--green` is dE 9.7 deutan and 20.5 normal, so the dE 3.6 pair warned
+about above is a saturated red/green, not these two tokens -- because every slice on this
+chart is a failure and green would say one of them went well. The five-slot palette
+passes CVD separation (dE 8.5 worst all-pairs, 10.7 worst adjacent) and fails the
+normal-vision floor on the grey residue against `--blue` (dE 9.5), which is legal only
+with secondary encoding: every slice and every card carries its own label, count and
+share. A hue from outside the app's tokens would clear it and break the one-palette rule,
+which is worse.
 
 `Severity split` and `Automation opportunities` are no longer on this page -- SOURCE 03
 and SOURCE 06 are those pages, and repeating them here made the Executive Summary a
