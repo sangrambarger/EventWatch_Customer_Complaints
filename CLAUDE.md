@@ -247,9 +247,11 @@ Opportunity` read "Source coverage expansion" or "Keyword expansion" -- the team
 name for the fix -- while `Sub-type` read `Event Identification`. The buckets key on
 `Sub-type`, so all six counted as model misses. `validate.py`'s **`cause_agreement`**
 now compares the two fields, as a warning rather than a failure because which of them
-is wrong is a judgement: Data row 29 is a People/Prioritization record whose Product
-half is row 28, already `Source Coverage`, so there it is the remedy text that is
-mislabelled and reclassifying it would count one incident as two source misses.
+is wrong is a judgement. Data row 29 was the case that proves the point: a
+People/Prioritization record whose Product half is row 28, already `Source Coverage`, so
+reclassifying it would have counted one Murata incident as two source misses. There the
+**remedy text was the wrong field**, and it was rewritten rather than the `Sub-type`.
+The rule reports nothing on the current data.
 
 EAO-12 was the same fault the rule does **not** catch, found by reading the ticket. Its
 `Standard Automation Focus` said `Dynamic Source Discovery` and its `Sub-type` said
@@ -263,6 +265,15 @@ A loose rule keyed on "source discovery" would have caught it and eight correctl
 classified rows with it, which is why `cause_agreement` stays narrow: **the umbrella
 automation programme is not evidence of the cause**, and a record whose focus is
 `Dynamic Source Discovery` may legitimately be a keyword gap.
+
+`Standard Automation Focus` was `Dynamic Source Discovery` on three records that were
+not source problems at all -- it is the largest value and had become the default anything
+unclassified fell into. Row 24 (an SEC notification delivered late, whose own remedy is a
+regulatory-feed timeliness check) is `Other Control Automation`, which is where eight of
+the fourteen `Process Clarification` records already sit; row 29 (an analyst
+misclassification fixed by retraining) is `WarRoom & Decision Validation`, with the
+nineteen `Review` records. When a focus and a `Sub-type` disagree, check which one the
+record's own `Comments` support before assuming the taxonomy field is the right one.
 
 **The slide this block reproduces (38 total, 53% source) is not reproducible from this
 tracker at any cut** -- through June it holds 48 missed records with 9 source misses
