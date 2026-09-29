@@ -24,7 +24,7 @@ PAGES = [
     "Executive Summary", "Delivery performance", "Open items", "SOURCE 01 · Monthly trend", "SOURCE 02 · Fix status",
     "SOURCE 03 · Severity", "SOURCE 04 · Root cause", "SOURCE 05 · Top customers",
     "SOURCE 06 · Automation focus", "DETAIL · Event workload", "Repeat patterns", "Automation urgency",
-    "Dynamic Source Discovery", "Definitions", "Complaint Tracker",
+    "Dynamic Source Discovery", "Definitions", "All customer emails",
 ]
 
 DESCRIPTIONS = {
@@ -42,7 +42,7 @@ DESCRIPTIONS = {
     "Automation urgency": "Ranked automation priorities using volume, severity, RCA pressure, misses, and customer concentration.",
     "Dynamic Source Discovery": "Source coverage, feed, keyword, vendor monitoring, and event-discovery gaps.",
     "Definitions": "Structured glossary for tracker fields, classification, statuses, root causes, and automation terms.",
-    "Complaint Tracker": "Filtered tracker records with download and controlled manual-entry staging.",
+    "All customer emails": "Every complaint and inquiry a customer sent in, with the category behind each one, downloads, and controlled manual-entry staging.",
 }
 
 CSS = """
@@ -199,7 +199,7 @@ PAGE_KICKERS = {
     "Automation urgency": ("Prioritization", "#f6c177"),
     "Dynamic Source Discovery": ("Coverage gap", "#f6c177"),
     "Definitions": ("Reference", "#b6beca"),
-    "Complaint Tracker": ("Data entry", "#f28b82"),
+    "All customer emails": ("The records", "#f28b82"),
 }
 
 
@@ -280,10 +280,10 @@ def filter_note():
     if not note:
         return
     shown, total, date_col, start, end = note
-    st.caption(f"Showing **{shown}** of {total} record(s) — {date_col} between "
+    st.caption(f"Showing **{shown}** of {total} customer email(s) — {date_col} between "
                f"{start:%d-%b-%Y} and {end:%d-%b-%Y}, plus any sidebar filters.")
     if not shown:
-        st.info("No records match the current filters. Widen the date range in the "
+        st.info("No customer emails match the current filters. Widen the date range in the "
                 "sidebar, or clear a sidebar filter, to see data again.")
 
 
@@ -401,7 +401,7 @@ def excel_bar_table(df, label_col, value_col="Records"):
                     f"<td>{esc(r.get('% of Total',''))}</td></tr>")
     heads = "".join(f"<th>{esc(c)}</th>" for c in extra)
     st.markdown("<div class='table-wrap'><table class='excel-table'><thead><tr><th>Category</th>" + heads +
-                "<th>Total records</th><th>% of Total</th></tr></thead><tbody>" + "".join(rows) +
+                "<th>Total emails</th><th>% of Total</th></tr></thead><tbody>" + "".join(rows) +
                 "</tbody></table></div>", unsafe_allow_html=True)
 
 
@@ -472,8 +472,92 @@ def styled_table(df, max_rows=None, height=None, variant=None, wrap=(), styles=N
 # happened, who raised it, what it was, how it was classified, where it stands. The eight
 # left out are either derived (Month, Number of Customers, Month_Sort), near-constant
 # (Improvement VS Bug is `Improvement` on 110 of 111 rows), or prose too long for a grid.
+# Forty distinct `Reason` strings for about seven real things, and every page inherits
+# the mess: "Missed Event", "Missed insolvency alert" and "WarRoom should have been
+# created but was not" are one category written three ways, so no chart of Reason can
+# rank anything. This maps every value in the tracker onto a reusable category.
+#
+# It is **derived, not stored**. `Reason` keeps the customer's own words -- "Turkish
+# keyword miss", "Missing Automotive industry tag" -- because that wording is the record
+# of what they actually wrote, and a category is a reading of it. Storing it would mean a
+# 27th column, a rewritten Data sheet, a wider `ComplaintTracker` ref and three scripts
+# changed, for something every page can compute in a millisecond.
+#
+# `validate.py`'s `reason_categories` fails if a Reason value in the tracker is missing
+# from this map, so a new wording cannot quietly fall into an "Uncategorised" bucket and
+# go unnoticed -- which is exactly how forty values accumulated in the first place.
+REASON_CATEGORIES = {
+    # An event we should have reported was not reported at all.
+    "Missed Event": "Event missed",
+    "Missed insolvency alert": "Event missed",
+    "Missed insolvency event": "Event missed",
+    "Missed alert / event not captured": "Event missed",
+    "Missed WarRoom": "Event missed",
+    "Missed WarRoom / No notification": "Event missed",
+    "Missed Relevant Event": "Event missed",
+    "Missed severe weather alert": "Event missed",
+    "Missed / Delayed Event": "Event missed",
+    "Missed + Delayed Reporting": "Event missed",
+    "Missing Resilinc alert / insolvency not captured": "Event missed",
+    "Missing EventWatch coverage / feeds not captured": "Event missed",
+    "WarRoom should have been created but was not": "Event missed",
+    "WarRoom not created despite nationwide disruption": "Event missed",
+    "SEC notification not captured/provided on time": "Event missed",
+    # We reported it, but after the customer had already heard.
+    "Delayed Event": "Reported late",
+    "Delayed WarRoom": "Reported late",
+    "Delayed alert / WarRoom created late": "Reported late",
+    "Delayed / Missing WarRoom": "Reported late",
+    "Delay in creating separate WarRoom / delayed escalation": "Reported late",
+    # We reported it; the classification on it was wrong.
+    "Wrong Relevancy": "Classified wrongly",
+    "Incorrect Action": "Classified wrongly",
+    "Incorrect Industry selection": "Classified wrongly",
+    "Missing Automotive industry tag (customer tracking missed it)": "Classified wrongly",
+    "Geographic Misclassification": "Classified wrongly",
+    "Severity / consolidation handling concern": "Classified wrongly",
+    # Published, but the customer's own supplier was never linked to it.
+    "Impacted Supplier Missing": "Supplier not linked",
+    "Supplier Impact Mapping Clarification": "Supplier not linked",
+    "Event not triggered / not notified": "Supplier not linked",
+    # Published and linked, but the customer could not see it.
+    "WarRoom not visible in customer profile": "Published but not visible",
+    "WarRoom visibility affected by customer profile filters": "Published but not visible",
+    "News dashboard visibility gap": "Published but not visible",
+    # One event published twice.
+    "Duplicate WarRooms": "Duplicate published",
+    # A question about how coverage works, not a report of a failure.
+    "Coverage Verification Request": "Question about coverage",
+    "Geographic Coverage Clarification": "Question about coverage",
+    "Monitoring Strategy RFI": "Question about coverage",
+    "Customer Requested Verification": "Question about coverage",
+    "Customer Terminology Preference": "Question about coverage",
+    "WarRoom Timing/Trigger Criteria Clarification": "Question about coverage",
+    "Intelligence/Advisory Request": "Question about coverage",
+}
+UNCATEGORISED = "Uncategorised"
+
+
+def reason_category(df):
+    """The reusable category behind each email's `Reason`, as a Series."""
+    if df.empty or "Reason" not in df.columns:
+        return pd.Series(dtype=str, index=df.index)
+    return (df["Reason"].fillna("").astype(str).str.strip()
+            .map(lambda v: REASON_CATEGORIES.get(v, UNCATEGORISED)))
+
+
+def with_reason_category(df):
+    """The frame with `Reason Category` inserted directly before `Reason`."""
+    if df.empty or "Reason" not in df.columns or "Reason Category" in df.columns:
+        return df
+    out = df.copy()
+    out.insert(out.columns.get_loc("Reason"), "Reason Category", reason_category(df))
+    return out
+
+
 TRACKER_COLUMNS = ["Month Label", "Email/JIRA Date", "Jira Key", "Customer", "Event type",
-                   "Event/Bulletin Title", "Issue Type", "Reason", "Root Cause", "Sub-type",
+                   "Event/Bulletin Title", "Issue Type", "Reason Category", "Reason",
+                   "Root Cause", "Sub-type",
                    "Missed_Flag", "Short Term Fix Status", "Resolution Date", "RCA Requested",
                    "Severity", "Standard Automation Focus", "Routed To", "Comments"]
 
@@ -1425,11 +1509,11 @@ def derive_row(row):
 
 def manual_entry_form(df):
     source_cols = [c for c in df.columns if c != STAGED_FLAG]
-    with st.expander("Add complaint / inquiry entry", expanded=False):
-        st.caption("A saved entry is added to this session immediately and counted on every "
-                   "page -- cards, tables and charts alike. It is held in the browser session, "
-                   "not written to the tracker: download the combined CSV below and commit it "
-                   "through the approved update process to make it permanent.")
+    with st.expander("Add a customer email", expanded=False):
+        st.caption("A saved entry is counted on every tab immediately -- cards, tables and "
+                   "charts alike. It is held in this browser session only, not written to the "
+                   "tracker: download the combined CSV below and commit it through the approved "
+                   "update process to make it permanent.")
         with st.form("manual_entry_form"):
             c1, c2, c3 = st.columns(3)
             row = {"Email/JIRA Date": c1.date_input("Email/JIRA Date *"),
@@ -1858,14 +1942,21 @@ elif selected_page == "Definitions":
             st.markdown(f"<div class='definition-group'><h3>{group['title']}</h3>", unsafe_allow_html=True)
             styled_table(rows)
             st.markdown("</div>", unsafe_allow_html=True)
-elif selected_page == "Complaint Tracker":
-    page_header(selected_page); page = filtered; filter_note()
-    kpis([("Records shown", len(page), f"{int(page.get('Issue Type', pd.Series(dtype=str)).astype(str).eq('Complaint').sum())} complaints · "
-           f"{int(page.get('Issue Type', pd.Series(dtype=str)).astype(str).eq('Inquiry').sum())} inquiries", "#8ab4f8"),
-          ("Confirmed misses", int(page.get("Missed_Flag", pd.Series(dtype=str)).astype(str).eq("Yes").sum()), "Missed_Flag is Yes", "#f28b82"),
-          ("Still open", int(page.get("Short Term Fix Status", pd.Series(dtype=str)).astype(str).eq("Pending").sum()), "Short-term fix Pending", "#f6c177"),
-          ("High severity", int(page.get("Severity", pd.Series(dtype=str)).astype(str).eq("High").sum()), "Needs leadership attention", "#f28b82"),
-          ("With a Jira key", int(page.get("Jira Key", pd.Series(dtype=str)).fillna("").astype(str).str.strip().ne("").sum()), "Traceable to a ticket", "#80cbc4")])
+elif selected_page == "All customer emails":
+    page_header(selected_page); page = with_reason_category(filtered); filter_note()
+    complaints = int(page.get("Issue Type", pd.Series(dtype=str)).astype(str).eq("Complaint").sum())
+    inquiries = int(page.get("Issue Type", pd.Series(dtype=str)).astype(str).eq("Inquiry").sum())
+    total = max(len(page), 1)
+    missed = int(page.get("Missed_Flag", pd.Series(dtype=str)).astype(str).eq("Yes").sum())
+    pending = int(page.get("Short Term Fix Status", pd.Series(dtype=str)).astype(str).eq("Pending").sum())
+    # Every card states the base it is a share of, in the card. A bare percentage next to
+    # a bare count is what made two different denominators on one screen unreadable.
+    kpis([("Customer emails", len(page), f"{complaints} complaints · {inquiries} inquiries", "#8ab4f8"),
+          ("Complaints", f"{complaints} of {len(page)}", f"{complaints / total * 100:.0f}% of these emails", "#f6c177"),
+          ("Turned out to be a real miss", f"{missed} of {len(page)}", f"{missed / total * 100:.0f}% of these emails", "#f28b82"),
+          ("Still awaiting an answer", pending, "no reply sent to the customer yet", "#f6c177"),
+          ("Raised as a Jira ticket", f"{int(page.get('Jira Key', pd.Series(dtype=str)).fillna('').astype(str).str.strip().ne('').sum())} of {len(page)}",
+           "the rest came in by email only", "#80cbc4")])
     # Two audiences, one page: someone reading the tracker wants a narrow grid they can
     # scan, someone exporting a slice wants every field. A checkbox serves both without
     # a second page to keep in sync. Month_Sort is an internal sort key and never shown.
@@ -1874,23 +1965,26 @@ elif selected_page == "Complaint Tracker":
     grid = [c for c in TRACKER_COLUMNS if c in page.columns] if not show_all else \
            [c for c in page.columns if c not in (STAGED_FLAG, "Month_Sort")]
     view = page[grid].copy()
-    # Comments and RCA Details run to several hundred characters, and a single one of
-    # them sets the width of the whole table. Truncate in the grid and keep the full
-    # text one click away in the record card below, rather than wrapping into rows tall
-    # enough to push everything else off screen.
     styled_table(view, height=560, variant="wide grid", wrap=WRAP_COLUMNS, styles=GRID_STYLES)
     st.caption("Every value is shown in full: the grid scrolls sideways, and the few long text "
                "cells that run past five lines scroll inside the cell rather than stretching the "
-               "row. Open a record below to read one record on its own.")
+               "row. Open one email below to read it on its own.")
 
-    add_section("Open a record", "Every field of one record, including the full Comments, "
+    add_section("What the customer wrote about", "The customer's own words run to forty different "
+                "wordings for about seven real things — \"Missed Event\", \"Missed insolvency alert\" and "
+                "\"WarRoom should have been created but was not\" all say the same thing. The category "
+                "column folds them together, and it is the same wording every other tab uses.", "#80cbc4")
+    cat = count_table(page, "Reason Category")
+    excel_bar_table(cat, "Reason Category"); downloads(cat, "reason_categories")
+
+    add_section("Open one email", "Every field of one customer email, including the full Comments, "
                 "RCA Details and Automation Opportunity that the grid above shortens.")
     if page.empty:
-        st.info("No records to open under the current filters.")
+        st.info("No customer emails to open under the current filters.")
     else:
         labels = record_labels(page)
-        pick = st.selectbox("Record", list(labels), key="tracker_record",
-                            help="Filtered by the sidebar, like every other page.")
+        pick = st.selectbox("Customer email", list(labels), key="tracker_record",
+                            help="Filtered by the sidebar, like every other tab.")
         record = page.loc[labels[pick]]
         detail = pd.DataFrame(
             [(c, cell(record[c])) for c in page.columns

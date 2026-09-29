@@ -256,6 +256,19 @@ def break_cause_agreement(csv: Path, xlsx: Path) -> None:
 
 # (name, rule, fault) or (name, rule, fault, "warn") -- a warning-level rule leaves the
 # exit code at 0 on purpose, so asserting `code != 0` would never see it fire.
+def break_reason_categories(csv: Path, xlsx: Path) -> None:
+    """A Reason nobody has categorised yet, which is how the forty accumulated."""
+    lines = csv_lines(csv)
+    header = next(csv_module.reader([lines[0]]))
+    col = header.index("Reason")
+    fields = next(csv_module.reader([lines[1]]))
+    fields[col] = "Event bulletin wording not to customer preference"
+    buf = io.StringIO()
+    csv_module.writer(buf, lineterminator="").writerow(fields)
+    lines[1] = buf.getvalue()
+    write_lines(csv, lines)
+
+
 CASES: list[tuple] = [
     ("mojibake_adjacent", "mojibake", break_mojibake_adjacent),
     ("mojibake_lone_arrow", "mojibake", break_mojibake_lone),
@@ -278,6 +291,7 @@ CASES: list[tuple] = [
     ("definitions_export", "definitions_export", break_definitions_export),
     ("formula_columns", "formula_columns", break_formula_columns),
     ("cause_agreement", "cause_agreement", break_cause_agreement, "warn"),
+    ("reason_categories", "reason_categories", break_reason_categories),
 ]
 
 

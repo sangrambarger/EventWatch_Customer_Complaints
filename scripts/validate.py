@@ -749,6 +749,38 @@ def check_cause_agreement(df: pd.DataFrame, rep: Report) -> None:
              f"remedy all carry the matching Sub-type")
 
 
+def check_reason_categories(df: pd.DataFrame, rep: Report) -> None:
+    """Every `Reason` in the tracker must map to a reusable category in app.py.
+
+    `Reason` holds the customer's own wording, so it grows a new string every time
+    someone phrases a miss differently -- forty values for about seven real things, which
+    is why no chart of it could rank anything. `REASON_CATEGORIES` folds them, and the
+    app reads the category, not the raw value.
+
+    The map is imported from app.py rather than restated here on purpose: a second copy
+    would drift, and the whole point is that one wording maps one way everywhere. A value
+    missing from it would fall into `Uncategorised` and quietly under-count a category --
+    the same silence that let forty values accumulate. The fix is one line in that dict.
+    """
+    if "Reason" not in df.columns:
+        return
+    sys.path.insert(0, str(REPO))
+    try:
+        from app import REASON_CATEGORIES
+    except Exception as exc:                       # pragma: no cover - import guard
+        rep.fail("reason_categories", f"could not read REASON_CATEGORIES from app.py: {exc}")
+        return
+    used = {str(v).strip() for v in df["Reason"].dropna() if str(v).strip()}
+    missing = sorted(used - set(REASON_CATEGORIES))
+    if missing:
+        rep.fail("reason_categories",
+                 f"{len(missing)} Reason value(s) have no category in app.py's "
+                 f"REASON_CATEGORIES, so they would count as Uncategorised: {missing[:4]}")
+        return
+    rep.note(f"all {len(used)} distinct Reason value(s) map to "
+             f"{len(set(REASON_CATEGORIES[v] for v in used))} reusable categories")
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--csv", type=Path, default=DEFAULT_CSV)
@@ -771,6 +803,7 @@ def main() -> int:
     check_duplicates(df, rep)
     check_resolution_dates(df, rep)
     check_cause_agreement(df, rep)
+    check_reason_categories(df, rep)
 
     if args.xlsx.exists():
         blocks = dashboard_blocks(args.xlsx)
