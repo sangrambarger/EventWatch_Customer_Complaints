@@ -10,6 +10,9 @@ corresponds to a bug that actually shipped, so they are worth keeping runnable:
                   Dashboard, whose Fix Status table lists only 3 statuses
   month_coverage  September records existed with no September row in the
                   Dashboard's monthly trend block, so the chart omitted them
+  cause_agreement six records whose remedy read "Source coverage expansion" while
+                  Sub-type read Event Identification, so the Executive Summary's
+                  source and keyword miss counts read 20 and 9 against a real 23 and 12
   parity          the CSV and the workbook's Data sheet drifting apart
   dynamic_arrays  an openpyxl resave stripped the cm= markers that make the
                   Dashboard's UNIQUE/FILTER/SORTBY formulas spill
@@ -706,6 +709,46 @@ def check_formula_columns(df: pd.DataFrame, xlsx_path: Path, rep: Report) -> Non
     rep.note(f"{len(referenced)} distinct table column(s) referenced by formulas all exist")
 
 
+def check_cause_agreement(df: pd.DataFrame, rep: Report) -> None:
+    """A record whose stated remedy is a source or keyword gap should say so in Sub-type.
+
+    Six records carried `Automation Opportunity` of "Source coverage expansion" or
+    "Keyword expansion" -- the team's own name for the fix -- while `Sub-type` read
+    `Event Identification`. Nothing noticed, because no rule compares the two, and the
+    Executive Summary's miss buckets key on `Sub-type`: the source and keyword misses
+    read 20 and 9 when the records themselves said 23 and 12, and the difference landed
+    in `Model Miss` instead. The reader who caught it had to know the tracker well
+    enough to disbelieve the chart.
+
+    A warning rather than a failure, because which of the two fields is wrong is a
+    judgement. Data row 29 is the standing example: it is a People/Prioritization record
+    -- the Product half of that same Murata incident is row 28, already `Source
+    Coverage` -- and it is the `Automation Opportunity` that is mislabelled there, not
+    the `Sub-type`. Reclassifying it would count one incident as two source misses.
+
+    Deliberately keyed on the two exact short-form remedies, not on any mention of a
+    source or a keyword: `Standard Automation Focus` of "Dynamic Source Discovery" is
+    the umbrella programme and legitimately covers keyword gaps too, so matching loosely
+    flags eight rows that are all correctly classified.
+    """
+    remedy = {"Source coverage expansion": "Source Coverage", "Keyword expansion": "Keyword Update"}
+    if not {"Automation Opportunity", "Sub-type"} <= set(df.columns):
+        return
+    opportunity = df["Automation Opportunity"].fillna("").astype(str).str.strip()
+    subtype = df["Sub-type"].fillna("").astype(str).str.strip()
+    off = []
+    for text, want in remedy.items():
+        for i in df.index[(opportunity == text) & (subtype != want)]:
+            off.append(f"row {i + 2} says {text!r} but Sub-type is {subtype[i]!r}, not {want!r}")
+    if off:
+        rep.warn("cause_agreement",
+                 f"{len(off)} record(s) whose remedy and Sub-type disagree; the miss buckets "
+                 f"on the Executive Summary key on Sub-type: " + "; ".join(off[:4]))
+        return
+    rep.note(f"{int((opportunity.isin(remedy)).sum())} record(s) naming a source or keyword "
+             f"remedy all carry the matching Sub-type")
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--csv", type=Path, default=DEFAULT_CSV)
@@ -727,6 +770,7 @@ def main() -> int:
     check_jira_keys(df, rep)
     check_duplicates(df, rep)
     check_resolution_dates(df, rep)
+    check_cause_agreement(df, rep)
 
     if args.xlsx.exists():
         blocks = dashboard_blocks(args.xlsx)

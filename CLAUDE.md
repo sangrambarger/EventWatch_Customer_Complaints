@@ -48,11 +48,16 @@ naming a column that no longer exists (which turns the Management Readout -- twe
 formulas, no cached values -- into #REF! on next open). Read its output instead of re-deriving the checks.
 
 `selftest.py` is why you can trust that list. It breaks the data on purpose, one fault
-per failure mode (20 fixtures over 19 rules), and asserts the rule blocks — a validator nobody has watched fail is a
+per failure mode (21 fixtures over 20 rules), and asserts the rule blocks — a validator nobody has watched fail is a
 validator nobody should trust. Two checks here were silent no-ops when first written,
 and the mojibake pattern passed clean for months over four corrupted cells because its
 regex needed a letter beside the `?` and the real corruption had spaces both sides.
-Add a rule to `validate.py`, add a case to `selftest.py`.
+Add a rule to `validate.py`, add a case to `selftest.py`. A **warning**-level rule needs
+its fixture asserted differently: the exit code stays 0, and mere presence of the warning
+proves nothing when the rule already fires on the real data -- so the case carries
+`"warn"` and `selftest.py` compares the count the warning reports against the baseline's.
+Written the obvious way, the `cause_agreement` fixture passed with its fault commented
+out.
 
 `refresh_caches.py` (with `dashboard_calc.py`) re-derives every cached value in the
 workbook from the CSV, by reading each Dashboard cell's own formula -- COUNTIFS, the
@@ -234,8 +239,17 @@ Below it, **`miss_categories()`** splits the missed records by what actually fai
 **who fixes it**: `Source Miss` (Sub-type `Source Coverage`), `Keyword Miss` (`Keyword
 Update`), `Analyst Miss` and `Model Miss` (both `Review` / `Event Identification` /
 `Prioritization`, separated by `Root Cause` People against Product), and `Other`. It runs
-20 / 9 / 25 / 13 / 10 of 77, so the biggest single cause over the whole tracker is an
-analyst miss, not source coverage.
+23 / 12 / 25 / 7 / 10 of 77, so the biggest single cause over the whole tracker is an
+analyst miss, just ahead of source coverage.
+
+Those were 20 / 9 / 25 / 13 / 10 until six records were found whose `Automation
+Opportunity` read "Source coverage expansion" or "Keyword expansion" -- the team's own
+name for the fix -- while `Sub-type` read `Event Identification`. The buckets key on
+`Sub-type`, so all six counted as model misses. `validate.py`'s **`cause_agreement`**
+now compares the two fields, as a warning rather than a failure because which of them
+is wrong is a judgement: Data row 29 is a People/Prioritization record whose Product
+half is row 28, already `Source Coverage`, so there it is the remedy text that is
+mislabelled and reclassifying it would count one incident as two source misses.
 
 **The slide this block reproduces (38 total, 53% source) is not reproducible from this
 tracker at any cut** -- through June it holds 48 missed records with 9 source misses
@@ -245,7 +259,7 @@ Whatever built that deck, it was not this file. Do not reconcile to it.
 **And the cumulative ring hides the quarter.** `miss_recent_note()` prints a line under
 the donut naming the last three months whenever the frame spans more than six, because
 reading the ring as "the picture" gets the wrong two priorities: over nine months Source
-Miss is 26% and third, over Jul-Sep it is 38% and first, while Model Miss falls 17% to
+Miss is 30% and second, over Jul-Sep it is 38% and first, while Model Miss falls 12% to
 3%. It lists only buckets that moved 5 points or more, biggest recent share first -- the
 same threshold rule `insights()` applies. This exists because a claim that source misses
 "had not moved" survived review here, on the coincidence that the slide's 20 equals
