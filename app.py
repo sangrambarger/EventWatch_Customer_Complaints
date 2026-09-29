@@ -76,6 +76,7 @@ h1,h2,h3,h4,h5,h6,p,span,div,label{color:var(--ink)!important}.page-hero,.sectio
 .excel-table.grid td.wrap{min-width:320px;max-width:600px;color:var(--muted)!important}
 .excel-table.grid td.wrap.narrow,.excel-table.grid th.wrap.narrow{min-width:170px;max-width:200px}
 .excel-table.grid td.wrap.mid,.excel-table.grid th.wrap.mid{min-width:220px;max-width:260px}
+.excel-table.grid td.wrap.bullets{white-space:pre-line}
 .excel-table.grid td.wrap>.cell{max-height:100px;overflow-y:auto;background:linear-gradient(var(--cell-bg) 32%,rgba(0,0,0,0)) top/100% 22px no-repeat local,linear-gradient(rgba(0,0,0,0),var(--cell-bg) 68%) bottom/100% 22px no-repeat local,radial-gradient(farthest-side at 50% 0,rgba(138,180,248,.42),rgba(0,0,0,0)) top/100% 11px no-repeat,radial-gradient(farthest-side at 50% 100%,rgba(138,180,248,.42),rgba(0,0,0,0)) bottom/100% 11px no-repeat}
 .excel-table.grid td.wrap>.cell::-webkit-scrollbar{width:8px}
 .excel-table.grid td.wrap>.cell::-webkit-scrollbar-thumb{background:var(--line2);border-radius:4px;border:2px solid transparent;background-clip:content-box}
@@ -586,7 +587,7 @@ def category_table(df):
     reciting all forty every time.
     """
     cols = ["Category", "What it means", "Their exact wordings",
-            "Emails", "% of these", "Complaint / inquiry", "Misses"]
+            "Emails", "% of these", "Complaints", "Inquiries", "Misses"]
     if df.empty or "Reason" not in df.columns:
         return pd.DataFrame(columns=cols)
     frame = df.assign(_cat=reason_category(df))
@@ -598,12 +599,11 @@ def category_table(df):
         rows.append({
             "Category": name,
             "What it means": CATEGORY_MEANING.get(name, ""),
-            "Their exact wordings": " · ".join(f"{w} ({n})" for w, n in wordings.items()),
+            "Their exact wordings": "\n".join(f"• {w} ({n})" for w, n in wordings.items()),
             "Emails": len(group),
             "% of these": f"{len(group) / total * 100:.0f}%",
-            "Complaint / inquiry": (
-                f"{int((group.get('Issue Type', pd.Series(dtype=str)).astype(str) == 'Complaint').sum())}"
-                f" / {int((group.get('Issue Type', pd.Series(dtype=str)).astype(str) == 'Inquiry').sum())}"),
+            "Complaints": int((group.get("Issue Type", pd.Series(dtype=str)).astype(str) == "Complaint").sum()),
+            "Inquiries": int((group.get("Issue Type", pd.Series(dtype=str)).astype(str) == "Inquiry").sum()),
             "Misses": f"{missed} ({missed / max(len(group), 1) * 100:.0f}%)",
         })
     return pd.DataFrame(rows)[cols].sort_values("Emails", ascending=False).reset_index(drop=True)
@@ -1389,10 +1389,12 @@ def repeat_patterns(df, minimum=2):
 
 
 def downloads(df, name, fig=None):
-    c1, c2, c3 = st.columns([1, 1, 3])
+    # The plotly toolbar hint used to print beside every download row, including the many
+    # that sit under a table with no chart anywhere near them.
+    c1, c2 = st.columns([1, 1]) if fig is not None else (st.container(), None)
     c1.download_button("Download table CSV", df.to_csv(index=False).encode(), f"{name}.csv", "text/csv", key=f"csv_{name}")
-    if fig is not None: c2.download_button("Download chart HTML", fig.to_html().encode(), f"{name}_chart.html", "text/html", key=f"chart_{name}")
-    c3.caption("Use the chart toolbar to zoom, pan, reset, or inspect values on hover.")
+    if fig is not None:
+        c2.download_button("Download chart HTML", fig.to_html().encode(), f"{name}_chart.html", "text/html", key=f"chart_{name}")
 
 
 def source_page(title, df, col, key, primary=None):
@@ -2055,11 +2057,28 @@ elif selected_page == "All customer emails":
                 "folded into a category is listed beside it with its own count, so the fold can be "
                 "checked rather than taken on trust. This is the wording every other tab uses.", "#80cbc4")
     cat = category_table(page)
+    # "Event missed" is smaller than the confirmed-miss count and a reader is right to
+    # stop on that. They measure different things: the category is what the customer
+    # complained about, the flag is whether the event reached them. An event reported
+    # eleven days late was reported, so it is not "Event missed" -- but it did not reach
+    # them in time, so it is a confirmed miss. Saying so beats leaving them to subtract.
+    missed_here = int((reason_category(page) == "Event missed").sum())
+    elsewhere = missed - missed_here
     styled_table(cat, variant="wide grid",
                  wrap=("What it means", "Their exact wordings"),
                  styles={"Category": "wrapcol", "What it means": "narrow",
-                         "Their exact wordings": "mid",
-                         "Emails": "num", "Complaint / inquiry": "num"})
+                         "Their exact wordings": "mid bullets",
+                         "Emails": "num", "Complaints": "num", "Inquiries": "num"})
+    if elsewhere > 0:
+        spread = (reason_category(page)[page.get("Missed_Flag", pd.Series(dtype=str)).astype(str) == "Yes"]
+                  .value_counts().drop(labels=["Event missed"], errors="ignore"))
+        st.caption(
+            f"**Why {missed} confirmed misses but only {missed_here} under Event missed?** "
+            f"The category says what the customer complained about; the confirmed-miss flag says "
+            f"whether the event reached them in time. *Event missed* is the clean case — we never "
+            f"reported it at all, and all {missed_here} of those are misses. The other {elsewhere} "
+            f"were reported, but still never reached the customer in time: "
+            + ", ".join(f"{n} {k.lower()}" for k, n in spread.items()) + ".")
     downloads(cat, "reason_categories")
 
     still_open = page[page.get("Short Term Fix Status", pd.Series(dtype=str)).astype(str) == "Pending"]
@@ -2087,11 +2106,11 @@ elif selected_page == "All customer emails":
     if not_missed.empty:
         st.info("Every complaint in the current filter was a confirmed miss.")
     else:
-        breakdown = category_table(not_missed).drop(columns=["Complaint / inquiry", "Misses"])
+        breakdown = category_table(not_missed).drop(columns=["Complaints", "Inquiries", "Misses"])
         styled_table(breakdown, variant="wide grid",
                      wrap=("What it means", "Their exact wordings"),
                      styles={"Category": "wrapcol", "What it means": "narrow",
-                             "Their exact wordings": "mid", "Emails": "num"})
+                             "Their exact wordings": "mid bullets", "Emails": "num"})
         downloads(breakdown, "complaints_not_missed")
 
     add_section("Open one email", "Every field of one customer email, including the full Comments, "
