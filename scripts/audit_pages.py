@@ -31,6 +31,16 @@ REPO = Path(__file__).resolve().parent.parent
 CHROMIUM = "/opt/pw-browsers/chromium"
 
 
+def reason_category_counts(df: pd.DataFrame) -> dict[str, int]:
+    """{category: emails}, folded with app.py's own map so the two cannot disagree."""
+    sys.path.insert(0, str(REPO))
+    from app import REASON_CATEGORIES
+    counts: dict[str, int] = collections.Counter()
+    for value in df["Reason"].astype(str).str.strip():
+        counts[REASON_CATEGORIES.get(value, "Uncategorised")] += 1
+    return dict(counts)
+
+
 def expectations(df: pd.DataFrame) -> dict[str, dict[str, int]]:
     """{page: {label: count}} computed straight from the CSV, never from the app."""
     complaints = df[df["Issue Type"].astype(str).str.strip() == "Complaint"]
@@ -73,6 +83,10 @@ def expectations(df: pd.DataFrame) -> dict[str, dict[str, int]]:
         "DETAIL · Event workload": counts(df, "Event type"),
         "SOURCE 01 · Monthly trend": {f"{m} Complaint": int(monthly.loc[m].get("Complaint", 0))
                                       for m in monthly.index},
+        # The eight reason categories on All customer emails. Imported from app.py rather
+        # than restated, because a second copy of the fold would drift and the whole point
+        # of the map is that one wording maps one way everywhere.
+        "All customer emails": reason_category_counts(df),
     }
 
 

@@ -448,6 +448,25 @@ cannot drift -- and **fails** if a tracker `Reason` is missing from it, since th
 alternative is a new wording falling silently into `Uncategorised`, which is exactly how
 forty values accumulated.
 
+`category_table()` renders the fold as one row per category with **`Their exact wordings`
+listing every `Reason` folded into it, each with its own count** -- "Missed Event (44) ·
+Missed insolvency alert (4) · ..." -- so a reader can check the fold instead of trusting
+it. Only wordings present in the current filter are listed, so the column narrows with
+the date range. `audit_pages.py` recomputes all eight counts from the CSV using `app.py`'s
+own map, so the table and the data cannot disagree.
+
+Three layout facts that cost a round each and are not obvious:
+`styled_table` puts a column's classes on the **`th` as well as the `td`**, so a width
+rule naming only `td` leaves `.excel-table.wide th.wrap`'s 280px minimum sizing the
+column -- three columns all measured exactly 280px until the `th` was named too.
+`.wrap` does three things at once (wrap, cap at five lines, scroll shadow) and a short
+cell wants only the first: on a one- or two-line cell the shadow's cover layers are
+shorter than the shadows they hide, so a band shows on a cell with nothing to scroll --
+`wrapcol` wraps without the cap or the shadow, and the category name uses it.
+And measure the table against its panel (`table.getBoundingClientRect().width` against
+`.table-wrap` `clientWidth`) rather than eyeballing a screenshot crop: a fixed-width crop
+cannot tell a table that overflows from one the crop simply cut.
+
 **Vocabulary: a row is a "customer email", not a "record".** `filter_note()` and the
 count tables say so, and every KPI card prints the base inside the number (`78 of 115`,
 not a bare `68%`), because a bare percentage beside a bare count is what made two

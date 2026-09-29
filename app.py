@@ -68,11 +68,14 @@ h1,h2,h3,h4,h5,h6,p,span,div,label{color:var(--ink)!important}.page-hero,.sectio
 .excel-table.grid tbody tr:hover td{--cell-bg:#181d27;background:rgba(138,180,248,.06)!important}
 .excel-table.grid tbody tr:last-child td{border-bottom:0}
 .excel-table.grid th:first-child,.excel-table.grid td:first-child{position:sticky;left:0;z-index:2;background:#161a21!important;border-right:1px solid var(--line);white-space:nowrap;font-weight:700}
+.excel-table.grid td:first-child.wrapcol,.excel-table.grid th:first-child.wrapcol{white-space:normal;min-width:140px;max-width:170px}
 .excel-table.grid th:first-child{z-index:4}
 .excel-table.grid tbody tr:hover td:first-child{background:#1d232c!important}
 .excel-table.grid td.num{font-variant-numeric:tabular-nums;color:var(--muted)!important}
 .excel-table.grid td.key{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;letter-spacing:-.01em}
 .excel-table.grid td.wrap{min-width:320px;max-width:600px;color:var(--muted)!important}
+.excel-table.grid td.wrap.narrow,.excel-table.grid th.wrap.narrow{min-width:170px;max-width:200px}
+.excel-table.grid td.wrap.mid,.excel-table.grid th.wrap.mid{min-width:220px;max-width:260px}
 .excel-table.grid td.wrap>.cell{max-height:100px;overflow-y:auto;background:linear-gradient(var(--cell-bg) 32%,rgba(0,0,0,0)) top/100% 22px no-repeat local,linear-gradient(rgba(0,0,0,0),var(--cell-bg) 68%) bottom/100% 22px no-repeat local,radial-gradient(farthest-side at 50% 0,rgba(138,180,248,.42),rgba(0,0,0,0)) top/100% 11px no-repeat,radial-gradient(farthest-side at 50% 100%,rgba(138,180,248,.42),rgba(0,0,0,0)) bottom/100% 11px no-repeat}
 .excel-table.grid td.wrap>.cell::-webkit-scrollbar{width:8px}
 .excel-table.grid td.wrap>.cell::-webkit-scrollbar-thumb{background:var(--line2);border-radius:4px;border:2px solid transparent;background-clip:content-box}
@@ -539,6 +542,60 @@ REASON_CATEGORIES = {
     "WarRoom Timing/Trigger Criteria Clarification": "Question about coverage",
     "Intelligence/Advisory Request": "Question about coverage",
 }
+# What each category means, in the words a reader who has never seen the tracker would
+# need. These are read off the records, not invented: "Supplier not linked" is the
+# Caterpillar case where the WarRoom existed and Dana Holding was left off its impacted
+# list, and "Hidden by the customer's own filter" is the UVM case where nothing on our
+# side failed at all.
+CATEGORY_MEANING = {
+    "Event missed": "We never reported it. The customer found out some other way.",
+    "Question about coverage": "They asked how coverage works, or challenged a judgement. "
+                               "No reporting failure was found in any of these.",
+    "Classified wrongly": "We reported it. The relevance, geography, industry tag or "
+                          "severity we put on it was wrong.",
+    "Reported late": "We reported it, but after the customer already knew.",
+    "Supplier not linked": "The WarRoom existed. Their supplier was not on its impacted "
+                           "list, so nothing reached them.",
+    "Published but not visible": "Published and linked, but it did not show on their portal.",
+    "Duplicate published": "One event published twice, as two separate WarRooms.",
+    "Hidden by the customer's own filter": "Not our failure. Their own profile preference "
+                                           "excluded Resilinc as a source, so it was hidden "
+                                           "from them.",
+}
+
+
+def category_table(df):
+    """One row per category, carrying the customer wordings folded into it.
+
+    The wordings column is the point: it turns the fold from something a reader has to
+    trust into something they can check. Only the wordings present in the current filter
+    are listed, most used first, so the column narrows with the date range rather than
+    reciting all forty every time.
+    """
+    cols = ["Category", "What it means", "Their exact wordings",
+            "Emails", "% of emails", "Complaint / inquiry", "Misses"]
+    if df.empty or "Reason" not in df.columns:
+        return pd.DataFrame(columns=cols)
+    frame = df.assign(_cat=reason_category(df))
+    total = max(len(frame), 1)
+    rows = []
+    for name, group in frame.groupby("_cat"):
+        wordings = group["Reason"].astype(str).str.strip().value_counts()
+        missed = int((group.get("Missed_Flag", pd.Series(dtype=str)).astype(str).str.strip() == "Yes").sum())
+        rows.append({
+            "Category": name,
+            "What it means": CATEGORY_MEANING.get(name, ""),
+            "Their exact wordings": " · ".join(f"{w} ({n})" for w, n in wordings.items()),
+            "Emails": len(group),
+            "% of emails": f"{len(group) / total * 100:.0f}%",
+            "Complaint / inquiry": (
+                f"{int((group.get('Issue Type', pd.Series(dtype=str)).astype(str) == 'Complaint').sum())}"
+                f" / {int((group.get('Issue Type', pd.Series(dtype=str)).astype(str) == 'Inquiry').sum())}"),
+            "Misses": f"{missed} ({missed / max(len(group), 1) * 100:.0f}%)",
+        })
+    return pd.DataFrame(rows)[cols].sort_values("Emails", ascending=False).reset_index(drop=True)
+
+
 UNCATEGORISED = "Uncategorised"
 
 
@@ -1975,11 +2032,17 @@ elif selected_page == "All customer emails":
                "row. Open one email below to read it on its own.")
 
     add_section("What the customer wrote about", "The customer's own words run to forty different "
-                "wordings for about seven real things — \"Missed Event\", \"Missed insolvency alert\" and "
-                "\"WarRoom should have been created but was not\" all say the same thing. The category "
-                "column folds them together, and it is the same wording every other tab uses.", "#80cbc4")
-    cat = count_table(page, "Reason Category")
-    excel_bar_table(cat, "Reason Category"); downloads(cat, "reason_categories")
+                "wordings for eight real things — \"Missed Event\", \"Missed insolvency alert\" and "
+                "\"WarRoom should have been created but was not\" all say the same thing. Every wording "
+                "folded into a category is listed beside it with its own count, so the fold can be "
+                "checked rather than taken on trust. This is the wording every other tab uses.", "#80cbc4")
+    cat = category_table(page)
+    styled_table(cat, variant="wide grid",
+                 wrap=("What it means", "Their exact wordings"),
+                 styles={"Category": "wrapcol", "What it means": "narrow",
+                         "Their exact wordings": "mid",
+                         "Emails": "num", "Complaint / inquiry": "num"})
+    downloads(cat, "reason_categories")
 
     add_section("Open one email", "Every field of one customer email, including the full Comments, "
                 "RCA Details and Automation Opportunity that the grid above shortens.")
