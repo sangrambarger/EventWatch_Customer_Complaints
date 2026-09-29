@@ -520,10 +520,14 @@ REASON_CATEGORIES = {
     "Impacted Supplier Missing": "Supplier not linked",
     "Supplier Impact Mapping Clarification": "Supplier not linked",
     "Event not triggered / not notified": "Supplier not linked",
-    # Published and linked, but the customer could not see it.
+    # Published and linked, but the customer could not see it on their portal.
     "WarRoom not visible in customer profile": "Published but not visible",
-    "WarRoom visibility affected by customer profile filters": "Published but not visible",
     "News dashboard visibility gap": "Published but not visible",
+    # Published, linked and visible -- the customer's own profile filter excluded
+    # Resilinc as a source, so nothing was hidden by us. Kept out of the category above
+    # because that one is named for our failures, and one of four being a customer-side
+    # setting would overstate it by a quarter.
+    "WarRoom visibility affected by customer profile filters": "Hidden by the customer's own filter",
     # One event published twice.
     "Duplicate WarRooms": "Duplicate published",
     # A question about how coverage works, not a report of a failure.
