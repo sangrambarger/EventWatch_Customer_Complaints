@@ -27,6 +27,7 @@ python3 scripts/export_definitions.py       # regenerate definitions.json from t
 python3 scripts/append_row.py --json r.json # add one record to the CSV and the Data sheet together
 python3 scripts/update_row.py --json c.json # change fields on records already in both files
 python3 scripts/delete_row.py --json d.json # remove records from both files, renumbering the sheet
+python3 scripts/add_definition.py --json t.json # document a new taxonomy value on the Definitions sheet
 ```
 
 `validate.py` covers every bug class that has actually shipped here: characters decayed
@@ -113,6 +114,18 @@ undercounts every Dashboard COUNTIFS when it disagrees with the data. It carries
 same guards, and resolves every target against the original row numbers before applying
 any of them, so deleting two rows at once cannot have the first shift the second out
 from under it.
+
+`add_definition.py` documents a new taxonomy value, which `enum_definitions` requires
+before that value may appear on a record. Introducing one is two edits, not one -- the
+value on the row, and its row on the Definitions sheet -- and the second was the fiddly
+one: a row appended to sheet3, `DefinitionsTable`'s `ref` extended and the sheet
+`dimension` extended, all three or the workbook opens with the table short and the new
+row outside it. It reads the style ids off the sheet's own last row rather than
+hardcoding them, so a row it adds cannot be the one in the wrong font that `styling`
+blocks, and it refuses a term the sheet already carries. Run `export_definitions.py`
+after it. An `Event type` needs nothing on the Dashboard -- the Event Type block is a
+dynamic array -- but `Root Cause`, `Fix Status`, `Severity` and `Automation Focus` still
+need their hand-listed Dashboard row as well.
 
 ## The Jira scheduler
 
