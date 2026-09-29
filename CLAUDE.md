@@ -225,10 +225,24 @@ Below it, **`miss_categories()`** splits the missed records by what actually fai
 **who fixes it**: `Source Miss` (Sub-type `Source Coverage`), `Keyword Miss` (`Keyword
 Update`), `Analyst Miss` and `Model Miss` (both `Review` / `Event Identification` /
 `Prioritization`, separated by `Root Cause` People against Product), and `Other`. It runs
-20 / 9 / 25 / 13 / 10 of 77, so the biggest single cause is an analyst miss, not source
-coverage -- which inverts the story on the slide this block reproduces (53% source, 38
-total; those were the numbers when the tracker held half as many records, and Source Miss
-is the one bucket that has not moved since).
+20 / 9 / 25 / 13 / 10 of 77, so the biggest single cause over the whole tracker is an
+analyst miss, not source coverage.
+
+**The slide this block reproduces (38 total, 53% source) is not reproducible from this
+tracker at any cut** -- through June it holds 48 missed records with 9 source misses
+(19%), not 38 with 20 (53%), and no complaints-only or other subset gets there either.
+Whatever built that deck, it was not this file. Do not reconcile to it.
+
+**And the cumulative ring hides the quarter.** `miss_recent_note()` prints a line under
+the donut naming the last three months whenever the frame spans more than six, because
+reading the ring as "the picture" gets the wrong two priorities: over nine months Source
+Miss is 26% and third, over Jul-Sep it is 38% and first, while Model Miss falls 17% to
+3%. It lists only buckets that moved 5 points or more, biggest recent share first -- the
+same threshold rule `insights()` applies. This exists because a claim that source misses
+"had not moved" survived review here, on the coincidence that the slide's 20 equals
+today's 20; 11 of those 20 had landed in the previous three months. **Two equal numbers
+taken from different totals are not evidence that nothing changed** -- check the monthly
+series before saying a bucket is flat.
 
 Analyst and model are two slices because they have **different owners**: an item a human
 reviewer saw and did not raise is EventWatch Ops' to fix, one the model did not identify
