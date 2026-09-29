@@ -239,7 +239,7 @@ Below it, **`miss_categories()`** splits the missed records by what actually fai
 **who fixes it**: `Source Miss` (Sub-type `Source Coverage`), `Keyword Miss` (`Keyword
 Update`), `Analyst Miss` and `Model Miss` (both `Review` / `Event Identification` /
 `Prioritization`, separated by `Root Cause` People against Product), and `Other`. It runs
-23 / 12 / 25 / 7 / 10 of 77, so the biggest single cause over the whole tracker is an
+23 / 12 / 25 / 6 / 11 of 77, so the biggest single cause over the whole tracker is an
 analyst miss, just ahead of source coverage.
 
 Those were 20 / 9 / 25 / 13 / 10 until six records were found whose `Automation
@@ -251,6 +251,19 @@ is wrong is a judgement: Data row 29 is a People/Prioritization record whose Pro
 half is row 28, already `Source Coverage`, so there it is the remedy text that is
 mislabelled and reclassifying it would count one incident as two source misses.
 
+EAO-12 was the same fault the rule does **not** catch, found by reading the ticket. Its
+`Standard Automation Focus` said `Dynamic Source Discovery` and its `Sub-type` said
+`Event Identification`, but the thread says plainly that the articles *were* captured by
+the vendor and by the Spanish-language algorithm and *were* clustered -- what failed was
+the cluster's own state (`Update` while also `Not Impactful`), which kept them off the
+analyst portal. Neither a source gap nor a model miss: `Visibility`, `Cluster Integrity &
+Duplicate Prevention`, and the third **`Bug`** in the tracker, since the thread asks
+whether it is a recurrence of a cluster-state defect fixed in the June-end release.
+A loose rule keyed on "source discovery" would have caught it and eight correctly
+classified rows with it, which is why `cause_agreement` stays narrow: **the umbrella
+automation programme is not evidence of the cause**, and a record whose focus is
+`Dynamic Source Discovery` may legitimately be a keyword gap.
+
 **The slide this block reproduces (38 total, 53% source) is not reproducible from this
 tracker at any cut** -- through June it holds 48 missed records with 9 source misses
 (19%), not 38 with 20 (53%), and no complaints-only or other subset gets there either.
@@ -260,7 +273,7 @@ Whatever built that deck, it was not this file. Do not reconcile to it.
 the donut naming the last three months whenever the frame spans more than six, because
 reading the ring as "the picture" gets the wrong two priorities: over nine months Source
 Miss is 30% and second, over Jul-Sep it is 38% and first, while Model Miss falls 12% to
-3%. It lists only buckets that moved 5 points or more, biggest recent share first -- the
+zero -- no record in the last three months is a model miss at all. It lists only buckets that moved 5 points or more, biggest recent share first -- the
 same threshold rule `insights()` applies. This exists because a claim that source misses
 "had not moved" survived review here, on the coincidence that the slide's 20 equals
 today's 20; 11 of those 20 had landed in the previous three months. **Two equal numbers
