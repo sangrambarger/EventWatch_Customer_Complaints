@@ -415,9 +415,29 @@ upgrade; a silently failing selector here brings the dots back or loses the high
 used to inherit that: "Missed Event", "Missed insolvency alert" and "WarRoom should have
 been created but was not" are one category written three ways, so no chart of `Reason`
 could rank anything. `REASON_CATEGORIES` / `reason_category()` / `with_reason_category()`
-fold them onto seven reusable categories -- Event missed 63, Question about coverage 15,
+fold them onto eight reusable categories -- Event missed 63, Question about coverage 15,
 Classified wrongly 13, Reported late 12, Supplier not linked 6, Published but not visible
-4, Duplicate published 2 -- and that wording is what every tab shows.
+3, Duplicate published 2, Hidden by the customer's own filter 1 -- and that wording is
+what every tab shows.
+
+**`Hidden by the customer's own filter` is one email and exists on purpose.** UVM Health
+Network's WarRoom was published, linked and visible; their own profile preference
+excluded Resilinc as a source. Inside `Published but not visible` -- a category named for
+our failures -- one of four being a customer-side setting overstated it by a quarter.
+
+**A complaint is one where the customer asserted we failed; an inquiry is one where they
+asked how something works.** It is about how they framed it, not about what the
+investigation found: Roche, EAO-24 and EAO-29 are all complaints where the finding was no
+failure on our side. `Missed_Flag` carries the outcome and is the field every miss number
+keys on, so reclassifying an email between complaint and inquiry never moves the miss
+count.
+
+**Read `RCA Details` before `Comments` on any row that looks like an admission.**
+`Comments` opens with the customer's accusation -- "No proactive alert was generated for
+the July 21 fire" -- while `RCA Details` carries the finding: "No public source existed
+to report from." EAO-24 and EAO-29 were both summarised here as admitted failures on the
+strength of their `Comments` alone, and both RCAs say the opposite. EAO-12 was the same
+mistake. The first comment states the suspicion; the answer arrives later.
 
 It is **derived, not stored**. `Reason` keeps the customer's own words because that
 wording is the record of what they wrote, and a category is a reading of it; storing it
