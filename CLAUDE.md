@@ -239,8 +239,8 @@ Below it, **`miss_categories()`** splits the missed records by what actually fai
 **who fixes it**: `Source Miss` (Sub-type `Source Coverage`), `Keyword Miss` (`Keyword
 Update`), `Analyst Miss` and `Model Miss` (both `Review` / `Event Identification` /
 `Prioritization`, separated by `Root Cause` People against Product), and `Other`. It runs
-23 / 12 / 25 / 6 / 11 of 77, so the biggest single cause over the whole tracker is an
-analyst miss, just ahead of source coverage.
+24 / 12 / 25 / 6 / 11 of 78, so the biggest single cause over the whole tracker is an
+analyst miss, a point ahead of source coverage.
 
 Those were 20 / 9 / 25 / 13 / 10 until six records were found whose `Automation
 Opportunity` read "Source coverage expansion" or "Keyword expansion" -- the team's own
@@ -298,7 +298,7 @@ Whatever built that deck, it was not this file. Do not reconcile to it.
 **And the cumulative ring hides the quarter.** `miss_recent_note()` prints a line under
 the donut naming the last three months whenever the frame spans more than six, because
 reading the ring as "the picture" gets the wrong two priorities: over nine months Source
-Miss is 30% and second, over Jul-Sep it is 38% and first, while Model Miss falls 12% to
+Miss is 31% and second, over Jul-Sep it is 40% and first, while Model Miss falls 12% to
 zero -- no record in the last three months is a model miss at all. It lists only buckets that moved 5 points or more, biggest recent share first -- the
 same threshold rule `insights()` applies. This exists because a claim that source misses
 "had not moved" survived review here, on the coincidence that the slide's 20 equals
@@ -543,7 +543,11 @@ If a resave already happened, restore the four `cm="1"` attributes and
   so the two reconcile. Making Excel agree means rewriting `Dashboard!A64`, `B64` and the
   `B74` "Other customers" formula to be token-aware -- not done.
 - `Jira Key` links to the `EAO` project (EventWatch_AI_Ops); older strays live in
-  DATA/TS/BI/TENAR.
+  DATA/TS/BI/TENAR. **A record with no key is not necessarily pre-EAO**: the ADM /
+  General Mills miss of 16-Sep-2026 has none because the CSM raised it by email to the
+  team instead of opening a ticket, so `jira_sync.py` will never see it and the daily
+  Routine cannot find it. A row like that is added by hand with `append_row.py`, then
+  `sort_tracker.py <month>`, since it appends out of date order.
 - `Short Term Fix Status` is `Fixed` / `RCA Shared` / `Clarification Provided`, plus
   `Pending` for tickets still open in Jira. Adding a new value means adding it to the
   Dashboard's Fix Status table too.
