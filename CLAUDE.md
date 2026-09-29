@@ -411,7 +411,33 @@ active state, and `div:has(+[data-testid="stMarkdownContainer"])` matches the ra
 by its position before the label text. Check both against the live DOM after a Streamlit
 upgrade; a silently failing selector here brings the dots back or loses the highlight.
 
-The Complaint Tracker table serves two readers without a second page. Someone reading
+**`Reason` holds forty distinct strings for about seven real things**, and every page
+used to inherit that: "Missed Event", "Missed insolvency alert" and "WarRoom should have
+been created but was not" are one category written three ways, so no chart of `Reason`
+could rank anything. `REASON_CATEGORIES` / `reason_category()` / `with_reason_category()`
+fold them onto seven reusable categories -- Event missed 63, Question about coverage 15,
+Classified wrongly 13, Reported late 12, Supplier not linked 6, Published but not visible
+4, Duplicate published 2 -- and that wording is what every tab shows.
+
+It is **derived, not stored**. `Reason` keeps the customer's own words because that
+wording is the record of what they wrote, and a category is a reading of it; storing it
+would mean a 27th column, a rewritten Data sheet, a wider `ComplaintTracker` ref and
+three scripts changed, for something the app computes in a millisecond.
+`validate.py`'s **`reason_categories`** imports the map from `app.py` -- one copy, so it
+cannot drift -- and **fails** if a tracker `Reason` is missing from it, since the
+alternative is a new wording falling silently into `Uncategorised`, which is exactly how
+forty values accumulated.
+
+**Vocabulary: a row is a "customer email", not a "record".** `filter_note()` and the
+count tables say so, and every KPI card prints the base inside the number (`78 of 115`,
+not a bare `68%`), because a bare percentage beside a bare count is what made two
+different denominators on one screen unreadable. `Inquiry` is the value in `Issue Type`,
+so the app says "inquiries" -- not "questions", which invents a second word for one value.
+
+**`add_section()` writes raw HTML, so backticks in its text render as literal backticks.**
+Write the prose without them.
+
+The All customer emails table serves two readers without a second page. Someone reading
 the tracker wants a grid they can scan; someone exporting a slice wants every field.
 A `Show all fields` checkbox switches between the eighteen reading columns
 (`TRACKER_COLUMNS`) and everything except `Month_Sort`, which is an internal sort key no
