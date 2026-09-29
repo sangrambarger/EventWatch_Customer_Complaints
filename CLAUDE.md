@@ -415,10 +415,13 @@ upgrade; a silently failing selector here brings the dots back or loses the high
 used to inherit that: "Missed Event", "Missed insolvency alert" and "WarRoom should have
 been created but was not" are one category written three ways, so no chart of `Reason`
 could rank anything. `REASON_CATEGORIES` / `reason_category()` / `with_reason_category()`
-fold them onto eight reusable categories -- Event missed 62, Question about coverage 15,
-Classified wrongly 14, Reported late 12, Supplier not linked 6, Published but not visible
-3, Duplicate published 2, Hidden by the customer's own filter 1 -- and that wording is
-what every tab shows.
+fold them onto eight reusable categories -- Event missed 63, Classified wrongly 14,
+Question about coverage 14, Reported late 12, Supplier not linked 6, Published but not
+visible 3, Duplicate published 2, Hidden by the customer's own filter 1 -- and that
+wording is what every tab shows. **`Question about coverage` now holds 14 inquiries, no
+complaints and no misses**, which is the shape it should have: it is the category for
+asking how something works, so a record in it that turned out to be a failure belongs
+somewhere else.
 
 **The category and `Missed_Flag` measure different things, and the gap needs saying out
 loud.** 77 emails are confirmed misses but only 62 sit under `Event missed`: the category
@@ -438,7 +441,9 @@ existed to report from; EAO-29: a deliberate internal convention, not a defect) 
 inquiries. The Eaton Axios npm record went the other way: it was closed as not relevant
 on supplier mapping and the absence of operational disruption, and that judgement was
 wrong -- Eaton has a **product** connection to the compromised package -- so it is a
-complaint and a miss, People / `Review`.
+complaint and a miss, and `Event missed` rather than `Classified wrongly`: the customer
+never received it, which is what that category means. People / `Review` carries the
+cause -- the event was seen and judged, not missed by coverage.
 
 `inquiry_table()` gives inquiries their own table, because a column that counts
 complaints and inquiries side by side hides what was actually asked and what went back.
@@ -446,6 +451,13 @@ Every table that footers a calculation carries a **Total row** (`styled_table(..
 total_row=True)`), built inside the table function rather than by a generic helper --
 two of the columns are formatted strings and `"62 (100%)"` cannot be summed after the
 fact, only before.
+
+**`Pending` means the investigation is open, not that the paperwork is.** Four records
+sat on the under-investigation list with finished RCAs in their own `RCA Details`; only
+EAO-48 has no RCA, and it is the one genuinely still open. When an investigation closes,
+move `Short Term Fix Status` off `Pending` -- `RCA Shared` where an RCA went out, `Fixed`
+where a corrective action was taken -- and leave `Resolution Date` blank unless a real
+date exists, since a guessed one is worse than none.
 
 **"We reported it" beats "they said we missed it".** EAO-47 was logged as a source miss
 because Western Digital said no Nidec event existed. The event had in fact been captured
