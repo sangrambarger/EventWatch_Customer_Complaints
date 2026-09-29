@@ -49,7 +49,7 @@ EXPECTED: dict[str, tuple[int, int]] = {
     "Automation urgency": (1, 2),
     "Dynamic Source Discovery": (3, 7),
     "Definitions": (0, 12),
-    "All customer emails": (0, 3),
+    "All customer emails": (0, 5),
 }
 
 ERROR_TEXT = [

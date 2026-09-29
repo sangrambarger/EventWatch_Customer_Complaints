@@ -467,6 +467,27 @@ And measure the table against its panel (`table.getBoundingClientRect().width` a
 `.table-wrap` `clientWidth`) rather than eyeballing a screenshot crop: a fixed-width crop
 cannot tell a table that overflows from one the crop simply cut.
 
+**The ten column filters and the search box sit in a collapsed `st.sidebar.expander`**,
+labelled with how many are active so a narrowed view cannot hide behind a shut control.
+They were always open, which made the sidebar taller than any screen -- the page list
+scrolled out of sight below them and reaching a tab meant scrolling past ten dropdowns
+nobody was using. The **date range stays outside it**, because it is the one control
+touched on every visit, and Streamlit's own sidebar collapse (the arrow at its top) is
+what widens the page for reading a table.
+
+**A complaint is not automatically a miss**, and that gap is the first thing a reader
+asks about: 22 of the 97 complaints are ones where the event *was* reported and the
+failure, if any, was something else -- wrong classification 9, a coverage question that
+turned out to be nothing 5, published twice 2, not visible 2, supplier not linked 2,
+hidden by the customer's own filter 1, late 1. The KPI row states it (`Complaints, not a
+miss  22 of 97`) and a table below breaks it down, rather than leaving a reader to
+subtract 78 from 97 and get a number that is wrong anyway, since three of the misses are
+inquiries.
+
+`% of these` rather than `% of emails`: the column is a share of whatever frame the table
+was built from -- all 115 in one place, the 22 non-miss complaints in the other -- and
+"% of emails" reads as a share of the whole tracker in both.
+
 **Vocabulary: a row is a "customer email", not a "record".** `filter_note()` and the
 count tables say so, and every KPI card prints the base inside the number (`78 of 115`,
 not a bare `68%`), because a bare percentage beside a bare count is what made two
