@@ -52,11 +52,15 @@ def expectations(df: pd.DataFrame) -> dict[str, dict[str, int]]:
     # the app fails this audit instead of agreeing with itself.
     missed = df[df["Missed_Flag"].astype(str).str.strip() == "Yes"]
     sub = missed["Sub-type"].astype(str).str.strip()
-    buckets = {"Source Miss": ["Source Coverage"], "Keyword Miss": ["Keyword Update"],
-               "Analyst / Model Miss": ["Review", "Event Identification", "Prioritization"]}
-    named = [v for vs in buckets.values() for v in vs]
-    miss_cats = {k: int(sub.isin(v).sum()) for k, v in buckets.items()}
-    miss_cats["Other"] = int((~sub.isin(named)).sum())
+    root = missed["Root Cause"].astype(str).str.strip()
+    surfaced = ["Review", "Event Identification", "Prioritization"]
+    miss_cats = {
+        "Source Miss": int((sub == "Source Coverage").sum()),
+        "Keyword Miss": int((sub == "Keyword Update").sum()),
+        "Analyst Miss": int((sub.isin(surfaced) & (root == "People")).sum()),
+        "Model Miss": int((sub.isin(surfaced) & (root == "Product")).sum()),
+    }
+    miss_cats["Other"] = int(len(missed)) - sum(miss_cats.values())
 
     # Every page counts every record the customer sent in -- complaints and inquiries.
     return {
