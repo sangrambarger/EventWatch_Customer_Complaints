@@ -415,10 +415,26 @@ upgrade; a silently failing selector here brings the dots back or loses the high
 used to inherit that: "Missed Event", "Missed insolvency alert" and "WarRoom should have
 been created but was not" are one category written three ways, so no chart of `Reason`
 could rank anything. `REASON_CATEGORIES` / `reason_category()` / `with_reason_category()`
-fold them onto eight reusable categories -- Event missed 63, Question about coverage 15,
-Classified wrongly 13, Reported late 12, Supplier not linked 6, Published but not visible
+fold them onto eight reusable categories -- Event missed 62, Question about coverage 15,
+Classified wrongly 14, Reported late 12, Supplier not linked 6, Published but not visible
 3, Duplicate published 2, Hidden by the customer's own filter 1 -- and that wording is
 what every tab shows.
+
+**The category and `Missed_Flag` measure different things, and the gap needs saying out
+loud.** 77 emails are confirmed misses but only 62 sit under `Event missed`: the category
+is what the customer complained about, the flag is whether the event reached them in
+time. An event reported eleven days late *was* reported, so it is not `Event missed` --
+but it did not reach them in time, so it is a miss. The other 15 are 11 reported late,
+2 supplier not linked, 1 classified wrongly, 1 published but not visible, and a caption
+under the table spells that out rather than leaving a reader to subtract.
+
+**"We reported it" beats "they said we missed it".** EAO-47 was logged as a source miss
+because Western Digital said no Nidec event existed. The event had in fact been captured
+and created; the analyst did not check whether Nidec is a mapped partner of theirs and
+classified it `Not Impactful`, so it never reached them, and the customer was told the
+event *was* reported. It is now an inquiry, `Missed_Flag` No, `Wrong Relevancy`, People /
+`Review` -- the failure is the impact classification, not coverage. **A customer asserting
+a miss is not evidence of one**; the investigation is.
 
 **`Hidden by the customer's own filter` is one email and exists on purpose.** UVM Health
 Network's WarRoom was published, linked and visible; their own profile preference
