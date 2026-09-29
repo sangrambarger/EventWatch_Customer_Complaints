@@ -147,8 +147,8 @@ def load_data():
             # Say what was loaded, not just that something was. Without this there is no way
             # to tell a stale deploy from a chart that legitimately excludes a small customer.
             newest = pd.to_datetime(df.get("Email/JIRA Date"), errors="coerce").max() if len(df) else None
-            stamp = f" · newest record {newest:%d-%b-%Y}" if pd.notna(newest) else ""
-            st.sidebar.caption(f"**{len(df)} records**{stamp}")
+            stamp = f" · newest {newest:%d-%b-%Y}" if pd.notna(newest) else ""
+            st.sidebar.caption(f"**{len(df)} customer emails**{stamp}")
             st.sidebar.caption("Workbook upload is disabled; data comes from the deployed files.")
             break
         except Exception as exc:
@@ -317,21 +317,34 @@ def names_match(series, chosen):
         lambda value: bool(wanted & {part.strip() for part in value.split("/")}))
 
 
+FILTER_COLUMNS = ["Routed To", "Customer", "Event type", "Issue Type", "Severity",
+                  "Root Cause", "Reason", "Short Term Fix Status", "RCA Requested",
+                  "Standard Automation Focus"]
+
+
 def sidebar_filters(df):
     st.sidebar.markdown("---")
     out = date_filter(df)
-    st.sidebar.markdown("### Filters")
-    for col in ["Routed To", "Customer", "Event type", "Issue Type", "Severity", "Root Cause", "Reason", "Short Term Fix Status", "RCA Requested", "Standard Automation Focus"]:
-        if col in out.columns:
-            # Customer is the one column whose cells can name more than one account.
-            # Everything else is a single value per row and matches on the whole string.
-            multi = col == "Customer"
-            vals = customer_names(out[col]) if multi else sorted(out[col].dropna().astype(str).unique())
-            chosen = st.sidebar.multiselect(col, vals, key=f"filter_{col}")
-            if chosen:
-                out = out[names_match(out[col], chosen)] if multi else out[out[col].astype(str).isin(chosen)]
-    q = st.sidebar.text_input("Search tracker")
-    if q: out = out[out.astype(str).apply(lambda r: r.str.contains(q, case=False, na=False).any(), axis=1)]
+    # The ten column filters and the search box collapse behind one control. They were
+    # always open, which made the sidebar taller than any screen: the page list scrolled
+    # out of sight below them and reaching a tab meant scrolling past ten dropdowns
+    # nobody was using. The date range stays out here because it is the one control
+    # that gets touched on every visit.
+    active = sum(1 for c in FILTER_COLUMNS if st.session_state.get(f"filter_{c}"))
+    label = f"Filters ({active} active)" if active else "Filters"
+    with st.sidebar.expander(label, expanded=bool(active)):
+        for col in FILTER_COLUMNS:
+            if col in out.columns:
+                # Customer is the one column whose cells can name more than one account.
+                # Everything else is a single value per row and matches on the whole string.
+                multi = col == "Customer"
+                vals = customer_names(out[col]) if multi else sorted(out[col].dropna().astype(str).unique())
+                chosen = st.multiselect(col, vals, key=f"filter_{col}")
+                if chosen:
+                    out = out[names_match(out[col], chosen)] if multi else out[out[col].astype(str).isin(chosen)]
+        q = st.text_input("Search all fields")
+        if q:
+            out = out[out.astype(str).apply(lambda r: r.str.contains(q, case=False, na=False).any(), axis=1)]
     return out
 
 
@@ -573,7 +586,7 @@ def category_table(df):
     reciting all forty every time.
     """
     cols = ["Category", "What it means", "Their exact wordings",
-            "Emails", "% of emails", "Complaint / inquiry", "Misses"]
+            "Emails", "% of these", "Complaint / inquiry", "Misses"]
     if df.empty or "Reason" not in df.columns:
         return pd.DataFrame(columns=cols)
     frame = df.assign(_cat=reason_category(df))
@@ -587,7 +600,7 @@ def category_table(df):
             "What it means": CATEGORY_MEANING.get(name, ""),
             "Their exact wordings": " · ".join(f"{w} ({n})" for w, n in wordings.items()),
             "Emails": len(group),
-            "% of emails": f"{len(group) / total * 100:.0f}%",
+            "% of these": f"{len(group) / total * 100:.0f}%",
             "Complaint / inquiry": (
                 f"{int((group.get('Issue Type', pd.Series(dtype=str)).astype(str) == 'Complaint').sum())}"
                 f" / {int((group.get('Issue Type', pd.Series(dtype=str)).astype(str) == 'Inquiry').sum())}"),
@@ -2012,12 +2025,17 @@ elif selected_page == "All customer emails":
     pending = int(page.get("Short Term Fix Status", pd.Series(dtype=str)).astype(str).eq("Pending").sum())
     # Every card states the base it is a share of, in the card. A bare percentage next to
     # a bare count is what made two different denominators on one screen unreadable.
+    # A complaint is not automatically a miss. 22 of the 97 are complaints where the event
+    # WAS reported and the failure, if any, was something else -- wrong classification,
+    # not visible on the portal, published twice, or nothing wrong at all. That gap is the
+    # first thing a reader asks about and the card now answers it rather than posing it.
+    other = complaints - int(((page.get("Issue Type", pd.Series(dtype=str)).astype(str) == "Complaint")
+                              & (page.get("Missed_Flag", pd.Series(dtype=str)).astype(str) == "Yes")).sum())
     kpis([("Customer emails", len(page), f"{complaints} complaints · {inquiries} inquiries", "#8ab4f8"),
           ("Complaints", f"{complaints} of {len(page)}", f"{complaints / total * 100:.0f}% of these emails", "#f6c177"),
-          ("Turned out to be a real miss", f"{missed} of {len(page)}", f"{missed / total * 100:.0f}% of these emails", "#f28b82"),
-          ("Still awaiting an answer", pending, "no reply sent to the customer yet", "#f6c177"),
-          ("Raised as a Jira ticket", f"{int(page.get('Jira Key', pd.Series(dtype=str)).fillna('').astype(str).str.strip().ne('').sum())} of {len(page)}",
-           "the rest came in by email only", "#80cbc4")])
+          ("Confirmed misses", f"{missed} of {len(page)}", f"{missed / total * 100:.0f}% of these emails", "#f28b82"),
+          ("Complaints, not a miss", f"{other} of {max(complaints, 1)}", "we did report it; the issue was something else", "#80cbc4"),
+          ("Under investigation", pending, "no answer sent to the customer yet", "#f6c177")])
     # Two audiences, one page: someone reading the tracker wants a narrow grid they can
     # scan, someone exporting a slice wants every field. A checkbox serves both without
     # a second page to keep in sync. Month_Sort is an internal sort key and never shown.
@@ -2043,6 +2061,38 @@ elif selected_page == "All customer emails":
                          "Their exact wordings": "mid",
                          "Emails": "num", "Complaint / inquiry": "num"})
     downloads(cat, "reason_categories")
+
+    still_open = page[page.get("Short Term Fix Status", pd.Series(dtype=str)).astype(str) == "Pending"]
+    add_section("Under investigation", f"The {len(still_open)} customer email(s) with no answer sent back yet. "
+                "Everything else has had a fix, an RCA or a clarification returned to the customer.", "#f6c177")
+    if still_open.empty:
+        st.info("Nothing in the current filter is still awaiting an answer.")
+    else:
+        open_cols = [c for c in ("Email/JIRA Date", "Jira Key", "Customer", "Event/Bulletin Title",
+                                 "Reason Category", "Missed_Flag") if c in still_open.columns]
+        table = still_open[open_cols].rename(columns={"Email/JIRA Date": "Raised",
+                                                      "Jira Key": "Ticket",
+                                                      "Event/Bulletin Title": "What they reported",
+                                                      "Missed_Flag": "Confirmed miss"})
+        styled_table(table, variant="wide grid", wrap=("What they reported",),
+                     styles={"Raised": "num", "Ticket": "key"})
+        downloads(table, "under_investigation")
+
+    add_section("Complaints that were not misses", f"{other} of the {complaints} complaints are ones where "
+                "we did report the event. The customer still had something to raise — the classification on "
+                "it was wrong, it did not show on their portal, it went out twice, or they disagreed with a "
+                "judgement we had made. Only the coverage questions turned out to be nothing at all.", "#80cbc4")
+    not_missed = page[(page.get("Issue Type", pd.Series(dtype=str)).astype(str) == "Complaint")
+                      & (page.get("Missed_Flag", pd.Series(dtype=str)).astype(str) != "Yes")]
+    if not_missed.empty:
+        st.info("Every complaint in the current filter was a confirmed miss.")
+    else:
+        breakdown = category_table(not_missed).drop(columns=["Complaint / inquiry", "Misses"])
+        styled_table(breakdown, variant="wide grid",
+                     wrap=("What it means", "Their exact wordings"),
+                     styles={"Category": "wrapcol", "What it means": "narrow",
+                             "Their exact wordings": "mid", "Emails": "num"})
+        downloads(breakdown, "complaints_not_missed")
 
     add_section("Open one email", "Every field of one customer email, including the full Comments, "
                 "RCA Details and Automation Opportunity that the grid above shortens.")
