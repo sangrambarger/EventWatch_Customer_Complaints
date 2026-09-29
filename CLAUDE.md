@@ -415,7 +415,7 @@ upgrade; a silently failing selector here brings the dots back or loses the high
 used to inherit that: "Missed Event", "Missed insolvency alert" and "WarRoom should have
 been created but was not" are one category written three ways, so no chart of `Reason`
 could rank anything. `REASON_CATEGORIES` / `reason_category()` / `with_reason_category()`
-fold them onto eight reusable categories -- Event missed 63, Classified wrongly 14,
+fold them onto eight reusable categories -- Event missed 64, Classified wrongly 14,
 Question about coverage 14, Reported late 12, Supplier not linked 6, Published but not
 visible 3, Duplicate published 2, Hidden by the customer's own filter 1 -- and that
 wording is what every tab shows. **`Question about coverage` now holds 14 inquiries, no
@@ -430,6 +430,27 @@ time. An event reported eleven days late *was* reported, so it is not `Event mis
 but it did not reach them in time, so it is a miss. The other 15 are 11 reported late,
 2 supplier not linked, 1 classified wrongly, 1 published but not visible, and a caption
 under the table spells that out rather than leaving a reader to subtract.
+
+**`validate.py`'s `issue_type` warns when a confirmed miss is logged as an inquiry.**
+A record flagged `Missed_Flag = Yes` is one we failed on, so it cannot also be one where
+nothing went wrong. Eight records disagreed at one point: the five coverage questions
+logged as complaints where no fault was found, and three inquiries that were confirmed
+misses -- Ford's unmapped Eason & Co supplier, EAO-15's WarRoom that qualified and was
+never created, and EAO-41's bankruptcy keyword gap, fixed by adding keywords. All eight
+were settled by reading what the row says was *done*. A warning rather than a failure,
+because the daily Routine stages a row before anyone triages it and a staged inquiry that
+later proves a miss is a normal waypoint.
+
+**All customer emails sits second in `PAGES`, right under Executive Summary**, because it
+defines the vocabulary every other tab uses: a reader who stops on a category name finds
+its meaning one click away rather than at the bottom of a list of fifteen.
+
+**Numbers in prose are computed, never typed.** The "forty different wordings for eight
+real things" line reads both figures off the frame on screen. A prose figure that has to
+be remembered is a prose figure that goes stale, which is the fault this tab exists to
+fix. `DISPLAY_NAMES` does the same job for `Missed_Flag`, the one column whose tracker
+name still reads as a database field; the rest are already English and renaming them
+would only make the grid disagree with the CSV downloaded from the same page.
 
 **Complaint or inquiry is settled by what went back to the customer.** An explanation
 means inquiry; a bulletin, a correction or an admitted fault means complaint. It is not

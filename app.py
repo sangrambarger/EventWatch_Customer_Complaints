@@ -21,10 +21,14 @@ WORKBOOK_NAME = "EventWatch_Customer_Complaints_2026.xlsx"
 APP_DIR = Path(__file__).resolve().parent
 
 PAGES = [
-    "Executive Summary", "Delivery performance", "Open items", "SOURCE 01 · Monthly trend", "SOURCE 02 · Fix status",
+    # All customer emails sits second on purpose: it is where the vocabulary every other
+    # tab uses is defined, so a reader who stops on a category name anywhere else finds
+    # its meaning one click away rather than at the bottom of a list of fifteen.
+    "Executive Summary", "All customer emails",
+    "Delivery performance", "Open items", "SOURCE 01 · Monthly trend", "SOURCE 02 · Fix status",
     "SOURCE 03 · Severity", "SOURCE 04 · Root cause", "SOURCE 05 · Top customers",
     "SOURCE 06 · Automation focus", "DETAIL · Event workload", "Repeat patterns", "Automation urgency",
-    "Dynamic Source Discovery", "Definitions", "All customer emails",
+    "Dynamic Source Discovery", "Definitions",
 ]
 
 DESCRIPTIONS = {
@@ -660,6 +664,12 @@ TRACKER_COLUMNS = ["Month Label", "Email/JIRA Date", "Jira Key", "Customer", "Ev
 # column to one line, so only these get tall.
 # One extra cell class for the tracker grid: dates as tabular figures so they line up
 # down the column, the Jira key monospaced so EAO-9 and EAO-48 read as the same shape.
+# Column names a reader sees, where the tracker's own is a field name rather than words.
+# `Missed_Flag` is the only one that really reads as a database column; the rest are
+# already English and renaming them would only make the grid disagree with the CSV a
+# reader downloads from the same page.
+DISPLAY_NAMES = {"Missed_Flag": "Confirmed miss"}
+
 GRID_STYLES = {"Email/JIRA Date": "num", "Resolution Date": "num", "Delay (Hours)": "num",
                "Month_Sort": "num", "Number of Customers": "num", "Jira Key": "key"}
 
@@ -2101,21 +2111,26 @@ elif selected_page == "All customer emails":
     # scan, someone exporting a slice wants every field. A checkbox serves both without
     # a second page to keep in sync. Month_Sort is an internal sort key and never shown.
     show_all = st.checkbox("Show all fields", value=False, key="tracker_show_all",
-                           help="Off: the reading columns. On: every tracker field, which scrolls sideways.")
+                           help="Off: the columns worth scanning. On: every field on the record, which scrolls sideways.")
     grid = [c for c in TRACKER_COLUMNS if c in page.columns] if not show_all else \
            [c for c in page.columns if c not in (STAGED_FLAG, "Month_Sort")]
     view = page[grid].copy()
-    styled_table(view, height=560, variant="wide grid", wrap=WRAP_COLUMNS, styles=GRID_STYLES)
+    styled_table(view.rename(columns=DISPLAY_NAMES), height=560, variant="wide grid",
+                 wrap=WRAP_COLUMNS, styles=GRID_STYLES)
     st.caption("Every value is shown in full: the grid scrolls sideways, and the few long text "
                "cells that run past five lines scroll inside the cell rather than stretching the "
                "row. Open one email below to read it on its own.")
 
-    add_section("What the customer wrote about", "The customer's own words run to forty different "
-                "wordings for eight real things — \"Missed Event\", \"Missed insolvency alert\" and "
+    # Counted, not typed. A prose figure that has to be remembered is a prose figure that
+    # goes stale, which is the whole fault this tab exists to fix.
+    said = page["Reason"].fillna("").astype(str).str.strip()
+    cat = category_table(page)
+    add_section("What the customer wrote about",
+                f"The customer's own words run to {said[said != ''].nunique()} different wordings for "
+                f"{len(cat) - 1} real things — \"Missed Event\", \"Missed insolvency alert\" and "
                 "\"WarRoom should have been created but was not\" all say the same thing. Every wording "
                 "folded into a category is listed beside it with its own count, so the fold can be "
                 "checked rather than taken on trust. This is the wording every other tab uses.", "#80cbc4")
-    cat = category_table(page)
     # "Event missed" is smaller than the confirmed-miss count and a reader is right to
     # stop on that. They measure different things: the category is what the customer
     # complained about, the flag is whether the event reached them. An event reported
@@ -2145,7 +2160,7 @@ elif selected_page == "All customer emails":
     add_section("Under investigation", f"The {len(still_open)} customer email(s) with no answer sent back yet. "
                 "Everything else has had a fix, an RCA or a clarification returned to the customer.", "#f6c177")
     if still_open.empty:
-        st.info("Nothing in the current filter is still awaiting an answer.")
+        st.info("Nothing in the current filter is still under investigation.")
     else:
         open_cols = [c for c in ("Email/JIRA Date", "Jira Key", "Customer", "Event/Bulletin Title",
                                  "Reason Category", "Missed_Flag") if c in still_open.columns]
@@ -2201,7 +2216,7 @@ elif selected_page == "All customer emails":
                             help="Filtered by the sidebar, like every other tab.")
         record = page.loc[labels[pick]]
         detail = pd.DataFrame(
-            [(c, cell(record[c])) for c in page.columns
+            [(DISPLAY_NAMES.get(c, c), cell(record[c])) for c in page.columns
              if c not in (STAGED_FLAG, "Month_Sort") and str(record[c]).strip() not in ("", "nan", "NaT")],
             columns=["Field", "Value"])
         styled_table(detail, variant="record")
