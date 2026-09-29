@@ -229,7 +229,34 @@ def break_formula_columns(csv: Path, xlsx: Path) -> None:
               lambda x: x.replace("ComplaintTracker[Severity]", "ComplaintTracker[Impact]"))
 
 
-CASES: list[tuple[str, str, object]] = [
+def break_cause_agreement(csv: Path, xlsx: Path) -> None:
+    """A source-gap record relabelled Event Identification, the remedy text left alone.
+
+    The shipped bug exactly: six records read "Source coverage expansion" under
+    `Automation Opportunity` while `Sub-type` said `Event Identification`, so the
+    Executive Summary's miss buckets -- which key on `Sub-type` -- counted them as model
+    misses. Nothing compared the two fields, so nothing fired.
+    """
+    lines = csv_lines(csv)
+    header = next(csv_module.reader([lines[0]]))
+    sub, opp = header.index("Sub-type"), header.index("Automation Opportunity")
+    for i, line in enumerate(lines[1:], start=1):
+        if not line.strip():
+            continue
+        fields = next(csv_module.reader([line]))
+        if fields[opp] == "Source coverage expansion" and fields[sub] == "Source Coverage":
+            fields[sub] = "Event Identification"
+            buf = io.StringIO()
+            csv_module.writer(buf, lineterminator="").writerow(fields)
+            lines[i] = buf.getvalue()
+            write_lines(csv, lines)
+            return
+    raise SystemExit("no source-coverage record to mislabel; fixture is stale")
+
+
+# (name, rule, fault) or (name, rule, fault, "warn") -- a warning-level rule leaves the
+# exit code at 0 on purpose, so asserting `code != 0` would never see it fire.
+CASES: list[tuple] = [
     ("mojibake_adjacent", "mojibake", break_mojibake_adjacent),
     ("mojibake_lone_arrow", "mojibake", break_mojibake_lone),
     ("row_order", "row_order", break_row_order),
@@ -250,6 +277,7 @@ CASES: list[tuple[str, str, object]] = [
     ("enum_definitions", "enum_definitions", break_enum_definitions),
     ("definitions_export", "definitions_export", break_definitions_export),
     ("formula_columns", "formula_columns", break_formula_columns),
+    ("cause_agreement", "cause_agreement", break_cause_agreement, "warn"),
 ]
 
 
@@ -260,12 +288,27 @@ def run_validate(csv: Path, xlsx: Path) -> tuple[int, str]:
     return proc.returncode, proc.stdout + proc.stderr
 
 
+def warned(out: str, rule: str) -> int:
+    """How many records a warning-level rule reported, 0 if it did not fire.
+
+    Each warning leads with its own count -- "3 record(s) whose ..." -- which is what
+    makes a warning fixture testable at all: presence proves nothing when the rule
+    already fires on the real data.
+    """
+    for line in out.splitlines():
+        m = re.search(rf"!\s+{re.escape(rule)}:\s+(\d+)\b", line)
+        if m:
+            return int(m.group(1))
+    return 0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("filter", nargs="?", help="only run cases whose name contains this")
     args = ap.parse_args()
 
-    code, out = run_validate(CSV, XLSX)
+    code, baseline = run_validate(CSV, XLSX)
+    out = baseline
     if code != 0:
         print("FAIL — the real data does not pass validate.py, so nothing below means anything:")
         print(out)
@@ -275,13 +318,22 @@ def main() -> int:
     cases = [c for c in CASES if not args.filter or args.filter in c[0]]
     failures = []
     with tempfile.TemporaryDirectory() as tmp:
-        for name, rule, fault in cases:
+        for case in cases:
+            name, rule, fault = case[0], case[1], case[2]
+            level = case[3] if len(case) > 3 else "fail"
             csv, xlsx = Path(tmp) / "t.csv", Path(tmp) / "t.xlsx"
             shutil.copy(CSV, csv)
             shutil.copy(XLSX, xlsx)
             fault(csv, xlsx)
             code, out = run_validate(csv, xlsx)
-            caught = code != 0 and f"✗ {rule}:" in out
+            if level == "warn":
+                # A warning leaves the exit code at 0, so `code != 0` says nothing about
+                # it. Nor does the warning merely being present: this rule already warns
+                # on the real data, so a fixture that did nothing would still "pass".
+                # Compare the count it reports instead -- it has to have gone up.
+                caught = warned(out, rule) > warned(baseline, rule)
+            else:
+                caught = code != 0 and f"✗ {rule}:" in out
             print(f"{name:22s} -> {'caught by ' + rule if caught else 'NOT CAUGHT'}")
             if not caught:
                 failures.append((name, rule, out))
