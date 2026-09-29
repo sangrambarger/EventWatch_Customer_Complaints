@@ -434,10 +434,24 @@ A `td:empty:after` em-dash placeholder was tried and removed: it renders as tofu
 the monospace fallback lacks U+2014, which was the column it was meant to mark, and a
 blank cell in a borderless grid already reads as absence.
 
-The tall rows are left tall. Capping a wrapped cell and letting it scroll in place would
-even them out without cutting any text, but it puts a nested scroll container inside a
-horizontally scrolling table -- hard to discover, and it captures the wheel. Most rows are
-62px and the tallest is 160px; that variance is the honest price of the decision below. Those columns were
+**A wrapped cell is capped at five lines and scrolls in place.** Nothing is cut -- the
+whole value is still there -- but one 350-character `Comments` no longer sets the height
+of a row whose every other cell is one line: the tallest row went 160px to 123px against
+a 62px median, and only 26 of 345 wrapped cells overflow at all, so the intervention is
+surgical. The scroll is left to **chain** (no `overscroll-behavior:contain`), so reaching
+the bottom of a cell carries on scrolling the page instead of trapping the wheel.
+
+Two things about the affordance, both found by measuring rather than assuming. Setting
+`scrollbar-width` makes Chromium use the standard scrollbar and **ignore every
+`::-webkit-scrollbar` rule**, so the styled bar never painted; and even without it this
+Chromium paints overlay scrollbars that take no layout width (`offsetWidth - clientWidth`
+is 0) and do not render in a screenshot. A scrollbar is therefore not a cue that can be
+relied on here. The cue is the **scroll-shadow** technique instead: two cover layers in
+the cell's own background colour attached `local` so they scroll away with the text, and
+two shadow layers attached `scroll` so they stay pinned to the edges -- the shadow shows
+only while there is more text past that edge, and it always paints because it is a
+background, not a widget. The cover colour is `--cell-bg`, redefined on the hover row so
+the covers do not mismatch the surface under them. Those columns were
 briefly truncated with an ellipsis instead, on the reasoning that the full text sat one
 click away in the record card. It does, but **68 of 114 `Comments` run past 110
 characters**, so nearly every row showed a sentence that stopped mid-thought and the
