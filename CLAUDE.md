@@ -266,7 +266,22 @@ classified rows with it, which is why `cause_agreement` stays narrow: **the umbr
 automation programme is not evidence of the cause**, and a record whose focus is
 `Dynamic Source Discovery` may legitimately be a keyword gap.
 
-`Standard Automation Focus` was `Dynamic Source Discovery` on three records that were
+**`Dynamic Source Discovery` deliberately spans source AND keyword gaps.** It is the
+umbrella automation programme, not a claim about the cause: of the twelve `Keyword
+Update` records it holds five, including EAO-41 and EAO-42 whose own RCA text says "Not
+a source-coverage gap" in terms. That contradiction is **known and accepted** -- it was
+put to the tracker's owner and left as it stands, because the alternatives were to
+invent a language cause the records do not support (`Multilingual Keyword Expansion`
+means multilingual: Swedish on Data row 2, Spanish on row 61, and the Turkish, Chinese
+and foreign-language border-closing rows) or to bury an algorithm keyword gap in a
+catch-all. Do not "fix" it. `Multilingual Keyword Expansion` takes a record **only with
+explicit language evidence in its own Comments**.
+
+Two `Keyword Update` records, Data rows 15 and 58, keep `Dynamic Source Discovery`
+because their Comments say "Feeds not ingested" and "Feed ingestion investigation
+raised" -- there the focus is right and it is the `Sub-type` that is doubtful.
+
+The focus was `Dynamic Source Discovery` on three records that were
 not source problems at all -- it is the largest value and had become the default anything
 unclassified fell into. Row 24 (an SEC notification delivered late, whose own remedy is a
 regulatory-feed timeliness check) is `Other Control Automation`, which is where eight of
