@@ -428,6 +428,25 @@ but it did not reach them in time, so it is a miss. The other 15 are 11 reported
 2 supplier not linked, 1 classified wrongly, 1 published but not visible, and a caption
 under the table spells that out rather than leaving a reader to subtract.
 
+**Complaint or inquiry is settled by what went back to the customer.** An explanation
+means inquiry; a bulletin, a correction or an admitted fault means complaint. It is not
+about how the customer phrased it -- that rule was tried first and produced the wrong
+answer five times over. All five coverage questions logged as complaints were
+`Clarification Provided` with no fault found (Roche: the WarRoom was already published
+and delivery verified; Hitachi: polygon methodology explained; EAO-24: no public source
+existed to report from; EAO-29: a deliberate internal convention, not a defect) and are
+inquiries. The Eaton Axios npm record went the other way: it was closed as not relevant
+on supplier mapping and the absence of operational disruption, and that judgement was
+wrong -- Eaton has a **product** connection to the compromised package -- so it is a
+complaint and a miss, People / `Review`.
+
+`inquiry_table()` gives inquiries their own table, because a column that counts
+complaints and inquiries side by side hides what was actually asked and what went back.
+Every table that footers a calculation carries a **Total row** (`styled_table(...,
+total_row=True)`), built inside the table function rather than by a generic helper --
+two of the columns are formatted strings and `"62 (100%)"` cannot be summed after the
+fact, only before.
+
 **"We reported it" beats "they said we missed it".** EAO-47 was logged as a source miss
 because Western Digital said no Nidec event existed. The event had in fact been captured
 and created; the analyst did not check whether Nidec is a mapped partner of theirs and
