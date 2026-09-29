@@ -217,7 +217,16 @@ the filters and cannot disagree with the tables below it. **A finding that does 
 its own threshold is not shown**: an insight panel that always finds something is a
 horoscope. Each finding is a card -- claim, the number that *is* the claim, the count
 behind it -- because as full-sentence panels they read as a wall of prose nobody
-finished. A finding that needs three sentences to land is not a finding. The ticket-
+finished. A finding that needs three sentences to land is not a finding. **At most four
+are returned**, in priority order, so the row stays one row: the worst recurring
+customer+sub-type pair is the one that drops, and it is the most redundant of the four
+when the two cards beside it already name that same account and that same sub-type. Its
+value reads `11 records` rather than `11x`, which said 11 of what to nobody.
+
+`kpis(items, columns=n)` sizes the grid to the count. Both the auto-fitting variant and
+a fixed five were wrong: auto-fit wrapped a five-card row to four-plus-one on any window
+under about 1200px -- which is the width these are actually read at -- and a fixed five
+leaves a hole when there are four. Pass the count. The ticket-
 traceability finding was dropped: it measured when the EAO project started, which is
 the same recording artifact the June rule above warns about.
 
