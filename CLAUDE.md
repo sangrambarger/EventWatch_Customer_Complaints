@@ -415,10 +415,29 @@ The Complaint Tracker table serves two readers without a second page. Someone re
 the tracker wants a grid they can scan; someone exporting a slice wants every field.
 A `Show all fields` checkbox switches between the eighteen reading columns
 (`TRACKER_COLUMNS`) and everything except `Month_Sort`, which is an internal sort key no
-reader needs. `styled_table(variant="wide")` lets the table size to its content and scroll sideways
+reader needs. `styled_table(variant="wide grid")` lets the table size to its content and scroll sideways
 rather than be squeezed to `width:100%`, which is what turned every multi-word cell into
 two and three lines, and `wrap=WRAP_COLUMNS` lets the free-text columns wrap inside a
-bounded 280-520px width while every other column stays on one line. Those columns were
+bounded 320-600px width while every other column stays on one line.
+
+`grid` is the restyle on top of `wide`, and it is **this page only** -- the other
+thirteen keep the bordered Excel look. A full box grid, centred text and zebra fills read
+as a spreadsheet export rather than a table meant to be read, and they read worst exactly
+here: rows are of very unequal height (a seven-line `Comments` cell beside a one-line
+neighbour), so the vertical rules draw ragged columns and the alternating fills emphasise
+the raggedness. Hairline row separators and a hover band carry the row instead, cells
+align **top** so a short value sits beside the first line of a long one rather than
+floating in the middle of it, and **the first column is sticky** so the month stays on
+screen through twenty-six columns of sideways scroll. `styles=GRID_STYLES` gives dates
+tabular figures so they line up down the column and the Jira key a monospace face.
+A `td:empty:after` em-dash placeholder was tried and removed: it renders as tofu wherever
+the monospace fallback lacks U+2014, which was the column it was meant to mark, and a
+blank cell in a borderless grid already reads as absence.
+
+The tall rows are left tall. Capping a wrapped cell and letting it scroll in place would
+even them out without cutting any text, but it puts a nested scroll container inside a
+horizontally scrolling table -- hard to discover, and it captures the wheel. Most rows are
+62px and the tallest is 160px; that variance is the honest price of the decision below. Those columns were
 briefly truncated with an ellipsis instead, on the reasoning that the full text sat one
 click away in the record card. It does, but **68 of 114 `Comments` run past 110
 characters**, so nearly every row showed a sentence that stopped mid-thought and the
