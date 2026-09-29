@@ -63,9 +63,9 @@ h1,h2,h3,h4,h5,h6,p,span,div,label{color:var(--ink)!important}.page-hero,.sectio
    the month stays on screen through twenty-six columns of sideways scroll. */
 .excel-table.grid{border-collapse:separate;border-spacing:0;background:transparent!important}
 .excel-table.grid th{background:#161a21!important;border:0;border-bottom:1px solid var(--line2);padding:11px 15px;text-align:left;font-size:10.5px;letter-spacing:.075em;color:var(--muted)!important;font-weight:800}
-.excel-table.grid td{border:0;border-bottom:1px solid rgba(58,65,77,.5);padding:11px 15px;background:transparent!important;text-align:left;vertical-align:top;line-height:1.5}
+.excel-table.grid td{--cell-bg:#0f1115;border:0;border-bottom:1px solid rgba(58,65,77,.5);padding:11px 15px;background:transparent!important;text-align:left;vertical-align:top;line-height:1.5}
 .excel-table.grid tr:nth-child(even) td{background:transparent!important}
-.excel-table.grid tbody tr:hover td{background:rgba(138,180,248,.06)!important}
+.excel-table.grid tbody tr:hover td{--cell-bg:#181d27;background:rgba(138,180,248,.06)!important}
 .excel-table.grid tbody tr:last-child td{border-bottom:0}
 .excel-table.grid th:first-child,.excel-table.grid td:first-child{position:sticky;left:0;z-index:2;background:#161a21!important;border-right:1px solid var(--line);white-space:nowrap;font-weight:700}
 .excel-table.grid th:first-child{z-index:4}
@@ -73,6 +73,10 @@ h1,h2,h3,h4,h5,h6,p,span,div,label{color:var(--ink)!important}.page-hero,.sectio
 .excel-table.grid td.num{font-variant-numeric:tabular-nums;color:var(--muted)!important}
 .excel-table.grid td.key{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;letter-spacing:-.01em}
 .excel-table.grid td.wrap{min-width:320px;max-width:600px;color:var(--muted)!important}
+.excel-table.grid td.wrap>.cell{max-height:100px;overflow-y:auto;background:linear-gradient(var(--cell-bg) 32%,rgba(0,0,0,0)) top/100% 22px no-repeat local,linear-gradient(rgba(0,0,0,0),var(--cell-bg) 68%) bottom/100% 22px no-repeat local,radial-gradient(farthest-side at 50% 0,rgba(138,180,248,.42),rgba(0,0,0,0)) top/100% 11px no-repeat,radial-gradient(farthest-side at 50% 100%,rgba(138,180,248,.42),rgba(0,0,0,0)) bottom/100% 11px no-repeat}
+.excel-table.grid td.wrap>.cell::-webkit-scrollbar{width:8px}
+.excel-table.grid td.wrap>.cell::-webkit-scrollbar-thumb{background:var(--line2);border-radius:4px;border:2px solid transparent;background-clip:content-box}
+.excel-table.grid td.wrap>.cell::-webkit-scrollbar-track{background:rgba(255,255,255,.04);border-radius:4px}
 @media(max-width:1200px){.kpi-grid{grid-template-columns:repeat(2,minmax(180px,1fr))}.insight-row{grid-template-columns:1fr}}@media(max-width:760px){.kpi-grid{grid-template-columns:1fr}}
 </style>
 """
@@ -448,8 +452,13 @@ def styled_table(df, max_rows=None, height=None, variant=None, wrap=(), styles=N
         names = (["wrap"] if c in wrap else []) + ([styles[c]] if c in styles else [])
         klasses.append(f" class='{' '.join(names)}'" if names else "")
     head = "".join(f"<th{k}>{esc(c)}</th>" for c, k in zip(show.columns, klasses))
+    # A wrapped cell's text goes inside a div, because `max-height` on a `td` is advisory
+    # -- the cell still grows to its content. The div is what the grid variant caps.
+    wrapped = [c in wrap for c in show.columns]
     body = "".join(
-        "<tr>" + "".join(f"<td{k}>{esc(cell(v))}</td>" for v, k in zip(row, klasses)) + "</tr>"
+        "<tr>" + "".join(
+            f"<td{k}><div class='cell'>{esc(cell(v))}</div></td>" if w else f"<td{k}>{esc(cell(v))}</td>"
+            for v, k, w in zip(row, klasses, wrapped)) + "</tr>"
         for row in show.itertuples(index=False)
     )
     wrap_style = f" style='max-height:{height}px;overflow-y:auto'" if height else ""
@@ -1870,8 +1879,9 @@ elif selected_page == "Complaint Tracker":
     # text one click away in the record card below, rather than wrapping into rows tall
     # enough to push everything else off screen.
     styled_table(view, height=560, variant="wide grid", wrap=WRAP_COLUMNS, styles=GRID_STYLES)
-    st.caption("Every value is shown in full; the long text columns wrap and the grid scrolls "
-               "sideways. Open a record below to read one record on its own.")
+    st.caption("Every value is shown in full: the grid scrolls sideways, and the few long text "
+               "cells that run past five lines scroll inside the cell rather than stretching the "
+               "row. Open a record below to read one record on its own.")
 
     add_section("Open a record", "Every field of one record, including the full Comments, "
                 "RCA Details and Automation Opportunity that the grid above shortens.")
