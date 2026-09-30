@@ -254,9 +254,9 @@ watch` (Sub-type `Source Coverage`), `Watched, but keywords missed it` (`Keyword
 Update`), `An analyst let it through` and `The model did not spot it` (both `Review` /
 `Event Identification` / `Prioritization`, split on `Root Cause` People against Product).
 Every other missed email takes a bucket **named after its own sub-type**, generated in
-`miss_bucket_series()` from `PLAIN_SUBTYPE`. Eleven buckets on the current data:
-26 / 23 / 12 / 6, then supplier not linked 2, a convention not explained 2, captured too
-late 2, published but never showed 2, industry tag 1, scoring or rules 1, no WarRoom 1.
+`miss_bucket_series()` from `PLAIN_SUBTYPE`. Ten buckets on the current data:
+26 / 23 / 12 / 6, then captured too late 3, supplier not linked 2, no WarRoom 2,
+published but never showed 2, industry tag 1, scoring or rules 1.
 
 A residue bucket is how eleven real and different failures became one grey slice nobody
 could act on, and it also hides a sub-type added to the tracker tomorrow -- which would
@@ -533,12 +533,43 @@ tooltip for which says "missing, delayed, duplicated, or not visible", which is 
 belong to it.
 
 **A pair that is not in the map counts as `Needs Review`, and never folds into `Other`.**
-Three emails land there today and both are worth looking at: a Product row whose Comments
-describe a WarRoom that was never created, and two People rows -- a late SEC notification
-and a late capture -- that the People vocabulary has no term for. Talking those into the
-nearest plausible heading is how a taxonomy stops meaning anything, and burying them in
-`Other` is how a mis-filed row stays mis-filed. `Needs Review` is a data-quality signal,
-so it is always its own row.
+Talking an unmapped pair into the nearest plausible heading is how a taxonomy stops
+meaning anything, and burying it in `Other` is how a mis-filed row stays mis-filed.
+`Needs Review` is a data-quality signal, so it is always its own row.
+
+**It found three mis-filed rows on its first run, and all three were data faults rather
+than gaps in the map** -- in each the `Sub-type` did not describe what the record's own
+evidence said had failed. Fixed with `update_row.py`, each against the thematic precedent
+of a row already in the tracker, which is the method to use here:
+
+* **Bombardier / STELIA ransomware** (CSV row 52) was `Product` / `Process
+  Clarification`. Its Comments read "STELIA is listed supplier but no WarRoom/notification
+  created" -- the supplier *was* resolved and the WarRoom was not created, which is
+  `WarRoom Creation`, not a convention nobody explained. Its twin is the META row (CSV
+  75): "EventWatch alert published but corresponding WarRoom not created despite supplier
+  normalization." Now `Process` / `WarRoom Creation`, and `Routed To` moved to EventWatch
+  Ops with it -- Root Cause and Routed To agree on every row in the tracker and this was
+  the one that would not have. Its `Automation Opportunity` still reads "Mapping
+  validation", which the Comments contradict; the umbrella remedy is not evidence of the
+  cause, so it was left alone rather than rewritten on a second guess.
+* **Sandisk / EAO-37** (CSV row 103) was `People` / `Captured Late`. Its RCA is explicit:
+  "Not a coverage gap and not a Not Impactful call... this one was delayed in reporting
+  and only published on 09-Sep-2026, after the customer had raised the query on 08-Sep."
+  The sub-type was already right; the root cause was not. Now `Process` / `Captured
+  Late`, matching the Collins Aerospace precedent (CSV 41, "WarRoom created ~18 hours
+  after tornado").
+* **HPE / SEC notification** (CSV row 24) was `People` / `Process Clarification`. Reason
+  "SEC notification not captured/provided on time", remedy "Regulatory feed timeliness
+  checks + publication timestamp comparison", focus `Other Control Automation` -- a
+  lateness failure with a timeliness control as its fix. Now `Process` / `Captured Late`.
+  **This is the thinnest of the three**: no `RCA Details`, and a one-line Comment that
+  says only that an investigation was requested. It rests on the Reason and the remedy,
+  and it is the one to revisit if the closure inputs ever arrive.
+
+All three landed in `Process`, which took its misses from 3 to 6 (Product 46 to 45,
+People 29 to 27, the total still 78). That is a large relative move on a small bucket and
+it happened because all three were timing or workflow failures filed elsewhere -- worth
+knowing before reading Process's share as a trend.
 
 **`PLAIN_SUBTYPE` still translates the taxonomy for the tables, and does not replace it.**
 `Sub-type` is the vocabulary of the people who file the records, and on a leadership page
