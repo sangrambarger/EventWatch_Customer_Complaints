@@ -58,6 +58,8 @@ CSS = """
 html,body,[data-testid="stAppViewContainer"],[data-testid="stMain"]{background:var(--bg)!important;color:var(--ink)!important}.main .block-container{padding-top:.75rem;max-width:1450px;background:var(--bg)!important}[data-testid="stHeader"],[data-testid="stToolbar"]{background:#0c0e12!important}[data-testid="stSidebar"]{background:var(--bg)!important;border-right:1px solid var(--line)}[data-testid="stSidebar"] *{color:var(--ink)!important}[data-testid="stSidebar"] label{color:var(--muted)!important}
 [data-testid="stSidebar"] div[role="radiogroup"]{gap:0!important;margin-top:4px}[data-testid="stSidebar"] label[data-testid="stRadioOption"]{width:100%;box-sizing:border-box;background:transparent!important;border:0!important;border-left:3px solid color-mix(in srgb,var(--nav,var(--blue)) 42%,transparent)!important;border-radius:0!important;padding:11px 16px!important;margin:0!important;display:flex!important;align-items:center!important;box-shadow:none!important;cursor:pointer;transition:background .12s ease,border-left-color .12s ease}[data-testid="stSidebar"] label[data-testid="stRadioOption"]:hover{background:color-mix(in srgb,var(--nav,var(--blue)) 9%,transparent)!important;border-left-color:var(--nav,var(--blue))!important}[data-testid="stSidebar"] label[data-testid="stRadioOption"] p{font-size:13.5px!important;font-weight:500!important;color:var(--muted)!important;margin:0!important;line-height:1.3}[data-testid="stSidebar"] label[data-testid="stRadioOption"][data-selected="true"]{border-left-color:var(--nav,var(--blue))!important;background:color-mix(in srgb,var(--nav,var(--blue)) 15%,transparent)!important}[data-testid="stSidebar"] label[data-testid="stRadioOption"][data-selected="true"] p{color:#fff!important;font-weight:700!important}[data-testid="stSidebar"] label[data-testid="stRadioOption"] div:has(+[data-testid="stMarkdownContainer"]){display:none!important}[data-testid="stSidebar"] label[data-testid="stRadioOption"] input{display:none!important}
 h1,h2,h3,h4,h5,h6,p,span,div,label{color:var(--ink)!important}.page-hero,.section-card,.kpi,.insight-box,.excel-table.wide{width:auto;min-width:100%}.excel-table.wide td,.excel-table.wide th{white-space:nowrap}.excel-table.wide td:first-child{overflow-wrap:normal}.excel-table.wide td.wrap,.excel-table.wide th.wrap{white-space:normal;overflow-wrap:anywhere;text-align:left;min-width:280px;max-width:520px;vertical-align:top}.excel-table.record td{text-align:left;overflow-wrap:anywhere;white-space:normal}.excel-table.record td:first-child{width:220px;color:var(--muted)!important;font-weight:700}.definition-group{background:var(--panel)!important;border:1px solid var(--line);box-shadow:0 2px 8px rgba(0,0,0,.28)}.page-hero{position:relative;overflow:hidden;border-left:5px solid var(--accent,var(--blue));padding:14px 18px;margin-bottom:16px}.page-hero:after{content:"";position:absolute;inset:0;background:linear-gradient(120deg,rgba(255,255,255,.05),transparent 55%);pointer-events:none}.page-kicker{display:flex;align-items:center;gap:7px;font-size:11px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--accent,var(--blue))!important;margin-bottom:5px}.page-kicker .dot{width:7px;height:7px;border-radius:50%;background:var(--accent,var(--blue));box-shadow:0 0 0 3px color-mix(in srgb,var(--accent,var(--blue)) 25%,transparent)}.page-hero h1{margin:0 0 4px 0;font-size:25px}.page-hero p,.section-card p{margin:0;color:var(--muted)!important;font-size:14px;line-height:1.4}.section-card{border-left:4px solid var(--accent,var(--blue));border-radius:8px;padding:12px 14px;margin:18px 0 10px;display:flex;flex-direction:column;gap:2px}.section-card h3{margin:0 0 2px 0;font-size:20px;display:flex;align-items:center;gap:8px}.section-card h3:before{content:"";width:9px;height:9px;border-radius:3px;background:var(--accent,var(--blue));display:inline-block;flex:none}.kpi-grid{display:grid;grid-template-columns:repeat(5,minmax(145px,1fr));gap:10px;margin:10px 0 14px}.kpi{position:relative;min-height:92px;border-top:4px solid var(--accent);border-radius:8px;padding:11px 13px;transition:transform .15s ease,box-shadow .15s ease}.kpi:hover{transform:translateY(-3px);box-shadow:0 10px 22px rgba(0,0,0,.4)}.kpi-label{font-size:11px;color:var(--muted)!important;font-weight:800;text-transform:uppercase;letter-spacing:.04em}.kpi-num{font-size:29px;font-weight:900;line-height:1.05;margin:6px 0 4px;background:linear-gradient(180deg,#fff,var(--ink));-webkit-background-clip:text;background-clip:text}.kpi-foot{font-size:12px;color:var(--muted)!important}.section-rule{height:1px;background:var(--line);margin:30px 0 14px}
+.root-card{background:var(--panel)!important;border:1px solid var(--line);border-top:5px solid var(--accent);border-radius:10px;padding:14px 16px;box-shadow:0 2px 10px rgba(0,0,0,.3);min-height:150px}.root-card .rc-name{font-size:12px;font-weight:900;letter-spacing:.07em;text-transform:uppercase;color:var(--accent)!important}.root-card .rc-num{font-size:42px;font-weight:900;line-height:1.02;margin:8px 0 0}.root-card .rc-base{font-size:13px;color:var(--muted)!important;font-weight:700}.root-card .rc-share{display:inline-block;margin-top:8px;font-size:15px;font-weight:900;color:var(--accent)!important}.root-card .rc-desc{font-size:13px;color:var(--muted)!important;margin-top:8px;line-height:1.35}
+.takeaway{border-left:4px solid var(--accent,var(--blue));background:var(--panel)!important;border-radius:8px;padding:13px 15px;margin:14px 0 4px;font-size:15px;line-height:1.45}.takeaway b{color:var(--accent,var(--blue))!important}
 .donut-pair{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .insight-row{display:grid;grid-template-columns:repeat(2,minmax(260px,1fr));gap:10px}.insight-box{border-left:4px solid var(--accent);border-radius:8px;padding:11px 12px;font-size:14px}
 .table-wrap{overflow-x:auto;border-radius:8px;border:1px solid var(--line);box-shadow:0 2px 8px rgba(0,0,0,.22)}.excel-table{width:100%;border-collapse:collapse;background:var(--panel)!important;font-size:13px}.excel-table th{background:#2d3542!important;color:#fff!important;border:1px solid var(--line2);padding:9px 10px;text-align:center;font-weight:800;font-size:12px;text-transform:uppercase;letter-spacing:.03em;position:sticky;top:0}.excel-table td{border:1px solid var(--line);padding:8px 10px;background:#1f242d!important;color:var(--ink)!important;font-size:13px}.excel-table tr:nth-child(even) td{background:#242a34!important}.excel-table tbody tr{transition:background .1s ease}.excel-table tbody tr:hover td{background:#2c3542!important}.excel-table td:first-child{text-align:left;overflow-wrap:anywhere;font-weight:600}.excel-table td:not(:first-child){text-align:center}.bar-cell{padding:0!important}.bar-box{position:relative;min-height:32px;display:flex;align-items:center;justify-content:center;overflow:hidden;border-radius:4px}.bar-box:before{content:"";position:absolute;inset:0 auto 0 0;width:var(--w);background:linear-gradient(90deg,rgba(138,180,248,.7),rgba(138,180,248,.18))}.bar-box span{position:relative;z-index:1;font-weight:900;color:#fff!important;text-shadow:0 1px 2px #000}.definition-group{border-left:4px solid var(--teal);border-radius:8px;padding:12px 14px;margin:12px 0}.stDownloadButton button,.stButton button,.stFormSubmitButton button{background:#374151!important;color:#fff!important;border:1px solid var(--blue)!important;border-radius:7px!important;font-weight:800!important;transition:border-color .15s ease,transform .1s ease}.stDownloadButton button:hover,.stButton button:hover,.stFormSubmitButton button:hover{border-color:var(--teal)!important;transform:translateY(-1px)}[data-testid="stDataFrame"],[data-testid="stTable"]{background:var(--panel)!important;border:1px solid var(--line)!important;border-radius:8px!important;overflow:hidden}
@@ -981,24 +983,25 @@ def miss_colours(df, table):
             out[label] = fixed[label]
             continue
         owners = root[buckets == label].value_counts()
-        owner = plain(owners.index[0], PLAIN_ROOT) if len(owners) else ""
-        out[label] = OWNER_COLOURS.get(owner, "#b6beca")
+        owner = str(owners.index[0]).strip() if len(owners) else ""
+        out[label] = ROOT_COLOURS.get(owner, "#b6beca")
     return out
 
 
-def miss_recent_note(df, window=3, span=6, move=5.0):
-    """One line naming the last `window` months' miss mix when the ring is wider than that.
+def root_recent_note(df, window=3, span=6, move=5.0):
+    """One line naming the last `window` months' root-cause mix when the view is wider.
 
-    The ring is cumulative over whatever the filter spans, and a cumulative mix buries a
-    quarter in which the mix changed. It did: read over nine months the source bucket is
-    a third of the ring, but over the last three it is first and the model bucket falls
-    to nothing. A reader taking the ring as "the picture" gets the wrong two priorities,
-    which is exactly the misread this line exists to stop -- it is how a claim that
-    source misses had not moved survived, when 11 of the 20 had landed in the previous
-    three months.
+    The cards are cumulative over whatever the filter spans, and a cumulative mix buries
+    a quarter in which the mix changed. It has: read over nine months the source bucket
+    is a third of the misses, but over the last three it is first, and the model bucket
+    falls to nothing. A reader taking the cumulative picture as "the picture" gets the
+    wrong two priorities, which is exactly the misread this line exists to stop -- it is
+    how a claim that source misses had not moved survived review, when 11 of the 20 had
+    landed in the previous three months.
 
     Only shown when the frame spans more than `span` months, because below that the two
-    windows are mostly the same records and the line says nothing.
+    windows are mostly the same emails and the line says nothing, and only for roots that
+    moved `move` points or more -- listing all three would restate the cards.
     """
     if df.empty or "Email/JIRA Date" not in df.columns:
         return None
@@ -1006,24 +1009,19 @@ def miss_recent_note(df, window=3, span=6, move=5.0):
     order = sorted(m for m in months.dropna().unique())
     if len(order) <= span:
         return None
-    recent = miss_categories(df[months.isin(order[-window:])])
-    overall = miss_categories(df)
-    if recent.empty or int(recent["Records"].sum()) == 0:
+    recent = root_summary(df[months.isin(order[-window:])])
+    overall = root_summary(df)
+    if not recent or not overall:
         return None
-    total = int(recent["Records"].sum())
-    shares = {r["Category"]: r["Records"] / total * 100 for _, r in recent.iterrows()}
-    base = {r["Category"]: r["Records"] / max(int(overall["Records"].sum()), 1) * 100
-            for _, r in overall.iterrows()}
-    # Only the buckets that actually moved, biggest recent share first. Listing all five
-    # would restate the ring, and a category that shifted two points is not news -- the
-    # same threshold rule `insights()` applies, for the same reason.
-    moved = [k for k in shares if abs(shares[k] - base.get(k, 0)) >= move]
+    base = {root: share for root, _, share, _, _ in overall}
+    moved = [(root, share, base.get(root, 0.0)) for root, _, share, _, _ in recent
+             if abs(share - base.get(root, 0.0)) >= move]
     if not moved:
         return None
-    moved.sort(key=lambda k: -shares[k])
+    total = sum(n for _, n, *_ in recent)
     label = lambda m: pd.Period(m, freq="M").strftime("%b %Y")
-    parts = ", ".join(f"{k} {shares[k]:.0f}% (all months {base.get(k, 0):.0f}%)" for k in moved)
-    return (f"The chart is all {len(order)} months. Over the last {window} "
+    parts = ", ".join(f"{root} {now:.0f}% (all months {was:.0f}%)" for root, now, was in moved)
+    return (f"The cards are all {len(order)} months. Over the last {window} "
             f"({label(order[-window])}–{label(order[-1])}, {total} misses): {parts}.")
 
 
@@ -1766,12 +1764,6 @@ def manual_entry_form(df):
 # the vaguest word in the file. The tracker keeps its own wording, because that is
 # the record; only the chart label is translated, and the original travels with it
 # in the table beside the chart so an analyst can tie any slice back to a field.
-PLAIN_ROOT = {
-    "People": "Our analysts",
-    "Process": "How we work",
-    "Product": "The platform",
-}
-
 PLAIN_SUBTYPE = {
     "Source Coverage": "We were not watching the source",
     "Keyword Update": "Our search keywords missed it",
@@ -1792,7 +1784,7 @@ PLAIN_SUBTYPE = {
 }
 
 # Who owns the fix, in the same three colours everywhere they appear on the page.
-OWNER_COLOURS = {"The platform": "#8ab4f8", "Our analysts": "#f28b82", "How we work": "#f6c177"}
+
 
 # The inbox in three parts. Red is the failure, amber the complaint that was not one,
 # blue the question -- and every slice carries its own label, count and share, so the
@@ -1840,24 +1832,218 @@ def overview_split(df):
     return out
 
 
-def miss_owner_split(df):
-    """The confirmed misses by who has to fix them, named in English.
+# EventWatch's own name for each failure, keyed on `(Root Cause, Sub-type)` -- the two
+# fields the tracker actually stores, never on the display wording of `Reason`. A pair
+# that is not in this map counts as `Needs Review` rather than being talked into the
+# nearest term: two of the three roots carry rows whose taxonomy and evidence disagree
+# (a Product row whose Comments describe a WarRoom that was never created, a People row
+# about an SEC notification that arrived late), and quietly filing those under a
+# plausible heading is how a taxonomy stops meaning anything.
+#
+# Each entry is (internal term, the same thing in plain English). The term is what the
+# chart prints, the plain English rides on the hover and fills a column of the table, so
+# the page reads to a VP without costing an analyst the word they file records under.
+DRIVERS = {
+    # -- Product: detection and system coverage -----------------------------------
+    ("Product", "Source Coverage"): ("Source Miss", "Not covered by a monitored source"),
+    ("Product", "Keyword Update"): ("Keyword Miss", "Monitored source, but retrieval logic missed the article"),
+    ("Product", "Event Identification"): ("Model Miss", "Incorrect automated classification or routing"),
+    ("Product", "Review"): ("Model Miss", "Incorrect automated classification or routing"),
+    ("Product", "Prioritization"): ("Model Miss", "Incorrect automated classification or routing"),
+    ("Product", "Relevancy"): ("Model Miss", "Incorrect automated classification or routing"),
+    ("Product", "Mapping"): ("Supplier Impact / Mapping", "The supplier was never linked to the impacted event"),
+    ("Product", "Visibility"): ("Portal Visibility Issue", "Published, but it did not appear on the customer's portal"),
+    ("Product", "Policy/Logic"): ("System Limitation", "A platform rule or scoring threshold held it back"),
+    ("Product", "Industry selection"): ("Industry Tagging", "Filed under the wrong industry"),
+    ("Product", "Tagging"): ("Industry Tagging", "Filed under the wrong industry"),
+    ("Product", "Captured Late"): ("Alerting Gap", "Captured, but no alert went out in time"),
+    # -- People: analyst assessment and review ------------------------------------
+    ("People", "Review"): ("People / Analyst Miss", "The article was incorrectly excluded during human review"),
+    ("People", "Event Identification"): ("Event Identification", "Seen by an analyst and not recognised as a reportable event"),
+    ("People", "Prioritization"): ("Prioritization", "Seen by an analyst and ranked too low to raise"),
+    ("People", "Relevancy"): ("Impact Misclassification", "Judged not relevant to the customer, wrongly"),
+    ("People", "Duplication"): ("Duplicate Assessment Error", "The same event assessed and published twice"),
+    ("People", "Mapping"): ("Supplier Selection", "An impacted supplier was left off the WarRoom"),
+    ("People", "Tagging"): ("Industry Selection", "The industry tag was missed when the bulletin was published"),
+    ("People", "Industry selection"): ("Industry Selection", "The industry tag was missed when the bulletin was published"),
+    ("People", "Policy/Logic"): ("Incorrect Action", "The wrong action was taken on the event"),
+    # -- Process: workflow and control ---------------------------------------------
+    ("Process", "Process Clarification"): ("SOP Unclear", "A working convention that was never written down or explained"),
+    ("Process", "Captured Late"): ("Delayed Notification", "Captured, but the customer was told too late"),
+    ("Process", "WarRoom Creation"): ("WarRoom Issue", "A required WarRoom was missing, delayed, duplicated, or not visible"),
+    ("Process", "Visibility"): ("WarRoom Issue", "A required WarRoom was missing, delayed, duplicated, or not visible"),
+    ("Process", "Duplication"): ("Duplicate WarRoom", "One event published as two separate WarRooms"),
+    ("Process", "Strategy"): ("Severity / Consolidation Handling", "How events are grouped, or the severity set on them"),
+    ("Process", "Policy/Logic"): ("Severity / Consolidation Handling", "How events are grouped, or the severity set on them"),
+    ("Process", "Review"): ("Peer Review Missing", "No second pair of eyes before it went out"),
+}
 
-    The pair with `overview_split` is the point: the left ring answers "is every email a
-    failure", the right one "when we do fail, whose problem is it". Two shapes, no
-    arithmetic.
+NEEDS_REVIEW = "Needs Review"
+DRIVER_OTHER = "Other"
+
+# Who owns each root cause, in one line, as leadership reads it.
+ROOT_OWNERSHIP = {
+    "Product": "Detection and system coverage",
+    "People": "Analyst assessment and review",
+    "Process": "Workflow and control",
+}
+ROOT_COLOURS = {"Product": "#8ab4f8", "People": "#f28b82", "Process": "#f6c177"}
+
+
+def driver_of(root, subtype):
+    """The internal term and its plain English, or Needs Review for an unmapped pair."""
+    return DRIVERS.get((str(root).strip(), str(subtype).strip()),
+                       (NEEDS_REVIEW, "The root cause and sub-type on this email do not map "
+                                      "to a known failure driver"))
+
+
+def root_summary(df):
+    """Confirmed misses per root cause, biggest first, with each one's share.
+
+    Rows are [(root, misses, share, ownership, colour)]. Only roots that actually carry
+    a miss in the current filter appear, so a filtered view does not print a card whose
+    number is zero.
     """
-    cols = ["Category", "Records", "% of Total"]
-    if df.empty or not {"Missed_Flag", "Root Cause"} <= set(df.columns):
-        return pd.DataFrame(columns=cols)
+    if df.empty or not {"Root Cause", "Missed_Flag"} <= set(df.columns):
+        return []
     missed = df[df["Missed_Flag"].astype(str).str.strip().eq("Yes")]
     if missed.empty:
+        return []
+    counts = missed["Root Cause"].fillna("Blank").astype(str).str.strip().value_counts()
+    total = max(int(counts.sum()), 1)
+    return [(root, int(n), n / total * 100,
+             ROOT_OWNERSHIP.get(root, "Ownership not defined"),
+             ROOT_COLOURS.get(root, "#b6beca"))
+            for root, n in counts.items()]
+
+
+def root_drivers(df, root, top=4):
+    """The failure drivers behind one root cause's confirmed misses, biggest first.
+
+    Only the top `top` are named; the rest collapse into one `Other` row whose own
+    hover lists what is in it, so the fold can be checked rather than trusted.
+    `Needs Review` never folds -- it is a data-quality signal, and burying it in Other
+    is how a mis-filed row stays mis-filed.
+    """
+    cols = ["Driver", "What it means", "Misses", "% of Total"]
+    if df.empty or not {"Root Cause", "Sub-type", "Missed_Flag"} <= set(df.columns):
         return pd.DataFrame(columns=cols)
-    keys = missed["Root Cause"].fillna("Blank").astype(str).map(lambda v: plain(v, PLAIN_ROOT))
-    out = keys.value_counts().reset_index()
-    out.columns = ["Category", "Records"]
-    out["% of Total"] = (out["Records"] / max(len(missed), 1) * 100).round(1).astype(str) + "%"
-    return out
+    missed = df[(df["Missed_Flag"].astype(str).str.strip().eq("Yes"))
+                & (df["Root Cause"].fillna("").astype(str).str.strip().eq(root))]
+    if missed.empty:
+        return pd.DataFrame(columns=cols)
+    named = [driver_of(root, v) for v in missed["Sub-type"].fillna("").astype(str)]
+    frame = pd.DataFrame({"Driver": [t for t, _ in named], "What it means": [m for _, m in named]})
+    grouped = (frame.groupby(["Driver", "What it means"]).size()
+                    .reset_index(name="Misses").sort_values("Misses", ascending=False))
+    review = grouped[grouped["Driver"] == NEEDS_REVIEW]
+    rest = grouped[grouped["Driver"] != NEEDS_REVIEW]
+    keep, tail = rest.head(top), rest.iloc[top:]
+    rows = keep.to_dict("records")
+    if not tail.empty:
+        rows.append({"Driver": DRIVER_OTHER,
+                     "What it means": f"{len(tail)} lower-volume driver(s): "
+                                      + ", ".join(tail["Driver"]),
+                     "Misses": int(tail["Misses"].sum())})
+    rows += review.to_dict("records")
+    out = pd.DataFrame(rows)
+    total = max(int(out["Misses"].sum()), 1)
+    out["% of Total"] = (out["Misses"] / total * 100).round(1).astype(str) + "%"
+    return out[cols].reset_index(drop=True)
+
+
+def driver_table(df):
+    """Every driver on one table, one row each, with the root causes that produced it.
+
+    Grouped by driver rather than by root-and-driver, because a driver that occurs under
+    two roots -- `Needs Review` does, on the current data -- would otherwise appear as
+    two rows carrying the same name and different numbers, which reads as a duplicate and
+    gives `audit_pages.py` two counts for one label. The roots ride in their own column
+    with their counts, the way `root_frame()` carries owners.
+    """
+    cols = ["Driver", "Root cause", "What it means", "Misses", "% of Total"]
+    rows = []
+    for root, _, _, _, _ in root_summary(df):
+        for _, r in root_drivers(df, root, top=99).iterrows():
+            rows.append({"Driver": r["Driver"], "Root cause": root,
+                         "What it means": r["What it means"], "Misses": int(r["Misses"])})
+    if not rows:
+        return pd.DataFrame(columns=cols)
+    frame = pd.DataFrame(rows)
+    out = []
+    for driver, group in frame.groupby("Driver"):
+        roots = group.groupby("Root cause")["Misses"].sum().sort_values(ascending=False)
+        out.append({"Driver": driver,
+                    "Root cause": " · ".join(f"{k} {v}" for k, v in roots.items())
+                                  if len(roots) > 1 else roots.index[0],
+                    "What it means": group["What it means"].iloc[0],
+                    "Misses": int(group["Misses"].sum())})
+    table = pd.DataFrame(out).sort_values("Misses", ascending=False).reset_index(drop=True)
+    total = max(int(table["Misses"].sum()), 1)
+    table["% of Total"] = (table["Misses"] / total * 100).round(1).astype(str) + "%"
+    return table[cols]
+
+
+def driver_bar(frame, colour, title="", slots=None):
+    """A compact bar of one root cause's drivers, all in that root's colour.
+
+    One hue per chart on purpose: the root cause is already named on the card above, so
+    colouring the drivers against each other would say a difference that is not there.
+    The plain-English meaning rides on the hover so the bar stays a bar.
+    """
+    if frame is None or frame.empty:
+        st.caption("No confirmed miss for this root cause in the current filter.")
+        return None
+    data = frame.copy()
+    fig = px.bar(data, x="Misses", y="Driver", orientation="h", text="Misses",
+                 title=title, color_discrete_sequence=[colour],
+                 custom_data=["What it means", "% of Total"],
+                 category_orders={"Driver": list(data["Driver"])})
+    fig.update_traces(opacity=.93, marker_line_width=0, cliponaxis=False,
+                      textposition="outside", textfont=dict(size=12, color="#f3f4f6"),
+                      hovertemplate="<b>%{y}</b> — %{x} miss(es), %{customdata[1]}"
+                                    "<br>%{customdata[0]}<extra></extra>")
+    fig.update_yaxes(tickfont=dict(size=12, color="#f3f4f6"), gridcolor="#303846", title="")
+    fig.update_xaxes(visible=False)
+    # `slots` pads the axis to the longest of the three lists rather than stretching this
+    # one's bars to fill the panel: three charts of equal height whose bars are three
+    # different thicknesses compare their own shapes, not their numbers. The padding is
+    # empty space below the last bar, which reads as "this root cause has fewer kinds".
+    rows = max(slots or len(data), len(data))
+    # px numbers the categories from the bottom, so the padded slots have to be added
+    # below the shortest list rather than above it -- otherwise a root cause with two
+    # drivers draws them at the foot of an empty panel.
+    fig.update_yaxes(range=[len(data) - rows - 0.5, len(data) - 0.5])
+    fig.update_layout(template="plotly_dark", plot_bgcolor="#1b1f26", paper_bgcolor="#1b1f26",
+                      font=dict(color="#f3f4f6", size=12), showlegend=False,
+                      margin=dict(l=4, r=44, t=10, b=8),
+                      height=max(150, rows * 34 + 40))
+    st.plotly_chart(fig, use_container_width=True)
+    return fig
+
+
+def takeaway(df):
+    """One sentence, every figure in it computed from the frame on screen.
+
+    Named the largest root cause and its two biggest drivers, or says plainly when there
+    is not enough in the filter to name them -- a takeaway that invents a finding when
+    the data has none is the horoscope problem in one line.
+    """
+    summary = root_summary(df)
+    if not summary:
+        return None
+    root, misses, share, _, colour = summary[0]
+    drivers = root_drivers(df, root, top=99)
+    drivers = drivers[~drivers["Driver"].isin([DRIVER_OTHER, NEEDS_REVIEW])]
+    if drivers.empty:
+        return (f"Most confirmed misses are concentrated in <b>{esc(root)}</b> "
+                f"({misses} of {int(sum(n for _, n, *_ in summary))}, {share:.0f}%).", colour)
+    top_two = drivers.head(2)
+    named = ", ".join(f"{r['Driver']} ({int(r['Misses'])})" for _, r in top_two.iterrows())
+    total = int(sum(n for _, n, *_ in summary))
+    return (f"Most confirmed misses are concentrated in <b>{esc(root)}</b> — "
+            f"{misses} of {total}, {share:.0f}% — primarily driven by <b>{esc(named)}</b>.",
+            colour)
 
 
 def miss_by_customer(df):
@@ -2086,7 +2272,7 @@ def root_frame(df):
         return pd.DataFrame(columns=cols)
     frame = pd.DataFrame({
         "Tracker value": df["Sub-type"].fillna("Blank").astype(str).str.strip(),
-        "_owner": df["Root Cause"].fillna("Blank").astype(str).map(lambda v: plain(v, PLAIN_ROOT)),
+        "_owner": df["Root Cause"].fillna("Blank").astype(str).str.strip(),
         "_miss": df.get("Missed_Flag", pd.Series(dtype=str)).astype(str).str.strip().eq("Yes"),
     })
     rows = []
@@ -2218,36 +2404,31 @@ if selected_page == "Executive Summary":
             if not biggest.empty else "no customer recorded"), "#b6beca")], columns=4)
 
     add_rule()
-    add_section("What customers sent us", "Two rings over the same filter. The left one is every "
-                "email, split into the three things an email can be. The right one takes only the "
-                "confirmed misses and splits them by who has to fix it — so the first answers "
-                "“is every complaint a failure” and the second “when we do fail, whose problem is it”.",
-                "#8ab4f8")
-    split, owners = overview_split(page), miss_owner_split(page)
-    left, right = st.columns(2)
+    add_section("What customers sent us", "Every email in the filter, in the three things an email "
+                "can be: one we confirmed as a miss, a complaint where we did report it and the "
+                "issue turned out to be something else, and a question about how coverage works. It "
+                "answers what a reader asks first — not every complaint is a failure, and not every "
+                "email is a complaint. Who has to fix the misses is the section below.", "#8ab4f8")
+    split = overview_split(page)
+    left, right = st.columns([3, 2])
     with left:
-        st.markdown("**Every email we received**")
         f_split = donut(split, colours=SPLIT_COLOURS, centre="customer<br>emails")
     with right:
-        st.markdown("**Only the confirmed misses**")
-        f_owner = donut(owners, colours=[OWNER_COLOURS.get(c, "#b6beca") for c in owners["Category"]],
-                        centre="confirmed<br>misses") if not owners.empty else None
+        if not split.empty:
+            excel_bar_table(split, "Category", label_head="Every email", value_head="Emails")
     if not split.empty:
-        excel_bar_table(split, "Category", label_head="Every email", value_head="Emails")
         downloads(split, "email_split", f_split)
-    if not owners.empty:
-        excel_bar_table(owners, "Category", label_head="Who fixes the miss", value_head="Misses")
-        downloads(owners, "miss_owner_split", f_owner)
 
     add_rule()
-    add_section("Why the events were missed", "Every email we confirmed as a miss, split by what "
-                "actually failed. There is no Other: the four largest kinds are named because the "
-                "owner changes the answer — an item a human reviewer saw and did not raise is "
-                "EventWatch Ops' to fix, one the model did not recognise is Product's — and every "
-                "other miss is listed under its own failure, however few emails carry it. "
-                "Colour says who fixes it: blue the platform, red our analysts, amber how we work.",
-                "#f28b82")
-    if cats.empty or int(cats["Records"].sum()) == 0:
+    add_section("Why the events were missed", "Two tiers. The cards are the three root causes the "
+                "tracker records, with who owns each one; under each card sit that root cause's "
+                "biggest failure drivers, in EventWatch's own terms — hover any bar for what the "
+                "term means. Everything is keyed on the Root Cause and Sub-type fields on the "
+                "record, never on how the customer worded it, and a pair that does not map to a "
+                "known driver is shown as Needs Review rather than talked into the nearest "
+                "heading.", "#f28b82")
+    roots = root_summary(page)
+    if not roots:
         st.info("No email in the current filter is flagged as a confirmed miss.")
     else:
         # The headline of the whole page, and the one number Product can act on. Computed
@@ -2259,13 +2440,37 @@ if selected_page == "Executive Summary":
             f"{bucket(MISS_BUCKETS[1][0])} because a source we do watch carried it and no keyword "
             f"matched. That is the size of the source-and-keyword problem; what to buy or build "
             f"against it is Product's call, not this dashboard's.</div>", unsafe_allow_html=True)
-        fig = ranked_bar(cats, "Category", "Records", colours=miss_colours(page, cats),
-                         title="Confirmed misses by what failed", x_title="Confirmed misses")
-        note = miss_recent_note(page)
+        cards = st.columns(len(roots))
+        for column, (root, n, share, owns, colour) in zip(cards, roots):
+            with column:
+                st.markdown(
+                    f"<div class='root-card' style='--accent:{colour}'>"
+                    f"<div class='rc-name'>{esc(root)}</div>"
+                    f"<div class='rc-num'>{n}</div>"
+                    f"<div class='rc-base'>of {missed} confirmed misses</div>"
+                    f"<div class='rc-share'>{share:.0f}%</div>"
+                    f"<div class='rc-desc'>{esc(owns)}</div></div>", unsafe_allow_html=True)
+        # One height for all three, from the longest list: three panels ending at three
+        # different depths reads as three unrelated charts rather than one comparison.
+        frames = {root: root_drivers(page, root) for root, *_ in roots}
+        slots = max((len(f) for f in frames.values()), default=1)
+        bars = st.columns(len(roots))
+        for column, (root, _, _, _, colour) in zip(bars, roots):
+            with column:
+                driver_bar(frames[root], colour, slots=slots)
+        line = takeaway(page)
+        if line:
+            text, colour = line
+            st.markdown(f"<div class='takeaway' style='--accent:{colour}'>{text}</div>",
+                        unsafe_allow_html=True)
+        note = root_recent_note(page)
         if note:
             st.caption(note)
-        excel_bar_table(cats, "Category", label_head="What failed", value_head="Misses")
-        downloads(cats, "miss_categories", fig)
+        drivers = driver_table(page)
+        excel_bar_table(drivers, "Driver", value_col="Misses",
+                        extras=["Root cause", "What it means"], label_head="Driver",
+                        value_head="Confirmed misses", variant="wide")
+        downloads(drivers, "miss_drivers")
 
     add_rule()
     add_section("Customers impacted", "Every account in the filter. Emails is every email that named "

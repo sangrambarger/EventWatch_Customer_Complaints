@@ -41,6 +41,33 @@ def reason_category_counts(df: pd.DataFrame) -> dict[str, int]:
     return dict(counts)
 
 
+def miss_buckets(df: pd.DataFrame) -> dict[str, int]:
+    """{bucket: misses}, recomputed from the CSV rather than imported from the app.
+
+    The four named rules are the ones where the owner changes the answer. There is no
+    residue bucket: every other missed email is counted under its own sub-type, in
+    English. Only the label map is imported, for the same reason REASON_CATEGORIES is --
+    a second copy of a wording would drift, and it is the numbers this audit checks.
+    """
+    sys.path.insert(0, str(REPO))
+    from app import PLAIN_SUBTYPE
+    missed = df[df["Missed_Flag"].astype(str).str.strip() == "Yes"]
+    sub = missed["Sub-type"].astype(str).str.strip()
+    root = missed["Root Cause"].astype(str).str.strip()
+    surfaced = ["Review", "Event Identification", "Prioritization"]
+    out = {
+        "Not in a source we watch": int((sub == "Source Coverage").sum()),
+        "Watched, but keywords missed it": int((sub == "Keyword Update").sum()),
+        "An analyst let it through": int((sub.isin(surfaced) & (root == "People")).sum()),
+        "The model did not spot it": int((sub.isin(surfaced) & (root == "Product")).sum()),
+    }
+    rest = missed[~((sub == "Source Coverage") | (sub == "Keyword Update")
+                    | (sub.isin(surfaced) & root.isin(["People", "Product"])))]
+    for value, n in rest["Sub-type"].astype(str).str.strip().value_counts().items():
+        out[PLAIN_SUBTYPE.get(value, value)] = int(n)
+    return out
+
+
 def expectations(df: pd.DataFrame) -> dict[str, dict[str, int]]:
     """{page: {label: count}} computed straight from the CSV, never from the app."""
     complaints = df[df["Issue Type"].astype(str).str.strip() == "Complaint"]
@@ -61,25 +88,18 @@ def expectations(df: pd.DataFrame) -> dict[str, dict[str, int]]:
     # Sub-type column rather than imported from app.py, so a bucket quietly redefined in
     # the app fails this audit instead of agreeing with itself.
     missed = df[df["Missed_Flag"].astype(str).str.strip() == "Yes"]
-    sub = missed["Sub-type"].astype(str).str.strip()
-    root = missed["Root Cause"].astype(str).str.strip()
-    surfaced = ["Review", "Event Identification", "Prioritization"]
-    miss_cats = {
-        "Not in a source we watch": int((sub == "Source Coverage").sum()),
-        "Watched, but keywords missed it": int((sub == "Keyword Update").sum()),
-        "An analyst let it through": int((sub.isin(surfaced) & (root == "People")).sum()),
-        "The model did not spot it": int((sub.isin(surfaced) & (root == "Product")).sum()),
-    }
-    # There is no residue bucket any more: every other missed email is counted under its
-    # own sub-type, in English. The counts are recomputed here from the CSV; only the
-    # label map is imported, for the same reason REASON_CATEGORIES is -- a second copy of
-    # a wording would drift, and it is the numbers this audit exists to check.
+    miss_cats = miss_buckets(df)
+
+    # "Why the events were missed" names each miss by EventWatch's own term for it,
+    # keyed on the (Root Cause, Sub-type) pair the record actually carries. Counted here
+    # from the CSV; only the label map is imported, as with the buckets above.
     sys.path.insert(0, str(REPO))
-    from app import PLAIN_SUBTYPE
-    rest = missed[~((sub == "Source Coverage") | (sub == "Keyword Update")
-                    | (sub.isin(surfaced) & root.isin(["People", "Product"])))]
-    for value, n in rest["Sub-type"].astype(str).str.strip().value_counts().items():
-        miss_cats[PLAIN_SUBTYPE.get(value, value)] = int(n)
+    from app import DRIVERS, NEEDS_REVIEW
+    drivers: collections.Counter = collections.Counter()
+    for _, row in missed.iterrows():
+        pair = (str(row["Root Cause"]).strip(), str(row["Sub-type"]).strip())
+        drivers[DRIVERS.get(pair, (NEEDS_REVIEW, ""))[0]] += 1
+    assert sum(drivers.values()) == len(missed), "drivers do not sum to the misses"
     assert sum(miss_cats.values()) == len(missed), "miss buckets do not sum to the misses"
 
     # "Missed event types" counts the confirmed misses only -- the block it replaced
@@ -99,7 +119,7 @@ def expectations(df: pd.DataFrame) -> dict[str, dict[str, int]]:
 
     # Every page counts every record the customer sent in -- complaints and inquiries.
     return {
-        "Executive Summary": {**split_all, **miss_cats, **miss_types, **inbox,
+        "Executive Summary": {**split_all, **dict(drivers), **miss_types, **inbox,
                               **reason_category_counts(df)},
         "SOURCE 02 · Fix status": counts(df, "Short Term Fix Status"),
         "SOURCE 03 · Severity": counts(df, "Severity"),
@@ -133,6 +153,63 @@ def scrape(url: str, pages: list[str]) -> dict[str, list[list[list[str]]]]:
                 "ts => ts.map(t => Array.from(t.querySelectorAll('tr'))"
                 "        .map(r => Array.from(r.querySelectorAll('th,td')).map(c => c.innerText.trim())))")
         browser.close()
+    return out
+
+
+def reconciled_totals(df: pd.DataFrame) -> dict[str, dict[str, int]]:
+    """{page: {column header: the figure its Total row must show}}.
+
+    Customers impacted is the one table whose rows double-count on purpose: accounts
+    split on the slash, so an email naming two of them sits on both rows. Its foot has to
+    carry the tracker's own distinct counts -- it printed 120 emails against a tracker of
+    115, and 27 / 24 / 13 where the chart above it said 26 / 23 / 12, before this check
+    existed. Everything else is checked against the column above it.
+    """
+    issue = df["Issue Type"].astype(str).str.strip()
+    exec_page = {
+        "EMAILS": len(df),
+        "COMPLAINTS": int(issue.eq("Complaint").sum()),
+        "INQUIRIES": int(issue.eq("Inquiry").sum()),
+        "CONFIRMED MISSES": int(df["Missed_Flag"].astype(str).str.strip().eq("Yes").sum()),
+    }
+    exec_page.update({k.upper(): v for k, v in miss_buckets(df).items()})
+    return {"Executive Summary": exec_page}
+
+
+def total_row_problems(page: str, tables, df: pd.DataFrame, reconciled) -> list[str]:
+    """Every rendered Total row, checked against the column above it or against the CSV.
+
+    A total that silently disagrees with its own column is arithmetic nobody sees; a
+    total that disagrees with the tracker is worse, because the reader trusts the foot
+    over the rows. Both have shipped here. Columns whose foot is a formatted string
+    (a share, a blank) carry no plain integer and are skipped.
+    """
+    out = []
+    for rows in tables:
+        if len(rows) < 3:
+            continue
+        head = [c.strip().upper() for c in rows[0]]
+        total = next((r for r in rows[1:] if r and r[0].strip().lower() == "total"), None)
+        if total is None:
+            continue
+        body = [r for r in rows[1:] if r is not total and len(r) == len(head)]
+        for i, column in enumerate(head):
+            if i >= len(total):
+                continue
+            shown = re.fullmatch(r"-?\d+", total[i].replace(",", ""))
+            if not shown:
+                continue                                  # a share, a label, a blank
+            shown = int(shown.group(0))
+            fixed = reconciled.get(page, {}).get(column)
+            if fixed is not None:
+                want, why = int(fixed), "the tracker"
+            else:
+                cells = [re.fullmatch(r"-?\d+", r[i].replace(",", "")) for r in body]
+                if any(c is None for c in cells) or not cells:
+                    continue                              # a mixed column; nothing to sum
+                want, why = sum(int(c.group(0)) for c in cells), "the rows above it"
+            if shown != want:
+                out.append(f"{page}: Total row shows {shown} for {column!r}, {why} says {want}")
     return out
 
 
@@ -185,7 +262,12 @@ def main() -> int:
         except subprocess.TimeoutExpired: proc.kill()
 
     problems = []
+    totals_checked = 0
+    reconciled = reconciled_totals(df)
     for page, expected in want.items():
+        problems += total_row_problems(page, scraped[page], df, reconciled)
+        totals_checked += sum(1 for rows in scraped[page]
+                              if any(r and r[0].strip().lower() == "total" for r in rows[1:]))
         got = pairs(scraped[page])
         checked = missing = 0
         for label, n in sorted(expected.items(), key=lambda kv: -kv[1]):
@@ -197,7 +279,10 @@ def main() -> int:
             checked += 1
             if n not in got[label]:
                 problems.append(f"{page}: {label!r} shows {sorted(got[label])}, tracker says {n}")
+        feet = sum(1 for rows in scraped[page]
+                   if any(r and r[0].strip().lower() == "total" for r in rows[1:]))
         note = f"{checked} label(s) reconciled" + (f", {missing} not rendered (top-N cut)" if missing else "")
+        note += f", {feet} total row(s) checked" if feet else ""
         print(f"{page:34s} {note}")
 
     if problems:
@@ -205,7 +290,8 @@ def main() -> int:
         for p_ in problems:
             print(f"  ✗ {p_}")
         return 1
-    print(f"\nPASS — every rendered figure across {len(want)} page(s) matches the tracker.")
+    print(f"\nPASS — every rendered figure across {len(want)} page(s) matches the tracker, "
+          f"{totals_checked} total row(s) included.")
     return 0
 
 
