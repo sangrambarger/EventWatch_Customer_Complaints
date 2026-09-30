@@ -412,13 +412,31 @@ built from, not the sum of the strings in it.
    **every** account in a scrolling table. The row carries **both bases**: `Emails` with
    `Complaints` and `Inquiries` beside it (every email that named the account), then the
    failure columns and `Misses` (confirmed misses only, a smaller number from a different
-   base). "44" on its own does not say 44 of what. Accounts split on the slash, so the
-   Emails total is larger than the tracker holds -- the total row shows that rather than
-   hiding it. It is a scroll box, not a collapsed expander: a collapsed expander lays out
-   at zero height, so `innerText` reads empty and `audit_pages.py` silently stops
-   reconciling every row it hides. All 33 accounts are audited because of that choice,
-   and the table is `variant="wide"` so seventeen columns do not wrap every header into
-   seven lines.
+   base). "44" on its own does not say 44 of what. It is a scroll box, not a collapsed
+   expander: a collapsed expander lays out at zero height, so `innerText` reads empty and
+   `audit_pages.py` silently stops reconciling every row it hides. All 33 accounts are
+   audited because of that choice, and the table is `variant="wide"` so seventeen columns
+   do not wrap every header into seven lines. The total row is `position:sticky` at the
+   foot of the box (`stickytotal`, added only when `height` is set -- on a table that does
+   not scroll, `bottom:0` would pin the row to the *page's* scroll instead), because
+   otherwise the one row a reader opens the table for sits twenty-three rows below the
+   fold.
+
+   **Its total row does not add the columns up, and that is the fix for a real bug.** The
+   rows deliberately double-count: accounts split on the slash, so an email naming two of
+   them appears on both rows. Adding the columns gave **120 emails against a tracker of
+   115**, 81 misses against 78, and 27 / 24 / 13 where the miss chart directly above said
+   26 / 23 / 12 -- a table whose own total contradicted every other number on the page,
+   which is the first thing a reader challenges. Exactly five emails name two accounts
+   (three `Ford/GM`, one `Eaton/Ford`, one `Penske/Ford`), three of them misses.
+   `customer_totals()` returns the distinct counts and `excel_bar_table(..., totals=...)`
+   prints those, with a computed caption naming the overshoot so the gap is explained
+   rather than noticed. The `% of Total` column keys on the tracker's own miss count too
+   -- it was a share of the exploded 81, a base that appears nowhere else.
+
+   **The general rule: a total row is a reconciliation, not a sum.** Where the rows
+   double-count on purpose, the foot has to carry the figure the rest of the dashboard
+   uses, and the caption has to say why they differ.
 5. **Missed event types** -- `missed_event_types()`, over the **confirmed misses only**.
    The block this replaced carried the same heading and counted every email, which
    answered a different question from the one it asked.
