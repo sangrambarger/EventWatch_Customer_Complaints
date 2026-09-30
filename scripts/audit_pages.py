@@ -66,11 +66,21 @@ def expectations(df: pd.DataFrame) -> dict[str, dict[str, int]]:
     surfaced = ["Review", "Event Identification", "Prioritization"]
     miss_cats = {
         "Not in a source we watch": int((sub == "Source Coverage").sum()),
-        "Watched, but terms missed it": int((sub == "Keyword Update").sum()),
+        "Watched, but keywords missed it": int((sub == "Keyword Update").sum()),
         "An analyst let it through": int((sub.isin(surfaced) & (root == "People")).sum()),
         "The model did not spot it": int((sub.isin(surfaced) & (root == "Product")).sum()),
     }
-    miss_cats["Other failures"] = int(len(missed)) - sum(miss_cats.values())
+    # There is no residue bucket any more: every other missed email is counted under its
+    # own sub-type, in English. The counts are recomputed here from the CSV; only the
+    # label map is imported, for the same reason REASON_CATEGORIES is -- a second copy of
+    # a wording would drift, and it is the numbers this audit exists to check.
+    sys.path.insert(0, str(REPO))
+    from app import PLAIN_SUBTYPE
+    rest = missed[~((sub == "Source Coverage") | (sub == "Keyword Update")
+                    | (sub.isin(surfaced) & root.isin(["People", "Product"])))]
+    for value, n in rest["Sub-type"].astype(str).str.strip().value_counts().items():
+        miss_cats[PLAIN_SUBTYPE.get(value, value)] = int(n)
+    assert sum(miss_cats.values()) == len(missed), "miss buckets do not sum to the misses"
 
     # "Missed event types" counts the confirmed misses only -- the block it replaced
     # counted every email under the same heading, and that is exactly the kind of quiet

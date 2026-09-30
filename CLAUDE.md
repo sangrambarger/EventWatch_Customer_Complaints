@@ -233,25 +233,13 @@ The Open items page is now open work only. `open_items()` returns the `Pending` 
 the cards are Still open / Oldest open item / Closed, and the page carries the per-owner
 queue, the pending list and the RCA text on file.
 
-`insights()` states what the data shows, as KPI cards, at the **foot** of the Executive
-Summary -- it used to sit at the top, where it competed with the eight cards that open
-the page for the same glance.  Its headline number is the current share (`27%`, footed
-"of the last 3 months, up from 12%") rather than the difference between two shares
-(`+15 pts`), because a point difference asks the reader to hold both shares in their
-head to know what it is 15 of.  Sub-type names on these cards go through
-`PLAIN_SUBTYPE`, like every other label on the page. Six frequency tables answer "what is there"; nobody was reading "what changed"
-out of them. It computes sub-type drift over two windows, customer concentration,
-accounts whose every record was a confirmed miss, and the worst recurring
-customer+sub-type pair -- all from the frame on screen, so it respects
-the filters and cannot disagree with the tables below it. **A finding that does not clear
-its own threshold is not shown**: an insight panel that always finds something is a
-horoscope. Each finding is a card -- claim, the number that *is* the claim, the count
-behind it -- because as full-sentence panels they read as a wall of prose nobody
-finished. A finding that needs three sentences to land is not a finding. **At most four
-are returned**, in priority order, so the row stays one row: the worst recurring
-customer+sub-type pair is the one that drops, and it is the most redundant of the four
-when the two cards beside it already name that same account and that same sub-type. Its
-value reads `11 records` rather than `11x`, which said 11 of what to nobody.
+`insights()` is gone, and with it the "What stands out this period" panel at the foot of
+the Executive Summary. It computed sub-type drift over two windows, customer
+concentration, accounts whose every email was a miss and the worst recurring
+customer+sub-type pair. Every one of those is now said better by a section above it: the
+eight cards carry the concentration, the trend section carries the movement, and the
+root-cause table carries the recurring failure with its own denominator beside it. A
+panel that restates the page in different words is a panel a reader has to reconcile.
 
 `kpis(items, columns=n)` sizes the grid to the count. Both the auto-fitting variant and
 a fixed five were wrong: auto-fit wrapped a five-card row to four-plus-one on any window
@@ -260,18 +248,32 @@ leaves a hole when there are four. Pass the count. The ticket-
 traceability finding was dropped: it measured when the EAO project started, which is
 the same recording artifact the June rule above warns about.
 
-**`miss_categories()`** splits the missed emails by what actually failed and
-**who fixes it**: `Not in a source we watch` (Sub-type `Source Coverage`), `Watched, but
-terms missed it` (`Keyword Update`), `An analyst let it through` and `The model did not
-spot it` (both `Review` / `Event Identification` / `Prioritization`, separated by
-`Root Cause` People against Product), and `Other failures`. It runs
-23 / 12 / 26 / 6 / 11 of 78, so the biggest single cause over the whole tracker is an
-analyst miss, three ahead of source coverage. The five are named in English rather than
-in the tracker's taxonomy because they are read by people outside the team, and
-`audit_pages.py` recomputes all five from the CSV **under the same names** -- so a
-bucket renamed in `app.py` and not in the audit fails it rather than quietly ceasing to
-be checked (the audit records a label it cannot find as "not rendered", not as a
-mismatch).
+**`miss_categories()` has no `Other` bucket, and that is deliberate.** `MISS_BUCKETS`
+holds only the four rules where the **owner changes the answer** -- `Not in a source we
+watch` (Sub-type `Source Coverage`), `Watched, but keywords missed it` (`Keyword
+Update`), `An analyst let it through` and `The model did not spot it` (both `Review` /
+`Event Identification` / `Prioritization`, split on `Root Cause` People against Product).
+Every other missed email takes a bucket **named after its own sub-type**, generated in
+`miss_bucket_series()` from `PLAIN_SUBTYPE`. Eleven buckets on the current data:
+26 / 23 / 12 / 6, then supplier not linked 2, a convention not explained 2, captured too
+late 2, published but never showed 2, industry tag 1, scoring or rules 1, no WarRoom 1.
+
+A residue bucket is how eleven real and different failures became one grey slice nobody
+could act on, and it also hides a sub-type added to the tracker tomorrow -- which would
+land in `Other` and never be seen. Generating the tail means a new value appears under
+its own name, because `plain()` falls back to the value itself.
+
+Eleven categories is past where a donut works, so the block is a **ranked horizontal
+bar**, biggest first, and colour says *who fixes it* (`miss_colours()`: the four named
+buckets keep theirs, the rest take their dominant owner's) rather than trying to give
+eleven buckets eleven hues. Every bar carries its own name, count and share, so nothing
+rests on colour alone.
+
+`audit_pages.py` recomputes every bucket from the CSV **under the same names** -- the
+four rules independently, the tail by sub-type through an imported `PLAIN_SUBTYPE` -- and
+asserts they sum to the miss count. A bucket renamed in `app.py` and not in the audit
+fails it rather than quietly ceasing to be checked (the audit records a label it cannot
+find as "not rendered", not as a mismatch).
 
 `miss_bucket_series()` is the one implementation: it returns the bucket for each row and
 `miss_categories()`, the per-account table and everything else aggregate it, so no two
@@ -371,11 +373,24 @@ which is worse.
 and SOURCE 06 are those pages, and repeating them here made the Executive Summary a
 scroll rather than a summary.
 
+**The `Event type` value is `Legal Action`, not `Litigation/Legal`.** Renamed on both
+rows that carry it (EAO-17 and EAO-46) with `update_row.py`, and on the Definitions
+sheet -- that row is an inline string appearing once on sheet3, so it was renamed in
+place rather than added and pruned, which leaves the row, its styles, `DefinitionsTable`'s
+ref and the sheet `dimension` untouched. `refresh_caches.py` then rewrote the Event Type
+spill cache on the Dashboard, which carried the old value.
+
 ## The Executive Summary, section by section
 
 The page is a story in eight parts, separated by `add_rule()` -- a full-width hairline,
 because the heading card alone was not enough and two adjacent sections read as one.
 Every section is chart-then-table, in that order, so the eye learns the shape once.
+
+**Every table on the page carries a Total row** (`excel_bar_table(..., total_row=True)`,
+which is the default). It is summed inside the table function rather than by a generic
+helper, because the share column is a formatted string: "29.5%" cannot be added up after
+the fact, and the total of a column of shares is 100% of whatever base the table was
+built from, not the sum of the strings in it.
 
 1. **Eight cards**, two rows of four via `kpis(..., columns=4)`. Never eight across: at
    the width this is read at that is 180px a card, and the number is the first thing to
@@ -386,34 +401,47 @@ Every section is chart-then-table, in that order, so the eye learns the shape on
    second is true of all 78 misses, so it stops contrasting with the card beside it.
 2. **What customers sent us** -- two donuts. `overview_split()` is all 115 in three
    mutually exclusive parts (78 misses / 17 complaints that were not / 20 inquiries);
-   `miss_owner_split()` is the 78 by who fixes them, in `PLAIN_ROOT` words.
-3. **Why the events were missed** -- the five buckets, with the page's headline
-   underneath: *N of 78 misses never entered our system*, computed from the first two
-   buckets so it cannot go stale. That sentence is the number Product sizes the
+   `miss_owner_split()` is the 78 by who fixes them, in `PLAIN_ROOT` words. Three slices
+   each, which is what a donut is for.
+3. **Why the events were missed** -- the eleven buckets as a `ranked_bar()`, with the
+   page's headline above it: *N of 78 misses never entered our system*, computed from the
+   first two buckets so it cannot go stale. That sentence is the number Product sizes the
    source-and-keyword problem with; what to buy against it is deliberately not on the
    dashboard.
 4. **Customers impacted** -- `miss_by_customer()`, the eight worst as a stacked bar and
-   **every** account in a scrolling table. A scroll box, not a collapsed expander: a
-   collapsed expander lays out at zero height, so `innerText` reads empty and
-   `audit_pages.py` silently stops reconciling every row it hides. All 33 accounts are
-   audited because of that choice.
+   **every** account in a scrolling table. The row carries **both bases**: `Emails` with
+   `Complaints` and `Inquiries` beside it (every email that named the account), then the
+   failure columns and `Misses` (confirmed misses only, a smaller number from a different
+   base). "44" on its own does not say 44 of what. Accounts split on the slash, so the
+   Emails total is larger than the tracker holds -- the total row shows that rather than
+   hiding it. It is a scroll box, not a collapsed expander: a collapsed expander lays out
+   at zero height, so `innerText` reads empty and `audit_pages.py` silently stops
+   reconciling every row it hides. All 33 accounts are audited because of that choice,
+   and the table is `variant="wide"` so seventeen columns do not wrap every header into
+   seven lines.
 5. **Missed event types** -- `missed_event_types()`, over the **confirmed misses only**.
    The block this replaced carried the same heading and counted every email, which
    answered a different question from the one it asked.
 6. **Nature of complaints** -- the eight `REASON_CATEGORIES`, the same vocabulary the
    All customer emails tab defines and lists the wordings behind.
-7. **Is it getting better?** -- `trend_windows()` / `trend_chart()`: nine monthly points,
-   plus the last three months and the three before drawn as flat shelves **over their own
-   months**, so what each average is the average of is visible rather than asserted.
-   Both pooled on counts. The two values ride in the legend, not as annotations -- as
-   annotations they crossed the monthly line wherever the two met. Only the signed delta
-   is drawn on the plot.
-8. **The deeper root cause** -- two sunbursts, all emails and misses only, inner ring
-   `PLAIN_ROOT`, outer ring `PLAIN_SUBTYPE`. Anything under four emails folds into one
-   `Other (N kinds)` per owner, and `uniformtext` **hides** a label rather than shrinking
-   it below 11px: a four-record wedge carrying five words of unreadable type is worse
-   than a wedge with no label, since the arc still shows the size, the hover still names
-   it and the table below lists every row.
+7. **Is it getting better?** -- `trend_chart()` is **one bar per month**, its percentage
+   printed on it, the last three months blue and the three before grey, months outside
+   both windows dark so they cannot be mistaken for part of the comparison. It was a line
+   with two flat shelves drawn over it and a signed delta on the plot, and a reader had
+   to be told what the shelves meant before the chart said anything. The comparison is
+   stated in words by `missed_verdict()` above the chart instead of drawn into it, and
+   `trend_table()` puts the months underneath with a total whose rate is **pooled, not
+   averaged**.
+8. **The deeper root cause** -- `root_frame()` and `grouped_bar()`: every failure in the
+   taxonomy on its own row, two bars each -- how many emails named it, and how many of
+   those were confirmed misses. Both numbers together is the point: `Review` is 22 emails
+   of which 19 were misses, `Process Clarification` is 13 of which 2 were, and a chart of
+   misses alone cannot say which failures we mostly get away with. It replaced two
+   sunbursts whose outer rings were unequal wedges where past the biggest four no label
+   would fit. Keyed on the failure, **not** on failure-and-owner: the same sub-type sits
+   under two owners on several rows and a y axis that repeats a label silently merges
+   them, so the owners are a column naming them with their counts. **Nothing is folded
+   into an `Other`**, however few emails carry it.
 
 **`PLAIN_ROOT` and `PLAIN_SUBTYPE` translate the taxonomy, they do not replace it.**
 `Root Cause` and `Sub-type` are the vocabulary of the people who file the records, and on
