@@ -399,15 +399,32 @@ built from, not the sum of the strings in it.
    overlooked`, the last three months' rate, and the largest account's share of the
    whole page). **`Never captured by us`, not "never notified to customers"** -- the
    second is true of all 78 misses, so it stops contrasting with the card beside it.
-2. **What customers sent us** -- two donuts. `overview_split()` is all 115 in three
-   mutually exclusive parts (78 misses / 17 complaints that were not / 20 inquiries);
-   `miss_owner_split()` is the 78 by who fixes them, in `PLAIN_ROOT` words. Three slices
-   each, which is what a donut is for.
-3. **Why the events were missed** -- the eleven buckets as a `ranked_bar()`, with the
-   page's headline above it: *N of 78 misses never entered our system*, computed from the
-   first two buckets so it cannot go stale. That sentence is the number Product sizes the
+2. **What customers sent us** -- one donut. `overview_split()` is all 115 in three
+   mutually exclusive parts (78 misses / 17 complaints that were not / 20 inquiries),
+   which is what a donut is for. The second ring, which split the misses by who fixes
+   them, was **removed**: the three cards in section 3 say the same 46 / 29 / 3 with an
+   ownership line beside each, and two views of one split two hundred pixels apart is
+   exactly what makes a dashboard hard to read. `PLAIN_ROOT` went with it, so root cause
+   now reads `Product` / `People` / `Process` everywhere on the page rather than in one
+   vocabulary here and another in section 8.
+3. **Why the events were missed** -- two tiers, and the page's headline above both:
+   *N of 78 misses never entered our system*, computed from the source and keyword
+   buckets so it cannot go stale. That sentence is the number Product sizes the
    source-and-keyword problem with; what to buy against it is deliberately not on the
    dashboard.
+
+   **Top tier**: `root_summary()` gives one card per root cause, biggest first -- the
+   count, its share of all confirmed misses, and who owns it (`ROOT_OWNERSHIP`: Product
+   *Detection and system coverage*, People *Analyst assessment and review*, Process
+   *Workflow and control*). Blue, muted coral and amber, the app's own `--blue`, `--red`
+   and `--amber`.
+
+   **Bottom tier**: `root_drivers()` under each card, the top four drivers biggest first,
+   then one `Other` row whose hover names what is in it. All three charts pad their axis
+   to the longest list (`slots`) rather than stretching their bars to fill the panel:
+   equal panel height with three different bar thicknesses compares shapes, not numbers.
+   `takeaway()` states the finding underneath in one computed sentence, and
+   `driver_table()` lists every driver with its meaning and a Total row.
 4. **Customers impacted** -- `miss_by_customer()`, the eight worst as a stacked bar and
    **every** account in a scrolling table. The row carries **both bases**: `Emails` with
    `Complaints` and `Inquiries` beside it (every email that named the account), then the
@@ -461,15 +478,34 @@ built from, not the sum of the strings in it.
    them, so the owners are a column naming them with their counts. **Nothing is folded
    into an `Other`**, however few emails carry it.
 
-**`PLAIN_ROOT` and `PLAIN_SUBTYPE` translate the taxonomy, they do not replace it.**
-`Root Cause` and `Sub-type` are the vocabulary of the people who file the records, and on
-a leadership page they say nothing -- `Review`, the largest People bucket, is the vaguest
-word in the file. The tracker keeps its own wording because that is the record; only the
-chart label is translated, and the tracker term travels beside it in the table so an
-analyst can tie any slice back to a field. `plain()` falls back to the value itself, so a
-term added tomorrow appears as itself rather than vanishing. `Review` reads "Reviewed,
-and not raised" rather than naming the analyst, because it sits under **both** People and
-Product and a label naming the analyst is wrong on the Product rows.
+**`DRIVERS` is keyed on `(Root Cause, Sub-type)` -- never on the display wording.**
+It gives each pair EventWatch's own name for the failure and the same thing in plain
+English: the term is what the chart prints, the plain English rides on the hover and
+fills a column of the table, so the page reads to a VP without costing an analyst the
+word they file records under. `Source Coverage` is `Source Miss`, `Keyword Update` is
+`Keyword Miss`, Product-rooted `Review` / `Event Identification` / `Prioritization` /
+`Relevancy` are all `Model Miss`, People-rooted `Review` is `People / Analyst Miss`, and
+Process-rooted `Visibility` and `WarRoom Creation` are both `WarRoom Issue` -- the
+tooltip for which says "missing, delayed, duplicated, or not visible", which is why both
+belong to it.
+
+**A pair that is not in the map counts as `Needs Review`, and never folds into `Other`.**
+Three emails land there today and both are worth looking at: a Product row whose Comments
+describe a WarRoom that was never created, and two People rows -- a late SEC notification
+and a late capture -- that the People vocabulary has no term for. Talking those into the
+nearest plausible heading is how a taxonomy stops meaning anything, and burying them in
+`Other` is how a mis-filed row stays mis-filed. `Needs Review` is a data-quality signal,
+so it is always its own row.
+
+**`PLAIN_SUBTYPE` still translates the taxonomy for the tables, and does not replace it.**
+`Sub-type` is the vocabulary of the people who file the records, and on a leadership page
+it says nothing -- `Review`, the largest People bucket, is the vaguest word in the file.
+The tracker keeps its own wording because that is the record; only the label is
+translated, and the tracker value travels beside it in the table so an analyst can tie
+any row back to a field. `plain()` falls back to the value itself, so a term added
+tomorrow appears as itself rather than vanishing. `Review` reads "Reviewed, and not
+raised" rather than naming the analyst, because it sits under **both** People and Product
+and a label naming the analyst is wrong on the Product rows.
 
 **No RCA figure appears on this page**, for the reason set out under "No RCA figure is
 published anywhere" above -- and it is gone from every other page too, so the dashboard
@@ -549,6 +585,19 @@ computed independently from the CSV. A page bound to a stale frame, a filter qui
 dropping rows, or a chart truncating a category all look identical to `smoke_app.py`;
 this names the label and both numbers. It found the app showing Ford as 41, 37 and 32
 on three pages at once.
+
+**It also checks every Total row** (`total_row_problems`), because a foot that disagrees
+with its own column is arithmetic nobody sees, and a foot that disagrees with the tracker
+is worse -- a reader trusts the foot over the rows. Both have shipped here. Each rendered
+Total is compared against the sum of the column above it, except for the columns in
+`reconciled_totals()`: Customers impacted double-counts on purpose, so its foot is
+checked against the CSV instead. The check paid for itself on the run that introduced it,
+naming three bucket columns still adding to 27 / 24 / 13 where the chart above them said
+26 / 23 / 12. Columns whose foot is a formatted string -- a share, a blank -- carry no
+plain integer and are skipped. 16 feet across 9 pages today.
+
+`miss_buckets()` in that script is the one recomputation of the miss buckets, used by
+both the label check and the Total-row reconciliation, so the two cannot drift apart.
 
 Every page counts **all records — complaints and inquiries together** — and every count
 table carries explicit `Complaints` and `Inquiries` columns beside the total, with the
