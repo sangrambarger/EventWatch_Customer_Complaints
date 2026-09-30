@@ -255,7 +255,7 @@
           "Standard event category. Covers counterfeit-risk intelligence and advisory requests as well as confirmed incidents."
         ],
         [
-          "Litigation/Legal",
+          "Legal Action",
           "Lawsuit, legal proceeding, or enforcement action involving a supplier or customer-linked entity.",
           "Standard event category. Use where the legal action itself is the event; use Regulatory Change for a rule, sanction, or export-control change."
         ],
