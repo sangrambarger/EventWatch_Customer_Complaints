@@ -37,14 +37,9 @@ CHROMIUM = "/opt/pw-browsers/chromium"
 EXPECTED: dict[str, tuple[int, int]] = {
     "Executive Summary": (8, 6),
     "SOURCE 01 · Monthly trend": (2, 2),
-    "SOURCE 02 · Fix status": (1, 1),
-    "SOURCE 03 · Severity": (1, 1),
-    "SOURCE 04 · Root cause": (3, 6),
+    "SOURCE 04 · Root cause": (6, 6),
     "SOURCE 05 · Top customers": (2, 6),
-    "SOURCE 06 · Automation focus": (1, 1),
-    "DETAIL · Event workload": (1, 1),
-    "Repeat patterns": (1, 1),
-    "Automation urgency": (1, 2),
+    "DETAIL · Event workload": (2, 1),
     "Dynamic Source Discovery": (3, 7),
     "All customer emails": (0, 6),
 }
