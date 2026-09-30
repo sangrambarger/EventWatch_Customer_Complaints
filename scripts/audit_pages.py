@@ -56,15 +56,19 @@ def miss_buckets(df: pd.DataFrame) -> dict[str, int]:
     root = missed["Root Cause"].astype(str).str.strip()
     surfaced = ["Review", "Event Identification", "Prioritization"]
     out = {
-        "Not in a source we watch": int((sub == "Source Coverage").sum()),
-        "Watched, but keywords missed it": int((sub == "Keyword Update").sum()),
+        PLAIN_SUBTYPE["Source Coverage"]: int((sub == "Source Coverage").sum()),
+        PLAIN_SUBTYPE["Keyword Update"]: int((sub == "Keyword Update").sum()),
         "An analyst let it through": int((sub.isin(surfaced) & (root == "People")).sum()),
         "The model did not spot it": int((sub.isin(surfaced) & (root == "Product")).sum()),
     }
     rest = missed[~((sub == "Source Coverage") | (sub == "Keyword Update")
                     | (sub.isin(surfaced) & root.isin(["People", "Product"])))]
+    # `+=`, not `=`. Two pairs of sub-types deliberately share a label, and an assignment
+    # here made the second value overwrite the first -- the audit would then have read a
+    # bucket of 2 as a bucket of 1 and called the app wrong.
     for value, n in rest["Sub-type"].astype(str).str.strip().value_counts().items():
-        out[PLAIN_SUBTYPE.get(value, value)] = int(n)
+        label = PLAIN_SUBTYPE.get(value, value)
+        out[label] = out.get(label, 0) + int(n)
     return out
 
 

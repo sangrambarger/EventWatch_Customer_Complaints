@@ -35,9 +35,7 @@ CHROMIUM = "/opt/pw-browsers/chromium"
 # page -> (minimum charts, minimum tables). A page that should draw a chart but
 # renders zero is the exact symptom of the bug this script exists to catch.
 EXPECTED: dict[str, tuple[int, int]] = {
-    "Executive Summary": (6, 5),
-    "Delivery performance": (1, 1),
-    "Open items": (0, 4),
+    "Executive Summary": (8, 6),
     "SOURCE 01 · Monthly trend": (2, 2),
     "SOURCE 02 · Fix status": (1, 1),
     "SOURCE 03 · Severity": (1, 1),
@@ -48,7 +46,6 @@ EXPECTED: dict[str, tuple[int, int]] = {
     "Repeat patterns": (1, 1),
     "Automation urgency": (1, 2),
     "Dynamic Source Discovery": (3, 7),
-    "Definitions": (0, 12),
     "All customer emails": (0, 6),
 }
 
