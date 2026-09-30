@@ -1,5 +1,9 @@
-streamlit>=1.37
+# streamlit >=1.63 because `st.plotly_chart(use_container_width=...)` was removed
+# after 2025-12-31 and every chart here now passes `width="stretch"` instead. A
+# Cloud build that resolved an older streamlit would not have the `width` argument.
+streamlit>=1.63
 pandas>=2.0
 openpyxl>=3.1
 plotly>=5.20
+# scripts/jira_sync.py only -- app.py makes no network calls and must not import it.
 requests>=2.31

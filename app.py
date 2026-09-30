@@ -799,7 +799,7 @@ def chart(df, label_col, value_col="Records", title="", x_title="Records"):
     fig.update_traces(opacity=.92, cliponaxis=False, marker_line_width=0)
     if not parts: fig.update_traces(textposition="outside")
     fig.update_layout(template="plotly_dark", plot_bgcolor="#1b1f26", paper_bgcolor="#1b1f26", font=dict(color="#f3f4f6", size=13), margin=dict(l=20, r=60, t=64 if parts else 44, b=28), height=max(360, min(760, len(data) * 38 + 150)), showlegend=bool(parts))
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
     return fig
 
 
@@ -1106,7 +1106,7 @@ def donut(t, label_col="Category", value_col="Records", colours=None, centre="",
         annotations=[dict(text=f"<b style='font-size:30px'>{total}</b><br>{centre}",
                           x=0.5, y=0.5, showarrow=False,
                           font=dict(size=13, color="#b6beca"))])
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
     return fig
 
 
@@ -1143,7 +1143,7 @@ def heatmap(grid, title=""):
                       font=dict(color="#f3f4f6", size=13), coloraxis_showscale=False,
                       margin=dict(l=20, r=30, t=70, b=30),
                       height=max(380, len(grid.index) * 32 + 150))
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
     return fig
 
 
@@ -1211,7 +1211,7 @@ def dumbbell(frame, label_col, start_col, end_col, title=""):
                       legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0), legend_title_text="",
                       margin=dict(l=20, r=110, t=70, b=40),
                       height=max(340, len(data) * 36 + 150))
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
     return fig
 
 
@@ -1246,7 +1246,7 @@ def proportion_bar(frame, label_col, part_col, whole_col, part_name, rest_name, 
                       legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0), legend_title_text="",
                       margin=dict(l=20, r=40, t=70, b=30),
                       height=max(320, len(data) * 40 + 150))
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
     return fig
 
 
@@ -1263,7 +1263,7 @@ def rate_chart(df, x_col, y_col, title="", suffix="%"):
     fig.update_layout(template="plotly_dark", plot_bgcolor="#1b1f26", paper_bgcolor="#1b1f26",
                       font=dict(color="#f3f4f6", size=13), margin=dict(l=20, r=40, t=44, b=28),
                       height=380, showlegend=False)
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
     return fig
 
 
@@ -2069,7 +2069,7 @@ def driver_bar(frame, colour, title="", slots=None):
                                       font=dict(color="#f3f4f6", size=12)),
                       margin=dict(l=4, r=44, t=10, b=8),
                       height=max(150, rows * 34 + 40))
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
     return fig
 
 
@@ -2249,7 +2249,7 @@ def stacked_bar(frame, label_col, parts, colours, title="", x_title="Records", r
                       font=dict(color="#f3f4f6", size=13),
                       margin=dict(l=20, r=40, t=56, b=46 + 26 * rows_of_legend),
                       height=max(360, min(780, len(data) * 40 + 190 + 26 * rows_of_legend)))
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
     return fig
 
 
@@ -2304,7 +2304,7 @@ def trend_chart(rate, band, title=""):
     fig.update_layout(template="plotly_dark", plot_bgcolor="#1b1f26", paper_bgcolor="#1b1f26",
                       font=dict(color="#f3f4f6", size=13), title=title, showlegend=False,
                       margin=dict(l=20, r=30, t=56 if title else 20, b=28), height=400)
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
     if legend:
         st.caption(legend)
     return fig
@@ -2390,7 +2390,7 @@ def ranked_bar(frame, label_col, value_col, colours=None, title="", x_title="Rec
                       font=dict(color="#f3f4f6", size=13), showlegend=False,
                       margin=dict(l=20, r=70, t=56 if title else 20, b=34),
                       height=max(320, len(data) * height_per + 130))
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
     return fig
 
 
@@ -2420,7 +2420,7 @@ def grouped_bar(frame, label_col, series, colours, title="", x_title="Customer e
                       legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0),
                       margin=dict(l=20, r=70, t=86, b=34),
                       height=max(420, len(data) * 46 + 180))
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
     return fig
 
 
@@ -2803,7 +2803,7 @@ elif selected_page == "SOURCE 01 · Monthly trend":
         fig = px.bar(monthly, x="Month Label", y=y_cols, barmode="group", text_auto=True, color_discrete_sequence=["#8ab4f8", "#80cbc4"])
         fig.update_layout(template="plotly_dark", plot_bgcolor="#1b1f26", paper_bgcolor="#1b1f26", font=dict(color="#f3f4f6", size=13), margin=dict(l=20, r=30, t=30, b=40), height=430)
         fig.update_xaxes(categoryorder="array", categoryarray=monthly["Month Label"].tolist(), tickfont=dict(color="#f3f4f6"), gridcolor="#303846"); fig.update_yaxes(tickfont=dict(color="#f3f4f6"), gridcolor="#303846")
-        st.plotly_chart(fig, use_container_width=True); downloads(display_monthly, "monthly_trend_chart_data", fig)
+        st.plotly_chart(fig, width="stretch"); downloads(display_monthly, "monthly_trend_chart_data", fig)
     else: st.info("Monthly trend requires Month/Reporting Month and Issue Type fields.")
     rate = missed_rate(page)
     add_section("Missed-event rate", "The share of each month's records that were genuine misses. Volume rises "
