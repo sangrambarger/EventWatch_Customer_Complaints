@@ -10,7 +10,7 @@ pairs out, and compares them against counts computed independently from the CSV.
 page whose figures do not reconcile fails, naming the label and both numbers.
 
   python3 scripts/audit_pages.py
-  python3 scripts/audit_pages.py --page "SOURCE 03"     # just the matching pages
+  python3 scripts/audit_pages.py --page "SOURCE 04"     # just the matching pages
 Exits non-zero on any mismatch.
 """
 from __future__ import annotations
@@ -125,15 +125,15 @@ def expectations(df: pd.DataFrame) -> dict[str, dict[str, int]]:
     return {
         "Executive Summary": {**split_all, **dict(drivers), **miss_types, **inbox,
                               **reason_category_counts(df)},
-        "SOURCE 02 · Fix status": counts(df, "Short Term Fix Status"),
-        "SOURCE 03 · Severity": counts(df, "Severity"),
-        "SOURCE 04 · Root cause": counts(df, "Root Cause"),
+        # SOURCE 04 renders the Executive Summary's own root-cause blocks, so it is
+        # checked against the same driver and failure counts -- if the two tabs ever
+        # drift, one of them fails here rather than both agreeing with themselves.
+        "SOURCE 04 · Root cause": {**counts(df, "Root Cause"), **dict(drivers)},
         "SOURCE 05 · Top customers": dict(split_all),
-        "SOURCE 06 · Automation focus": counts(df, "Standard Automation Focus"),
-        "DETAIL · Event workload": counts(df, "Event type"),
+        "DETAIL · Event workload": {**counts(df, "Event type"), **miss_types},
         "SOURCE 01 · Monthly trend": {f"{m} Complaint": int(monthly.loc[m].get("Complaint", 0))
                                       for m in monthly.index},
-        # The eight reason categories on All customer emails. Imported from app.py rather
+        # The reason categories on All customer emails. Imported from app.py rather
         # than restated, because a second copy of the fold would drift and the whole point
         # of the map is that one wording maps one way everywhere.
         "All customer emails": reason_category_counts(df),
@@ -168,6 +168,11 @@ def reconciled_totals(df: pd.DataFrame) -> dict[str, dict[str, int]]:
     carry the tracker's own distinct counts -- it printed 120 emails against a tracker of
     115, and 27 / 24 / 13 where the chart above it said 26 / 23 / 12, before this check
     existed. Everything else is checked against the column above it.
+
+    It is registered for BOTH pages that render it. SOURCE 05 now calls the Executive
+    Summary's own `render_customers()`, and the first run after that wiring failed here
+    with the same 120-against-115 the check was written for -- the table was reconciled,
+    the audit's registration was not. A shared renderer means shared expectations.
     """
     issue = df["Issue Type"].astype(str).str.strip()
     exec_page = {
@@ -177,7 +182,7 @@ def reconciled_totals(df: pd.DataFrame) -> dict[str, dict[str, int]]:
         "CONFIRMED MISSES": int(df["Missed_Flag"].astype(str).str.strip().eq("Yes").sum()),
     }
     exec_page.update({k.upper(): v for k, v in miss_buckets(df).items()})
-    return {"Executive Summary": exec_page}
+    return {"Executive Summary": exec_page, "SOURCE 05 · Top customers": dict(exec_page)}
 
 
 def total_row_problems(page: str, tables, df: pd.DataFrame, reconciled) -> list[str]:

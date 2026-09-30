@@ -14,7 +14,7 @@ no secrets so it exercises that middle path.
 
 ```bash
 python3 scripts/validate.py                 # data + workbook integrity, exits non-zero on failure
-python3 scripts/smoke_app.py                # loads all 12 pages, flags exceptions/empty charts
+python3 scripts/smoke_app.py                # loads all 7 pages, flags exceptions/empty charts
 python3 scripts/jira_sync.py                # EAO tickets vs tracker, prints only the delta
 python3 scripts/jira_sync.py --describe EAO-7 EAO-9   # bodies, when prose judgement is needed
 python3 scripts/refresh_caches.py --dry-run # what in the workbook has drifted from the CSV
@@ -174,9 +174,38 @@ record of the 14th. It now also prints how many rows survived, so an empty page 
 a filter choice rather than a broken dashboard -- which is exactly how that bug went
 unreported for months.
 
-**Delivery performance, Open items and Definitions were removed**, on the owner's
-instruction, and their functions went with them (`close_stats`, `close_trend`,
-`open_items`, `days_open`, `definitions_payload`). `PAGES` is twelve. What the first of
+**Eight pages were removed**, on the owner's instruction and in two rounds: Delivery
+performance, Open items and Definitions, then SOURCE 02 Fix status, SOURCE 03 Severity,
+SOURCE 06 Automation focus, Repeat patterns and Automation urgency. Their functions went
+with them (`close_stats`, `close_trend`, `open_items`, `days_open`,
+`definitions_payload`, `repeat_patterns`, `urgency_table`, `recommendation_for_focus`,
+`filled`, `rate_chart`). **`PAGES` is seven**, and each one now answers a different
+question:
+
+| Page | What it is |
+| --- | --- |
+| Executive Summary | the whole story, in eight sections |
+| All customer emails | the records, and the vocabulary every other tab uses |
+| SOURCE 01 Monthly trend | volume by month, then the summary's own trend block |
+| SOURCE 04 Root cause | the summary's two root-cause blocks, then the heatmap, the drift and the per-owner drill-downs |
+| SOURCE 05 Top customers | the summary's Customers impacted block, then the scorecard and the workbook's own basis |
+| DETAIL Event workload | the summary's Event types block |
+| Dynamic Source Discovery | the source and keyword deep dive |
+
+**The six Executive Summary sections are functions now** -- `render_root_cause`,
+`render_customers`, `render_event_types`, `render_nature`, `render_trend`,
+`render_deeper_root_cause` -- and the internal pages call the same ones. That is the
+only honest way to satisfy "put the summary's views on the internal pages" and "stop
+repeating the same details" at once: the internal page runs the summary's code, so the
+two cannot drift, and then adds the cuts that do not belong on a summary. Where a page
+now renders one of these, `source_page(..., summary=False)` drops the generic
+count-table-and-chart pair it used to draw, because that was the same numbers a second
+time in weaker words.
+
+SOURCE 01 is the case that proves it: the page drew its own miss-rate line from
+`missed_rate()` while the Executive Summary drew `trend_chart()` from pooled three-month
+windows. Two charts of one number, comparing different months, with nothing on either
+saying which was real. What the first of
 them used to say is kept here because the reasoning still binds anything that quotes a
 cycle time:
 
@@ -227,9 +256,12 @@ its "RCA promised but never delivered" table, `open_items()`'s second return val
 
 What stayed, and why: **the RCA text itself**, on Open items' "Root cause analyses on
 file" table and on the record card -- that is what somebody wrote, not a statistic. And
-`urgency_table()` still scores `RCA Requested` on the Automation urgency page, because
-the defect is on the *discharge* side: whether the customer asked is one field with no
-contradicting sibling, and it is the three delivery fields that disagree.
+`urgency_table()` used to score `RCA Requested` on the Automation urgency page; that
+page and that function are both gone, so **no RCA field is read anywhere in the app at
+all** now. The reasoning for the exception is kept because it is the one that would
+apply if any RCA figure came back: the defect is on the *discharge* side, whether the
+customer asked is one field with no contradicting sibling, and it is the three delivery
+fields that disagree.
 
 Before any RCA figure comes back, the three fields have to be reconciled on the records
 themselves. Publishing one again without that is republishing the same guess.
@@ -383,9 +415,11 @@ with secondary encoding: every slice and every card carries its own label, count
 share. A hue from outside the app's tokens would clear it and break the one-palette rule,
 which is worse.
 
-`Severity split` and `Automation opportunities` are no longer on this page -- SOURCE 03
-and SOURCE 06 are those pages, and repeating them here made the Executive Summary a
-scroll rather than a summary.
+`Severity split` and `Automation opportunities` are not on this page. They were moved to
+SOURCE 03 and SOURCE 06, and those pages have since been removed too, so neither figure
+appears anywhere -- which is the point: the owner's call was that they add no value, and
+half-removing a view leaves the summary and an internal page disagreeing about whether
+it matters.
 
 **The `Event type` value is `Legal Action`, not `Litigation/Legal`.** Renamed on both
 rows that carry it (EAO-17 and EAO-46) with `update_row.py`, and on the Definitions
@@ -643,7 +677,10 @@ vocabulary has no word for lateness, so a future row on that pair would land in
 
 `PLAIN_SUBTYPE` was rewritten wholesale on the owner's wording. `Source Coverage` is
 **Source not in our vendor or monitoring network**, `Keyword Update` is **Keyword Miss**,
-`Review` is **Seen at review, and not raised**, `Event Identification` is **Classified as
+`Review` is **We saw it and chose not to report it** -- the second pass at that label,
+because "Seen at review, and not raised" never said what review *is*, and the sub-type
+sits under both People (an analyst) and Product (the model). Describing the **decision**
+is the one thing true of both. `Event Identification` is **Classified as
 not impactful, wrongly**, `Mapping` is **Supplier was not mapped by the customer**,
 `Visibility` is **Published, but not visible to the customer**, `Process Clarification`
 is **We had to clarify the reporting guidelines**, `WarRoom Creation` is **WarRoom
@@ -778,14 +815,28 @@ Total is compared against the sum of the column above it, except for the columns
 checked against the CSV instead. The check paid for itself on the run that introduced it,
 naming three bucket columns still adding to 27 / 24 / 13 where the chart above them said
 26 / 23 / 12. Columns whose foot is a formatted string -- a share, a blank -- carry no
-plain integer and are skipped. 16 feet across 9 pages today.
+plain integer and are skipped. 16 feet across 6 pages today.
+
+**A shared renderer needs a shared registration.** The first run after SOURCE 05 started
+calling the Executive Summary's own `render_customers()` failed here with the same
+120-against-115 this check was written for: the table reconciles its own total, but
+`reconciled_totals()` named only the Executive Summary. Both pages are registered now.
+When a page starts rendering another page's block, check this map.
 
 `miss_buckets()` in that script is the one recomputation of the miss buckets, used by
 both the label check and the Total-row reconciliation, so the two cannot drift apart.
 
 Every page counts **all records — complaints and inquiries together** — and every count
-table carries explicit `Complaints`, `Inquiries` and **`Misses`** columns beside the
-total, with the charts stacked to match. `Misses` is built in `count_table()` itself
+table carries explicit `Complaints`, `Inquiries`, **`Misses`** and **`Reported timely`**
+columns beside the total, with the charts stacked to match.
+
+**`Reported timely` is the remainder, named.** Every row of every count table read "25
+emails, 24 misses" and left the reader to work out what the 25th was -- which is exactly
+the question that got asked of `Source Coverage`, and there is no answer on the row.
+Now **Records = Misses + Reported timely** on every row of every table, nothing
+unaccounted for, and the caption says so in one line instead of a paragraph. It also
+answers `Reported late` (12 emails, 11 misses): the twelfth was reported before the
+customer wrote in. `Misses` is built in `count_table()` itself
 rather than on each page, which is how one edit put it on every tab at once: a count
 column alone does not say whether those emails were a failure, and `Process
 Clarification` at 12 emails beside `Review` at 23 ranks the wrong way round until you
@@ -810,10 +861,22 @@ upgrade; a silently failing selector here brings the dots back or loses the high
 used to inherit that: "Missed Event", "Missed insolvency alert" and "WarRoom should have
 been created but was not" are one category written three ways, so no chart of `Reason`
 could rank anything. `REASON_CATEGORIES` / `reason_category()` / `with_reason_category()`
-fold them onto eight reusable categories -- Event missed 63, Classified wrongly 14,
-Question about coverage 14, Reported late 12, Supplier not linked 6, Published but not
-visible 3, Duplicate published 2, Hidden by the customer's own filter 1 -- and that
-wording is what every tab shows. **`Question about coverage` now holds 14 inquiries, no
+fold them onto **seven** reusable categories -- Event missed 63, Classified wrongly 14,
+Question about coverage 14, Reported late 12, Supplier not included 6, Published but not
+visible 4, Duplicate published 2 -- and that wording is what every tab shows, with
+`CATEGORY_MEANING` giving each one a sentence that says what happened rather than
+naming a field. The Executive Summary's table carries that sentence too, so the two
+tabs explain a category the same way.
+
+Two changes were made on the owner's instruction. `Supplier not linked` is now
+**`Supplier not included`** -- the supplier was left off the WarRoom, which is a thing
+somebody did, where "not linked" reads like a data-model state. And **`Hidden by the
+customer's own filter` was folded into `Published but not visible`**, reversing the
+call recorded below. The owner's framing is that the bucket means "we reported it
+correctly and it never reached their portal", and on that definition it does not matter
+whether the industry tag, a fault, or their own source preference is what hid it. **The
+cost is real and is written into the meaning text**: the bucket now mixes our settings
+with theirs, so it can no longer be read as a pure measure of our failure. **`Question about coverage` now holds 14 inquiries, no
 complaints and no misses**, which is the shape it should have: it is the category for
 asking how something works, so a record in it that turned out to be a failure belongs
 somewhere else.
@@ -883,7 +946,9 @@ event *was* reported. It is now an inquiry, `Missed_Flag` No, `Wrong Relevancy`,
 `Review` -- the failure is the impact classification, not coverage. **A customer asserting
 a miss is not evidence of one**; the investigation is.
 
-**`Hidden by the customer's own filter` is one email and exists on purpose.** UVM Health
+**`Hidden by the customer's own filter` was one email and existed on purpose -- until
+the owner folded it in, above. The original reasoning, for whoever wants to unfold it:**
+UVM Health
 Network's WarRoom was published, linked and visible; their own profile preference
 excluded Resilinc as a source. Inside `Published but not visible` -- a category named for
 our failures -- one of four being a customer-side setting overstated it by a quarter.
@@ -930,7 +995,22 @@ And measure the table against its panel (`table.getBoundingClientRect().width` a
 `.table-wrap` `clientWidth`) rather than eyeballing a screenshot crop: a fixed-width crop
 cannot tell a table that overflows from one the crop simply cut.
 
-**The ten column filters and the search box sit in a collapsed `st.sidebar.expander`**,
+**The filters name the things the pages name, and nothing else.** `Severity`,
+`Short Term Fix Status` and `RCA Requested` filtered on fields no page shows any more --
+a control that narrows a population by something invisible leaves a reader unable to
+explain their own numbers. `Routed To` is derived from `Root Cause` on every row, so it
+was one filter twice under two names. `Standard Automation Focus` is how the Dynamic
+Source Discovery page selects itself, not a cut a reader makes. And the raw `Reason`
+dropdown offered forty wordings for seven real things, so nobody could use it.
+
+What replaced them: the two **derived** vocabularies the pages are written in --
+`What they wrote about` (the reason category) and `What went wrong` (the plain
+sub-type) -- plus **`Confirmed miss`**, the field every headline number on the dashboard
+keys on and which had no filter at all. `FILTERS` is `(label, kind, column)` and
+`filter_values()` returns the options and the series to match against together, so a
+derived filter cannot offer a label it then fails to match.
+
+**The column filters and the search box sit in a collapsed `st.sidebar.expander`**,
 labelled with how many are active so a narrowed view cannot hide behind a shut control.
 They were always open, which made the sidebar taller than any screen -- the page list
 scrolled out of sight below them and reaching a tab meant scrolling past ten dropdowns
