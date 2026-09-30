@@ -399,14 +399,33 @@ built from, not the sum of the strings in it.
    overlooked`, the last three months' rate, and the largest account's share of the
    whole page). **`Never captured by us`, not "never notified to customers"** -- the
    second is true of all 78 misses, so it stops contrasting with the card beside it.
-2. **What customers sent us** -- one donut. `overview_split()` is all 115 in three
-   mutually exclusive parts (78 misses / 17 complaints that were not / 20 inquiries),
-   which is what a donut is for. The second ring, which split the misses by who fixes
-   them, was **removed**: the three cards in section 3 say the same 46 / 29 / 3 with an
-   ownership line beside each, and two views of one split two hundred pixels apart is
-   exactly what makes a dashboard hard to read. `PLAIN_ROOT` went with it, so root cause
-   now reads `Product` / `People` / `Process` everywhere on the page rather than in one
-   vocabulary here and another in section 8.
+2. **What customers sent us** -- two donuts, side by side. `overview_split()` is all 115
+   in three mutually exclusive parts (78 misses / 17 complaints that were not / 20
+   inquiries); `miss_owner_split()` is the 78 by who fixes them. Three slices each, which
+   is what a donut is for.
+
+   **The second ring was briefly deleted here on the reasoning that the three cards in
+   section 3 say the same 46 / 29 / 3. Nobody asked for that, and it was restored.** The
+   overlap is real but it is not a reason to remove a view the page's owner wanted: the
+   rings answer "what came in and how much of it was ours", the cards answer "and what do
+   we do about each". Do not remove it again.
+
+   Both rings name the tracker's own values -- `Product` / `People` / `Process` -- so the
+   ring and the cards below speak one vocabulary. It read "The platform / Our analysts /
+   How we work" here and the tracker's names in the section underneath, which is two
+   words for one thing on one page; `PLAIN_ROOT` went, and the ownership line moved to
+   each slice's hover, which is where the plain English belongs.
+
+   **Every slice explains itself on hover** (`SPLIT_MEANING`, `ROOT_OWNERSHIP`), wrapped
+   at 44 characters before it reaches plotly for the same reason the driver bars are --
+   plotly's hover label neither wraps nor is clipped to the panel. The share is formatted
+   `%{percent:.1%}`: plotly's default gives two significant figures, so the 3-miss slice
+   printed `3.85%` beside a table saying `3.8%`.
+
+   **Driving a pie's hover needs a real mouseover on the slice, not `Plotly.Fx.hover`.**
+   `Fx.hover` silently does nothing for a pie trace -- it returned empty text for all six
+   slices. Dispatching `mouseover` then `mousemove` on the slice's own `g.slice` element
+   works, and is how the six tooltips above were read back.
 3. **Why the events were missed** -- two tiers, and the page's headline above both:
    *N of 78 misses never entered our system*, computed from the source and keyword
    buckets so it cannot go stale. That sentence is the number Product sizes the
