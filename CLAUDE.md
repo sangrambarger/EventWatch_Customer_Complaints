@@ -14,7 +14,7 @@ no secrets so it exercises that middle path.
 
 ```bash
 python3 scripts/validate.py                 # data + workbook integrity, exits non-zero on failure
-python3 scripts/smoke_app.py                # loads all 15 pages, flags exceptions/empty charts
+python3 scripts/smoke_app.py                # loads all 12 pages, flags exceptions/empty charts
 python3 scripts/jira_sync.py                # EAO tickets vs tracker, prints only the delta
 python3 scripts/jira_sync.py --describe EAO-7 EAO-9   # bodies, when prose judgement is needed
 python3 scripts/refresh_caches.py --dry-run # what in the workbook has drifted from the CSV
@@ -146,17 +146,15 @@ has not yet reviewed is identifiable at a glance. If any gate fails the run open
 instead of pushing, so a bad row cannot reach the dashboard silently.
 
 `Resolution Date` is what makes any timing metric possible, and the app treats it as
-the record's closing date. `days_open()` returns NaN once a record has one -- before
-this column existed it returned `today - raised` for *every* row, so the Open items
-page reported February's closed records as a 200-day backlog. `days_to_close()` is the
-real cycle time and `age_days()` picks whichever applies, for the RCA-owed table that
-mixes open and closed rows. The column is blank on 73 closed records: those predate the
+the record's closing date. `days_to_close()` is the cycle time and is what
+`account_scorecard()` reads; `days_open()` and `age_days()` are both gone with the pages
+that used them. The column is blank on 73 closed records: those predate the
 EAO project and carry no ticket to read a date from, so every cycle-time figure names
 its own denominator rather than treating a blank as zero. Backfill came from each
 ticket's Jira `resolutiondate` via the connector -- never guessed, and never taken for
 a merged incident unless every one of its keys resolved.
 
-`date_filter()` is one control in the sidebar, not fourteen. Every page used to own a
+`date_filter()` is one control in the sidebar, not one per page. Every page used to own a
 private copy, so narrowing Executive Summary to September and then opening SOURCE 04
 showed the full year with nothing to say the two disagreed -- a reader comparing the
 pages was comparing different populations. It now sits beside Customer and Severity,
@@ -176,7 +174,13 @@ record of the 14th. It now also prints how many rows survived, so an empty page 
 a filter choice rather than a broken dashboard -- which is exactly how that bug went
 unreported for months.
 
-The Delivery performance page answers "how well are we responding", which no page did.
+**Delivery performance, Open items and Definitions were removed**, on the owner's
+instruction, and their functions went with them (`close_stats`, `close_trend`,
+`open_items`, `days_open`, `definitions_payload`). `PAGES` is twelve. What the first of
+them used to say is kept here because the reasoning still binds anything that quotes a
+cycle time:
+
+The Delivery performance page answered "how well are we responding", which no page did.
 **Time to close** (`close_stats`, `close_trend`) is median, p90, worst and the share
 closed inside 14 days -- and every one of them prints its denominator, because only 28 of
 115 emails carry a `Resolution Date` and a median quoted bare invites a reader to apply
@@ -201,8 +205,9 @@ failure. It exists because answering "how is Ford doing" previously meant
 holding one name in your head across five pages. Accounts are split on the slash like
 everywhere else, so the totals agree with `customer_exposure()`, and single-record
 accounts are folded out: a 100% miss rate over one record outranks a real pattern and
-says nothing. Ford reads 44 emails, 77% miss rate and `Source Coverage` as its most common failure,
-all in one line.
+says nothing. Most common failure prints the plain label, not the tracker value, so the
+same failure is not called two things on two tabs: Ford reads 44 emails, 77% miss rate
+and "Source not in our vendor or monitoring network", all in one line.
 
 ## No RCA figure is published anywhere
 
@@ -229,9 +234,11 @@ contradicting sibling, and it is the three delivery fields that disagree.
 Before any RCA figure comes back, the three fields have to be reconciled on the records
 themselves. Publishing one again without that is republishing the same guess.
 
-The Open items page is now open work only. `open_items()` returns the `Pending` frame,
-the cards are Still open / Oldest open item / Closed, and the page carries the per-owner
-queue, the pending list and the RCA text on file.
+`definitions.json`, `scripts/export_definitions.py` and `validate.py`'s
+`definitions_export` all stay although no page renders the glossary any more: they are
+what keeps the workbook's Definitions sheet honest, and `enum_definitions` -- the rule
+that refuses a taxonomy value with no row on that sheet -- rests on the same sheet. The
+page went; the guard did not.
 
 `insights()` is gone, and with it the "What stands out this period" panel at the foot of
 the Executive Summary. It computed sub-type drift over two windows, customer
@@ -249,15 +256,21 @@ traceability finding was dropped: it measured when the EAO project started, whic
 the same recording artifact the June rule above warns about.
 
 **`miss_categories()` has no `Other` bucket, and that is deliberate.** `MISS_BUCKETS`
-holds only the four rules where the **owner changes the answer** -- `Not in a source we
-watch` (Sub-type `Source Coverage`), `Watched, but keywords missed it` (`Keyword
+holds only the four rules where the **owner changes the answer** -- `Source not in our
+vendor or monitoring network` (Sub-type `Source Coverage`), `Keyword Miss` (`Keyword
 Update`), `An analyst let it through` and `The model did not spot it` (both `Review` /
 `Event Identification` / `Prioritization`, split on `Root Cause` People against Product).
+The first two take their wording from `PLAIN_SUBTYPE` rather than repeating it, so a
+label cannot be renamed in one place and not the other. The last two are the only labels
+on the page that may name an actor, because the owner is part of the rule that selects
+their rows rather than a property of the sub-type.
+
 Every other missed email takes a bucket **named after its own sub-type**, generated in
-`miss_bucket_series()` from `PLAIN_SUBTYPE`. Ten buckets on the current data:
-27 / 24 / 12 / 6, then supplier not linked 2, published but never showed 2, a
-convention not explained 1, captured too late 1, industry tag 1, no WarRoom 1,
-scoring or rules 1.
+`miss_bucket_series()` from `PLAIN_SUBTYPE`. Eleven buckets on the current data: an
+analyst let it through 27, source not in our network 24, keyword miss 12, the model did
+not spot it 6, then supplier not mapped 2, published but not visible 2, reporting
+guidelines clarified 1, incorrect industry selection 1, captured but notified late 1,
+scoring or rules 1, WarRoom missed 1.
 
 A residue bucket is how eleven real and different failures became one grey slice nobody
 could act on, and it also hides a sub-type added to the tracker tomorrow -- which would
@@ -439,6 +452,38 @@ built from, not the sum of the strings in it.
    *Workflow and control*). Blue, muted coral and amber, the app's own `--blue`, `--red`
    and `--amber`.
 
+   **Card and bars sit in one column each**, not in two rows of three. As two separate
+   `st.columns` calls the cards were one row and their drivers another, so at the width
+   this is read at the eye had to carry "Product" down past a card border to know whose
+   bars it was looking at, and three equal-height cards pushed every bar a full card
+   below the fold.
+
+   **All three driver charts share one x scale** (`driver_bar(..., xmax=widest)`). Each
+   autoscaled before, so Process's 2-miss bar drew almost as long as Product's 24 --
+   three panels side by side are read as a comparison whether or not they are labelled
+   one, and bar length is what a reader takes from a bar chart before the number beside
+   it. The axis stays hidden; the count still rides on the end of every bar.
+
+   **The driver table is `wide roomy` with a wrapped meaning column.** This was the
+   worst thing on the page: `wide` sets `white-space:nowrap` on every cell, and
+   `excel_bar_table` had no wrap support at all, so a column of sentences ran the table
+   off the right of the panel and the reader scrolled sideways to read an explanation.
+   `excel_bar_table` now takes `wrap` (columns that hold a sentence: left-aligned,
+   340-640px, `white-space:normal`), `raw` (columns whose value is already HTML --
+   the owner pills, and nothing else; everything a human typed still goes through
+   `esc()`), `classes` and `caption`. The `roomy` variant is the typography: 12px
+   padding, 1.5 line-height, a 14px first column, tabular figures on every number and a
+   quieter header. Measure the result with
+   `table.getBoundingClientRect().width` against `.table-wrap` `clientWidth` -- every
+   table on the page now fits its panel except Customers impacted, which scrolls
+   sideways by design.
+
+   **The Owner column is one pill per owner** (`owner_pills()`), in that owner's colour
+   from `ROOT_COLOURS`. It was the string "Product 12 · People 3", which reads as a
+   single value and makes a reader parse two names and two numbers out of one run of
+   text, in the column a VP actually looks for. `downloads()` strips the tags on the way
+   out, so the CSV reads "Product 12 People 3" rather than a span.
+
    **Bottom tier**: `root_drivers()` under each card, the top four drivers biggest first,
    then one `Other` row -- unless the tail holds exactly one driver, which is shown by
    name instead: "Other: 1 smaller driver: Industry Selection (1)" is longer than
@@ -501,11 +546,23 @@ built from, not the sum of the strings in it.
    **The general rule: a total row is a reconciliation, not a sum.** Where the rows
    double-count on purpose, the foot has to carry the figure the rest of the dashboard
    uses, and the caption has to say why they differ.
-5. **Missed event types** -- `missed_event_types()`, over the **confirmed misses only**.
-   The block this replaced carried the same heading and counted every email, which
-   answered a different question from the one it asked.
+5. **Event types** -- two charts and one table. `all_event_types()` is every email by
+   the kind of event it was about; `missed_event_types()` is the confirmed misses only.
+   Neither is readable alone: nine misses is a different fact depending on whether ten
+   emails named that event type or forty, and the block used to show only the misses.
+   `event_type_pairs()` puts both bases on one row underneath with a miss rate that
+   **prints its own denominator inside it** ("81% of 16"), because a bare percentage
+   over one email is not a finding.
 6. **Nature of complaints** -- the eight `REASON_CATEGORIES`, the same vocabulary the
-   All customer emails tab defines and lists the wordings behind.
+   All customer emails tab defines and lists the wordings behind. **The bar is stacked
+   on the miss split**, darker for the emails in that category that were a confirmed
+   miss and grey for the ones where the event did reach the customer, and a computed
+   caption states the arithmetic: `Event missed` carries 63 misses against 78 on the
+   cards, and the other 15 sit in categories where the event *was* reported and
+   something else went wrong. That gap reads as an error every time somebody meets it,
+   and it is not one -- the category is what the customer wrote about, the flag is
+   whether the event reached them in time. Showing the split on the bar, and printing
+   `63 + 15 = 78` under the table, is what stops it being asked a third time.
 7. **Is it getting better?** -- `trend_chart()` is **one bar per month**, its percentage
    printed on it, the last three months blue and the three before grey, months outside
    both windows dark so they cannot be mistaken for part of the comparison. It was a line
@@ -522,8 +579,10 @@ built from, not the sum of the strings in it.
    sunbursts whose outer rings were unequal wedges where past the biggest four no label
    would fit. Keyed on the failure, **not** on failure-and-owner: the same sub-type sits
    under two owners on several rows and a y axis that repeats a label silently merges
-   them, so the owners are a column naming them with their counts. **Nothing is folded
-   into an `Other`**, however few emails carry it.
+   them, so the owners are a column naming them with their counts -- as pills now, not
+   as a run of text. It groups on the **label**, not the tracker value, so the two
+   clubbed pairs are one row each and both their tracker values are listed on it.
+   **Nothing is folded into an `Other`**, however few emails carry it.
 
 **`DRIVERS` is keyed on `(Root Cause, Sub-type)` -- never on the display wording.**
 It gives each pair EventWatch's own name for the failure and the same thing in plain
@@ -580,6 +639,48 @@ what `Needs Review` is for, and these three are why it earns its place.
 vocabulary has no word for lateness, so a future row on that pair would land in
 `Needs Review` for want of a label rather than for want of a decision.
 
+## The vocabulary, and the two rules that hold it together
+
+`PLAIN_SUBTYPE` was rewritten wholesale on the owner's wording. `Source Coverage` is
+**Source not in our vendor or monitoring network**, `Keyword Update` is **Keyword Miss**,
+`Review` is **Seen at review, and not raised**, `Event Identification` is **Classified as
+not impactful, wrongly**, `Mapping` is **Supplier was not mapped by the customer**,
+`Visibility` is **Published, but not visible to the customer**, `Process Clarification`
+is **We had to clarify the reporting guidelines**, `WarRoom Creation` is **WarRoom
+Missed**, `Relevancy` is **Judged not relevant to this customer**.
+
+**Two pairs deliberately share a label**, which is what the owner meant by clubbing them:
+`Prioritization` and `Captured Late` are both **Captured, but notified late**; `Tagging`
+and `Industry selection` are both **Incorrect industry selection**. Both tracker values
+survive and ride together in the `Tracker value` column ("Prioritization · Captured
+Late"). The cost is stated plainly because it is real: a ranking judgement and a pipeline
+delay are now one row, so the dashboard can no longer separate "we deprioritised it" from
+"we were slow". The owner asked for the customer-visible outcome, and that is what the
+label now says.
+
+Everything that aggregates on a label has to **sum into it, never key on the sub-type**,
+or the second value of a pair silently overwrites the first. Three places do this and all
+three were changed together: `root_frame()` groups on the label, `subtype_drift()` takes
+its shares on the label, and `audit_pages.miss_buckets()` uses `+=`. Written the obvious
+way, `Incorrect industry selection` read 1 where the tracker holds 2.
+
+**No label names an actor where the tracker puts that sub-type under more than one
+owner.** `Event Identification` is 5 People and 4 Product, `Review` is 21 People and 2
+Product, and `Relevancy`'s single record is Product -- so "an analyst classified this"
+is a false statement on every Product row. The owner asked for analyst-named wording and
+it was not taken literally for that reason; the actor is carried instead by the Owner
+column and by the two `MISS_BUCKETS` rules that select on owner, which are the only two
+labels on the page allowed to say "analyst" or "model" because the owner is part of the
+rule that picks their rows.
+
+**The vocabulary is now on every tab, not just the Executive Summary.**
+`name_subtypes()` puts the label beside a tracker Sub-type on SOURCE 04's drill-downs,
+`subtype_matrix()` labels the heatmap's rows with it, `subtype_drift()` labels the
+dumbbell, and `account_scorecard()`'s Most common failure prints it. Ford read
+"Source Coverage" on SOURCE 05 and "Source not in our vendor or monitoring network" on
+the Executive Summary -- two vocabularies for one failure on two tabs a reader moves
+between.
+
 **`PLAIN_SUBTYPE` still translates the taxonomy for the tables, and does not replace it.**
 `Sub-type` is the vocabulary of the people who file the records, and on a leadership page
 it says nothing -- `Review`, the largest People bucket, is the vaguest word in the file.
@@ -596,9 +697,9 @@ does not contradict itself.
 
 **The sidebar is `--bg`, and the nav accent is per group.** The sidebar was `#171b22`
 against a `#0f1115` page -- two greys four points apart, which reads as a mistake rather
-than a separation; the 1px `--line` border is the split. `NAV_GROUPS` gives the fifteen
-pages four colours by the job they do, not fifteen hues: repeating a hue across unrelated
-pages claims a kinship that is not there, and fifteen is confetti. The index is derived
+than a separation; the 1px `--line` border is the split. `NAV_GROUPS` gives the twelve
+pages four colours by the job they do, not twelve hues: repeating a hue across unrelated
+pages claims a kinship that is not there, and twelve is confetti. The index is derived
 from `PAGES`, so reordering or renaming a page cannot leave a rule pointing at the wrong
 row, and each option reads its colour from a `--nav` custom property the generated CSS
 sets -- the hover and selected rules no longer hardcode `--blue`. Verify
@@ -683,14 +784,21 @@ plain integer and are skipped. 16 feet across 9 pages today.
 both the label check and the Total-row reconciliation, so the two cannot drift apart.
 
 Every page counts **all records — complaints and inquiries together** — and every count
-table carries explicit `Complaints` and `Inquiries` columns beside the total, with the
-charts stacked to match. The Excel Dashboard still counts complaints only, so its Top
+table carries explicit `Complaints`, `Inquiries` and **`Misses`** columns beside the
+total, with the charts stacked to match. `Misses` is built in `count_table()` itself
+rather than on each page, which is how one edit put it on every tab at once: a count
+column alone does not say whether those emails were a failure, and `Process
+Clarification` at 12 emails beside `Review` at 23 ranks the wrong way round until you
+see that 1 of the first were misses and 20 of the second. It is a clean partition of
+`Records`, so the Total row adds up and `audit_pages.py` reconciles it like any other
+column. `excel_bar_table`'s default `extras` is `("Complaints", "Inquiries", "Misses")`
+for the same reason. The Excel Dashboard still counts complaints only, so its Top
 Customers figures differ from the app on two axes; SOURCE 05 shows the workbook's basis
 in its own table so the two reconcile.
 
-The sidebar navigation is a list with a left accent bar, not fourteen radio buttons.
+The sidebar navigation is a list with a left accent bar, not twelve radio buttons.
 It is still `st.radio` underneath -- that is what carries the selection -- but the dot is
-hidden and the pill boxes are gone, because fourteen bordered boxes stacked in a narrow
+hidden and the pill boxes are gone, because a column of bordered boxes stacked in a narrow
 column read as compressed and the dot duplicates what the highlight already says. Two
 selectors matter and neither uses Streamlit's hashed emotion classes, which are rewritten
 between releases: `label[data-testid="stRadioOption"][data-selected="true"]` carries the
@@ -730,7 +838,7 @@ later proves a miss is a normal waypoint.
 
 **All customer emails sits second in `PAGES`, right under Executive Summary**, because it
 defines the vocabulary every other tab uses: a reader who stops on a category name finds
-its meaning one click away rather than at the bottom of a list of fifteen.
+its meaning one click away rather than at the bottom of a list of twelve.
 
 **Numbers in prose are computed, never typed.** The "forty different wordings for eight
 real things" line reads both figures off the frame on screen. A prose figure that has to
@@ -860,8 +968,8 @@ rather than be squeezed to `width:100%`, which is what turned every multi-word c
 two and three lines, and `wrap=WRAP_COLUMNS` lets the free-text columns wrap inside a
 bounded 320-600px width while every other column stays on one line.
 
-`grid` is the restyle on top of `wide`, and it is **this page only** -- the other
-thirteen keep the bordered Excel look. A full box grid, centred text and zebra fills read
+`grid` is the restyle on top of `wide`, and it is **this page only** -- every other tab
+keeps the bordered Excel look. A full box grid, centred text and zebra fills read
 as a spreadsheet export rather than a table meant to be read, and they read worst exactly
 here: rows are of very unequal height (a seven-line `Comments` cell beside a one-line
 neighbour), so the vertical rules draw ragged columns and the alternating fills emphasise
@@ -899,12 +1007,12 @@ column a reader most wants to read was the one least readable. Wrapping costs ro
 that is the honest price of showing the whole value. A record picker below the grid still
 opens any one record as a `variant="record"` card. Filtering
 stays in the sidebar on purpose, so what this page shows is always the same population as
-the other thirteen.
+every other tab.
 
 The Complaint Tracker page's entry form writes into `st.session_state`, and
 `apply_staged()` appends those rows to the frame **before** `sidebar_filters()`. Every
 page derives from that one frame, so an entry added there is counted immediately on all
-fourteen -- Executive Summary's total goes 103 to 104, SOURCE 05's Ford tally 37 to 38.
+eleven -- Executive Summary's total goes 103 to 104, SOURCE 05's Ford tally 37 to 38.
 The form's pickers are built from the tracker's own distinct values, so a staged row can
 only carry terms the Definitions sheet already defines, and `derive_row()` fills Month,
 Reporting Month, Month_Sort, Number of Customers and Routed To -- a staged row pasted
@@ -915,7 +1023,7 @@ staged entries" button is the path to making it permanent. Durable in-app writes
 need a GitHub token or a database, and neither exists here.
 
 `smoke_app.py` covers what `validate.py` cannot: the app itself. It starts Streamlit
-against the local CSV, clicks every page (15 of them), and fails on Streamlit exceptions, in-app
+against the local CSV, clicks every page (12 of them), and fails on Streamlit exceptions, in-app
 error text, or a page rendering fewer charts/tables than it should. Run against the
 commit before the `chart()` argument fix it flags 8 pages with "required fields are
 missing" and zero charts — the bug that previously only a screenshot caught. Prefer
@@ -1047,7 +1155,7 @@ If a resave already happened, restore the four `cm="1"` attributes and
 - `RCA Details` holds the root cause summary from the linked ticket. Most RCAs went out
   as PDF attachments whose text is not in Jira, so those entries say so rather than
   paraphrasing a document nobody can read back. Do not invent RCA narrative.
-- The app's Definitions page renders `definitions.json`, generated from the workbook's
+- `definitions.json` is generated from the workbook's
   Definitions sheet by `scripts/export_definitions.py` and **pruned to terms in use**
   (a field definition survives if the tracker has that column, a taxonomy value if some
   record carries it, an operational term if it appears in the tracker's own text). Edit

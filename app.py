@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import html
-import json
 import os
+import re
 import textwrap
 from datetime import datetime
 from pathlib import Path
@@ -26,19 +26,14 @@ PAGES = [
     # tab uses is defined, so a reader who stops on a category name anywhere else finds
     # its meaning one click away rather than at the bottom of a list of fifteen.
     "Executive Summary", "All customer emails",
-    "Delivery performance", "Open items", "SOURCE 01 · Monthly trend", "SOURCE 02 · Fix status",
+    "SOURCE 01 · Monthly trend", "SOURCE 02 · Fix status",
     "SOURCE 03 · Severity", "SOURCE 04 · Root cause", "SOURCE 05 · Top customers",
     "SOURCE 06 · Automation focus", "DETAIL · Event workload", "Repeat patterns", "Automation urgency",
-    "Dynamic Source Discovery", "Definitions",
+    "Dynamic Source Discovery",
 ]
 
 DESCRIPTIONS = {
     "Executive Summary": "What customers sent in, how much of it we got wrong, why, who it hit, and whether it is moving.",
-    # No RCA figure appears on this page: the tracker holds 85 emails marked RCA
-    # requested, 38 carrying any written RCA and 31 marked RCA Shared -- three numbers
-    # for one thing, none agreeing, so any share quoted from them picks one and hopes.
-    "Delivery performance": "How long we take to close a customer email, over the emails that carry a resolution date.",
-    "Open items": "Customer emails still awaiting a fix, who owns them, how long they have been open, and the root cause text on file where one was written.",
     "SOURCE 01 · Monthly trend": "Month-by-month complaint and inquiry trend, sorted chronologically from January onward, with the missed-event rate that volume alone hides.",
     "SOURCE 02 · Fix status": "Resolution posture across fixed, RCA-shared, and clarification-provided records.",
     "SOURCE 03 · Severity": "Severity distribution for leadership prioritization.",
@@ -49,7 +44,6 @@ DESCRIPTIONS = {
     "Repeat patterns": "Customer and reason combinations that keep recurring. A pattern repeated many times is one systemic problem, not many incidents.",
     "Automation urgency": "Ranked automation priorities using volume, severity, RCA pressure, misses, and customer concentration.",
     "Dynamic Source Discovery": "Source coverage, feed, keyword, vendor monitoring, and event-discovery gaps.",
-    "Definitions": "Structured glossary for tracker fields, classification, statuses, root causes, and automation terms.",
     "All customer emails": "Every complaint and inquiry a customer sent in, with the category behind each one, downloads, and controlled manual-entry staging.",
 }
 
@@ -89,7 +83,7 @@ h1,h2,h3,h4,h5,h6,p,span,div,label{color:var(--ink)!important}.page-hero,.sectio
 .excel-table.grid td.wrap.narrow,.excel-table.grid th.wrap.narrow{min-width:170px;max-width:200px}
 .excel-table.grid td.wrap.mid,.excel-table.grid th.wrap.mid{min-width:220px;max-width:260px}
 .excel-table.grid td.wrap.bullets{white-space:pre-line}
-.excel-table tbody tr.total td{background:#1a202a!important;border-top:2px solid var(--line2);font-weight:800;color:var(--ink)!important}.excel-table.stickytotal tbody tr.total td{position:sticky;bottom:0;z-index:2;box-shadow:0 -2px 6px rgba(0,0,0,.45)}.excel-table tbody tr.total td .bar-box:before{opacity:.35}
+.excel-table.roomy td{padding:12px 14px;font-size:13.5px;line-height:1.5}.excel-table.roomy th{padding:11px 14px;font-size:11px;letter-spacing:.06em}.excel-table.roomy td:first-child{font-weight:700;font-size:14px;line-height:1.4;padding-right:18px}.excel-table.roomy td.wrap,.excel-table.roomy th.wrap{text-align:left;font-weight:400;color:var(--muted)!important}.excel-table.roomy td:not(:first-child):not(.wrap){font-variant-numeric:tabular-nums}.excel-table.wide.roomy td.wrap,.excel-table.wide.roomy th.wrap{min-width:340px;max-width:640px}.owner-pill{display:inline-flex;align-items:baseline;gap:5px;padding:2px 9px;margin:1px 4px 1px 0;border-radius:999px;font-size:11.5px;font-weight:800;letter-spacing:.02em;white-space:nowrap;background:color-mix(in srgb,var(--c) 15%,transparent);border:1px solid color-mix(in srgb,var(--c) 40%,transparent)}.excel-table td .owner-pill,.excel-table td .owner-pill b{color:var(--c)!important}.excel-table td .owner-pill b{font-weight:900;font-size:12.5px}.excel-table td.owners{text-align:left!important;white-space:normal}.excel-table tbody tr.total td{background:#1a202a!important;border-top:2px solid var(--line2);font-weight:800;color:var(--ink)!important}.excel-table.stickytotal tbody tr.total td{position:sticky;bottom:0;z-index:2;box-shadow:0 -2px 6px rgba(0,0,0,.45)}.excel-table tbody tr.total td .bar-box:before{opacity:.35}
 .excel-table.grid tbody tr.total td{--cell-bg:#1a202a;background:#1a202a!important;border-top:2px solid var(--line2);border-bottom:0;font-weight:800;color:var(--ink)!important}
 .excel-table.grid td.wrap>.cell{max-height:100px;overflow-y:auto;background:linear-gradient(var(--cell-bg) 32%,rgba(0,0,0,0)) top/100% 22px no-repeat local,linear-gradient(rgba(0,0,0,0),var(--cell-bg) 68%) bottom/100% 22px no-repeat local,radial-gradient(farthest-side at 50% 0,rgba(138,180,248,.42),rgba(0,0,0,0)) top/100% 11px no-repeat,radial-gradient(farthest-side at 50% 100%,rgba(138,180,248,.42),rgba(0,0,0,0)) bottom/100% 11px no-repeat}
 .excel-table.grid td.wrap>.cell::-webkit-scrollbar{width:8px}
@@ -111,8 +105,7 @@ NAV_GROUPS = {
     "Why it happened": ("#f28b82", ("SOURCE 01 · Monthly trend", "SOURCE 04 · Root cause",
                                     "Repeat patterns")),
     "Who it happened to": ("#f6c177", ("SOURCE 05 · Top customers", "DETAIL · Event workload")),
-    "What we do about it": ("#80cbc4", ("Delivery performance", "Open items",
-                                        "SOURCE 02 · Fix status", "SOURCE 06 · Automation focus",
+    "What we do about it": ("#80cbc4", ("SOURCE 02 · Fix status", "SOURCE 06 · Automation focus",
                                         "Automation urgency", "Dynamic Source Discovery")),
 }
 NAV_ACCENT = {page: colour for colour, names in NAV_GROUPS.values() for page in names}
@@ -205,29 +198,8 @@ def load_data():
     return df
 
 
-DEFINITIONS_NAME = "definitions.json"
-
-
-@st.cache_data(show_spinner=False)
-def definitions_payload():
-    """The glossary the Definitions page renders.
-
-    Generated from the workbook's Definitions sheet by scripts/export_definitions.py
-    and committed, so the CSV-only deploy path still has a glossary and the app never
-    has to parse a workbook at runtime. validate.py fails if the committed file has
-    drifted from the sheet, which is what the old hardcoded dict had no way to catch.
-    """
-    path = APP_DIR / DEFINITIONS_NAME
-    try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except Exception:
-        return {"groups": []}
-
-
 PAGE_KICKERS = {
     "Executive Summary": ("Overview", "#8ab4f8"),
-    "Delivery performance": ("Overview", "#f6c177"),
-    "Open items": ("Outstanding", "#f28b82"),
     "SOURCE 01 · Monthly trend": ("Chart source", "#80cbc4"),
     "SOURCE 02 · Fix status": ("Chart source", "#80cbc4"),
     "SOURCE 03 · Severity": ("Chart source", "#80cbc4"),
@@ -238,7 +210,6 @@ PAGE_KICKERS = {
     "Repeat patterns": ("Recurrence", "#f6c177"),
     "Automation urgency": ("Prioritization", "#f6c177"),
     "Dynamic Source Discovery": ("Coverage gap", "#f6c177"),
-    "Definitions": ("Reference", "#b6beca"),
     "All customer emails": ("The records", "#f28b82"),
 }
 
@@ -399,7 +370,16 @@ def split_by_issue(frame, keys, index):
 
 
 def count_table(df, col, base=None):
-    cols = [col, "Complaints", "Inquiries", "Records", "% of Total"]
+    """One row per value: the complaint/inquiry split, the confirmed misses, the total.
+
+    `Misses` is here rather than on each page's own table because every tab has to state
+    the same three bases the Executive Summary states. A count column on its own does not
+    say whether those emails were a failure: `Process Clarification` is 13 emails of which
+    2 were misses and `Review` is 23 of which 21 were, and a table showing only 13 and 23
+    ranks them the wrong way round. It is a clean partition of `Records`, so the Total row
+    adds up and `audit_pages.py` reconciles it like any other column.
+    """
+    cols = [col, "Complaints", "Inquiries", "Misses", "Records", "% of Total"]
     if df.empty or col not in df.columns: return pd.DataFrame(columns=cols)
     keys = df[col].fillna("Blank").astype(str)
     t = keys.value_counts().reset_index()
@@ -408,6 +388,9 @@ def count_table(df, col, base=None):
     for name in ("Complaints", "Inquiries"):
         if name in parts.columns:
             t[name] = parts[name].values
+    if "Missed_Flag" in df.columns:
+        missed = keys[df["Missed_Flag"].astype(str).str.strip().eq("Yes")].value_counts()
+        t["Misses"] = t[col].map(missed).fillna(0).astype(int)
     denom = max(base or len(df), 1)
     t["% of Total"] = (t["Records"] / denom * 100).round(1).astype(str) + "%"
     return t[[c for c in cols if c in t.columns]]
@@ -442,7 +425,7 @@ def esc(v):
 
 def excel_bar_table(df, label_col, value_col="Records", extras=None, label_head=None,
                     value_head="Total emails", height=None, total_row=True, variant=None,
-                    totals=None):
+                    totals=None, wrap=(), raw=(), classes=None, caption=None):
     """A ranked table whose last-but-one column is a bar drawn inside the cell.
 
     `extras` are the columns carried between the label and the bar; the default picks
@@ -452,16 +435,31 @@ def excel_bar_table(df, label_col, value_col="Records", extras=None, label_head=
     a scroll box rather than a collapsed expander on purpose: a collapsed expander is
     laid out at zero height, so `innerText` reads empty and `audit_pages.py` stops
     reconciling every row it hides.
+
+    `wrap` names the columns that hold a sentence rather than a value. Without it the
+    `wide` variant sets `white-space:nowrap` on every cell, so a column of explanations
+    pushed the table sideways off the panel and the reader scrolled horizontally to
+    read a sentence -- the single worst thing on this page. A wrapped column is
+    left-aligned and bounded, and the rest of the table keeps its one-line rows.
+
+    `raw` names the columns whose value is already HTML and must not be escaped -- the
+    owner pills, and nothing else. Everything a customer or an analyst typed goes
+    through `esc()`; only strings this module builds itself may skip it.
     """
     if df.empty or label_col not in df.columns or value_col not in df.columns:
         st.info("No data available for this view."); return
     max_v = max(float(df[value_col].max()), 1)
-    extra = [c for c in (extras if extras is not None else ("Complaints", "Inquiries"))
+    extra = [c for c in (extras if extras is not None else ("Complaints", "Inquiries", "Misses"))
              if c in df.columns]
+    wrap = tuple(wrap); raw = tuple(raw); classes = classes or {}
+    klass_of = {}
+    for c in extra:
+        names = (["wrap"] if c in wrap else []) + ([classes[c]] if c in classes else [])
+        klass_of[c] = f" class='{' '.join(names)}'" if names else ""
     rows = []
     for _, r in df.iterrows():
         width = float(r[value_col]) / max_v * 100
-        cells = "".join(f"<td>{esc(r[c])}</td>" for c in extra)
+        cells = "".join(f"<td{klass_of[c]}>{r[c] if c in raw else esc(r[c])}</td>" for c in extra)
         rows.append(f"<tr><td>{esc(r[label_col])}</td>{cells}"
                     f"<td class='bar-cell'><div class='bar-box' style='--w:{width:.1f}%'><span>{esc(r[value_col])}</span></div></td>"
                     f"<td>{esc(r.get('% of Total',''))}</td></tr>")
@@ -482,12 +480,12 @@ def excel_bar_table(df, label_col, value_col="Records", extras=None, label_head=
             if pd.api.types.is_numeric_dtype(df[col]):
                 return int(pd.to_numeric(df[col], errors="coerce").fillna(0).sum())
             return None
-        sums = "".join(f"<td>{esc(v)}</td>" if (v := foot(c)) is not None else "<td></td>"
-                       for c in extra)
+        sums = "".join(f"<td{klass_of[c]}>{esc(v)}</td>" if (v := foot(c)) is not None
+                       else f"<td{klass_of[c]}></td>" for c in extra)
         grand = foot(value_col)
         rows.append(f"<tr class='total'><td>Total</td>{sums}<td>{esc(grand)}</td>"
                     f"<td>{'100%' if '% of Total' in df.columns else ''}</td></tr>")
-    heads = "".join(f"<th>{esc(c)}</th>" for c in extra)
+    heads = "".join(f"<th{klass_of[c]}>{esc(c)}</th>" for c in extra)
     box = f" style='max-height:{int(height)}px;overflow-y:auto'" if height else ""
     if height and total_row:
         variant = f"{variant} stickytotal" if variant else "stickytotal"
@@ -496,6 +494,8 @@ def excel_bar_table(df, label_col, value_col="Records", extras=None, label_head=
                 f"<th>{esc(label_head or label_col)}</th>" + heads +
                 f"<th>{esc(value_head)}</th><th>% of Total</th></tr></thead><tbody>" + "".join(rows) +
                 "</tbody></table></div>", unsafe_allow_html=True)
+    if caption:
+        st.caption(caption)
 
 
 def cell(v):
@@ -895,10 +895,13 @@ def normalise_reason(df):
 # WarRoom never created, a bulletin published but never shown) became one grey slice
 # nobody could act on, and it also hides a sub-type added to the tracker tomorrow.
 MISS_BUCKETS = (
-    ("Not in a source we watch", ("Source Coverage",), (), "#8ab4f8",
+    ("Source not in our vendor or monitoring network", ("Source Coverage",), (), "#8ab4f8",
      "The event never entered our system · Product"),
-    ("Watched, but keywords missed it", ("Keyword Update",), (), "#4e7bb8",
+    ("Keyword Miss", ("Keyword Update",), (), "#4e7bb8",
      "A source we monitor carried it; no keyword matched · Product"),
+    # These two are the only labels on the page that may name an actor, because the
+    # owner is part of the rule that selects the rows rather than a property of the
+    # sub-type: People on one, Product on the other.
     ("An analyst let it through", ("Review", "Event Identification", "Prioritization"), ("People",), "#f28b82",
      "Reached a human reviewer and was not raised · EventWatch Ops"),
     ("The model did not spot it", ("Review", "Event Identification", "Prioritization"), ("Product",), "#f6c177",
@@ -1116,8 +1119,9 @@ def subtype_matrix(df):
     sub-types are a pure People failure and a pure Product failure was invisible."""
     if not {"Sub-type", "Root Cause"} <= set(df.columns) or df.empty:
         return pd.DataFrame()
-    grid = pd.crosstab(df["Sub-type"].astype(str).str.strip(),
+    grid = pd.crosstab(df["Sub-type"].astype(str).str.strip().map(lambda v: plain(v, PLAIN_SUBTYPE)),
                        df["Root Cause"].astype(str).str.strip())
+    grid.index.name = "Sub-type"
     if grid.empty:
         return grid
     return grid.loc[grid.sum(axis=1).sort_values(ascending=False).index]
@@ -1157,11 +1161,19 @@ def subtype_drift(df, window=3, minimum=3):
     if len(order) < window * 2:
         return pd.DataFrame()
     recent, prior = df[months.isin(order[-window:])], df[months.isin(order[-window * 2:-window])]
+    # Shares are taken on the LABEL, not the tracker value. Two pairs of sub-types share
+    # a label by design, and computing each one separately would draw two dots carrying
+    # the same name on a chart whose y axis silently merges them -- and would halve a
+    # share that belongs to one row.
+    field = "_label"
+    for frame in (recent, prior):
+        frame[field] = frame["Sub-type"].fillna("").astype(str).str.strip().map(
+            lambda v: plain(v, PLAIN_SUBTYPE))
     rows = []
-    for value in sorted(df["Sub-type"].dropna().astype(str).str.strip().unique()):
-        if not value:
-            continue
-        now, was = _share(recent, "Sub-type", value), _share(prior, "Sub-type", value)
+    labels = sorted({plain(v, PLAIN_SUBTYPE)
+                     for v in df["Sub-type"].dropna().astype(str).str.strip().unique() if v})
+    for value in labels:
+        now, was = _share(recent, field, value), _share(prior, field, value)
         if max(now, was) < minimum:
             continue
         rows.append({"Sub-type": value, "Then %": round(was, 1), "Now %": round(now, 1),
@@ -1267,39 +1279,6 @@ def rate_chart(df, x_col, y_col, title="", suffix="%"):
     return fig
 
 
-def close_stats(df):
-    """Cycle time over the records that actually carry a resolution date.
-
-    Returns the denominator alongside the figures, and every caller prints it. Most of
-    the tracker predates the EAO project and has no ticket to read a closing date from,
-    so a median quoted without saying what share of records it speaks for invites a
-    reader to apply it to the whole book.
-    """
-    days = days_to_close(df).dropna()
-    if days.empty:
-        return None
-    return {"n": int(len(days)), "total": int(len(df)),
-            "median": float(days.median()), "p90": float(days.quantile(0.9)),
-            "worst": int(days.max()), "within14": int((days <= 14).sum())}
-
-
-def close_trend(df):
-    """Median days-to-close per month, carrying the count each point rests on.
-
-    A median over two records is not a trend, so the count travels with the figure and
-    the chart names the thin months rather than drawing them the same as the rest.
-    """
-    raised = pd.to_datetime(df.get("Email/JIRA Date"), errors="coerce")
-    days = days_to_close(df)
-    frame = pd.DataFrame({"month": raised.dt.to_period("M"), "days": days}).dropna()
-    if frame.empty:
-        return pd.DataFrame(columns=["Month", "Median days", "Closed records"])
-    grouped = frame.groupby("month")["days"].agg(["median", "count"]).reset_index()
-    grouped["Month"] = grouped["month"].dt.strftime("%b %Y")
-    return grouped.rename(columns={"median": "Median days", "count": "Closed records"})[
-        ["Month", "Median days", "Closed records"]]
-
-
 def account_scorecard(df, minimum=2):
     """One row per account, answering "how is this customer doing" in one line.
 
@@ -1332,7 +1311,11 @@ def account_scorecard(df, minimum=2):
             "Miss rate": f"{missed[hit].mean() * 100:.0f}%",
             "Median close": f"{days.median():.0f}d ({len(days)})" if not days.empty else "no dated closes",
             "Last raised": raised[hit].max().strftime("%d-%b-%Y") if raised[hit].notna().any() else "",
-            "Most common failure": sub.value_counts().index[0] if not sub.empty else "",
+            # The plain label, not the tracker value: this column read "Source Coverage"
+            # on SOURCE 05 while the Executive Summary called the same failure "Source
+            # not in our vendor or monitoring network", which is two vocabularies for one
+            # thing on two tabs a reader moves between.
+            "Most common failure": plain(sub.value_counts().index[0], PLAIN_SUBTYPE) if not sub.empty else "",
         })
     if not rows:
         return pd.DataFrame()
@@ -1351,31 +1334,8 @@ def filled(series):
     return ~text.isin(["", "nan", "NaT", "None"])
 
 
-def open_items(df):
-    """Rows that still need something done: fix status Pending, nothing else.
-
-    It used to return an `owed` frame beside this one -- RCA Requested with a fix status
-    that was neither `RCA Shared` nor `Fixed`. That count is gone from the app, because
-    the three fields behind it do not agree: 85 emails are marked `RCA Requested`, 38
-    carry any text in `RCA Details` and 31 are marked `RCA Shared`. Any figure derived
-    from them picks one of three and hopes, so none is published. The RCA text itself is
-    still shown -- it is what somebody wrote, not a statistic.
-    """
-    fix = df.get("Short Term Fix Status", pd.Series(dtype=str)).astype(str).str.strip()
-    return df[fix == "Pending"]
-
-
 def resolved_on(df):
     return pd.to_datetime(df.get("Resolution Date"), errors="coerce")
-
-
-def days_open(df):
-    """Days a record has been open. NaN once it closed -- a closed record has an age,
-    not a wait, and reporting `today - raised` for one made February's records look
-    like a 200-day backlog on the Open items page."""
-    raised = pd.to_datetime(df.get("Email/JIRA Date"), errors="coerce")
-    days = (pd.Timestamp.today().normalize() - raised).dt.days
-    return days.where(resolved_on(df).isna())
 
 
 def days_to_close(df):
@@ -1481,11 +1441,22 @@ def repeat_patterns(df, minimum=2):
     return g.reset_index(drop=True)
 
 
+TAGS = re.compile(r"<[^>]+>")
+
+
 def downloads(df, name, fig=None):
     # The plotly toolbar hint used to print beside every download row, including the many
     # that sit under a table with no chart anywhere near them.
     c1, c2 = st.columns([1, 1]) if fig is not None else (st.container(), None)
-    c1.download_button("Download table CSV", df.to_csv(index=False).encode(), f"{name}.csv", "text/csv", key=f"csv_{name}")
+    # The Owner column carries pill markup for the screen. A CSV full of "<span class=..."
+    # is not a download anybody can open in Excel, so the tags come off on the way out
+    # and the cell reads "Product 12 People 3".
+    export = df.copy()
+    for col in export.columns:
+        if export[col].dtype == object:
+            export[col] = export[col].map(
+                lambda v: TAGS.sub(" ", v).strip() if isinstance(v, str) and "<" in v else v)
+    c1.download_button("Download table CSV", export.to_csv(index=False).encode(), f"{name}.csv", "text/csv", key=f"csv_{name}")
     if fig is not None:
         c2.download_button("Download chart HTML", fig.to_html().encode(), f"{name}_chart.html", "text/html", key=f"chart_{name}")
 
@@ -1554,7 +1525,10 @@ def source_page(title, df, col, key, primary=None):
         else:
             hm = heatmap(grid, title=f"Records by sub-type and root cause"
                                      f"{'' if picked == 'All customers' else ' — ' + picked}")
-            flat = grid.reset_index().rename(columns={"index": "Sub-type"})
+            # The grid's index is already the plain label, so nothing is translated here
+            # a second time -- `plain()` falls back to the value itself, which would have
+            # produced a column repeating its neighbour word for word.
+            flat = grid.reset_index().rename(columns={"index": "Sub-type", "Sub-type": "What went wrong"})
             flat["Total"] = grid.sum(axis=1).values
             styled_table(flat); downloads(flat, "subtype_by_root_cause", hm)
         drift = subtype_drift(page)
@@ -1570,7 +1544,11 @@ def source_page(title, df, col, key, primary=None):
             add_section(f"{root} drill-down", f"Breaks {root.lower()} root-cause records into reasons, event types, customers, and automation focus areas for action planning.", "#f6c177" if root == "Process" else "#8ab4f8" if root == "Product" else "#b6beca")
             c1, c2 = st.columns(2)
             with c1: st.markdown(f"**{root} reasons**"); styled_table(count_table(root_df, "Reason") if "Reason" in root_df.columns else pd.DataFrame())
-            with c2: st.markdown(f"**{root} sub-types**"); styled_table(count_table(root_df, "Sub-type") if "Sub-type" in root_df.columns else pd.DataFrame())
+            with c2:
+                st.markdown(f"**{root} sub-types**")
+                styled_table(name_subtypes(count_table(root_df, "Sub-type"))
+                             if "Sub-type" in root_df.columns else pd.DataFrame(),
+                             wrap=["What it means"])
             c3, _ = st.columns(2)
             with c3: st.markdown(f"**{root} event types**"); styled_table(count_table(root_df, "Event type") if "Event type" in root_df.columns else pd.DataFrame())
             pair = long_pair_table(root_df, "Customer", "Reason")
@@ -1776,22 +1754,38 @@ def manual_entry_form(df):
 # the vaguest word in the file. The tracker keeps its own wording, because that is
 # the record; only the chart label is translated, and the original travels with it
 # in the table beside the chart so an analyst can tie any slice back to a field.
+# Two pairs deliberately share a label, which is what "club them" means: they are one
+# failure to a reader and two values to the tracker. `Prioritization` and `Captured Late`
+# both end with the customer hearing about an event we already had, late; `Tagging` and
+# `Industry selection` are both the industry being wrong or missing at publication. The
+# tracker keeps both values -- they travel in the `Tracker value` column beside the label
+# -- and every block that aggregates on the label (`root_frame`, the miss-bucket tail,
+# `audit_pages.miss_buckets`) has to sum into the label rather than key on the sub-type,
+# or the second value silently overwrites the first.
+#
+# What is deliberately NOT in these labels is the actor, wherever the tracker puts the
+# same sub-type under more than one owner. `Event Identification` is 5 People and 4
+# Product, `Review` is 21 People and 2 Product, `Relevancy`'s one record is Product --
+# so a label reading "an analyst did X" is a false statement on every Product row. The
+# owner is carried beside the label, by `root_frame`'s Owner column and by the two
+# owner-split buckets in `MISS_BUCKETS`, which is the only place it can be said and be
+# true on every row.
 PLAIN_SUBTYPE = {
-    "Source Coverage": "We were not watching the source",
-    "Keyword Update": "Our search keywords missed it",
-    "Review": "Reviewed, and not raised",
-    "Event Identification": "Seen, but not recognised as an event",
-    "Prioritization": "Seen, but ranked too low",
-    "Mapping": "Supplier was not linked to the customer",
-    "Visibility": "Published, but it never showed",
+    "Source Coverage": "Source not in our vendor or monitoring network",
+    "Keyword Update": "Keyword Miss",
+    "Review": "Seen at review, and not raised",
+    "Event Identification": "Classified as not impactful, wrongly",
+    "Prioritization": "Captured, but notified late",
+    "Captured Late": "Captured, but notified late",
+    "Mapping": "Supplier was not mapped by the customer",
+    "Visibility": "Published, but not visible to the customer",
     "Policy/Logic": "Our scoring or rules got it wrong",
-    "Process Clarification": "A convention we had not explained",
-    "Captured Late": "Captured, but too late",
+    "Process Clarification": "We had to clarify the reporting guidelines",
     "Duplication": "The same event published twice",
-    "Tagging": "Industry tag missed at publishing",
-    "Industry selection": "Wrong industry chosen",
-    "Relevancy": "Judged not relevant to them",
-    "WarRoom Creation": "No WarRoom was created",
+    "Tagging": "Incorrect industry selection",
+    "Industry selection": "Incorrect industry selection",
+    "Relevancy": "Judged not relevant to this customer",
+    "WarRoom Creation": "WarRoom Missed",
     "Strategy": "How we group events",
 }
 
@@ -1866,27 +1860,27 @@ def overview_split(df):
 # the page reads to a VP without costing an analyst the word they file records under.
 DRIVERS = {
     # -- Product: detection and system coverage -----------------------------------
-    ("Product", "Source Coverage"): ("Source Miss", "Not covered by a monitored source"),
+    ("Product", "Source Coverage"): ("Source Miss", "The source is not in our vendor or monitoring network"),
     ("Product", "Keyword Update"): ("Keyword Miss", "Monitored source, but retrieval logic missed the article"),
     ("Product", "Event Identification"): ("Model Miss", "Incorrect automated classification or routing"),
     ("Product", "Review"): ("Model Miss", "Incorrect automated classification or routing"),
     ("Product", "Prioritization"): ("Model Miss", "Incorrect automated classification or routing"),
     ("Product", "Relevancy"): ("Model Miss", "Incorrect automated classification or routing"),
-    ("Product", "Mapping"): ("Supplier Impact / Mapping", "The supplier was never linked to the impacted event"),
-    ("Product", "Visibility"): ("Portal Visibility Issue", "Published, but it did not appear on the customer's portal"),
+    ("Product", "Mapping"): ("Supplier Impact / Mapping", "The supplier was not mapped to the impacted event"),
+    ("Product", "Visibility"): ("Portal Visibility Issue", "Published, but not visible to the customer"),
     ("Product", "Policy/Logic"): ("System Limitation", "A platform rule or scoring threshold held it back"),
-    ("Product", "Industry selection"): ("Industry Tagging", "Filed under the wrong industry"),
-    ("Product", "Tagging"): ("Industry Tagging", "Filed under the wrong industry"),
+    ("Product", "Industry selection"): ("Industry Tagging", "Incorrect industry selection, or the industry was missed"),
+    ("Product", "Tagging"): ("Industry Tagging", "Incorrect industry selection, or the industry was missed"),
     ("Product", "Captured Late"): ("Alerting Gap", "Captured, but no alert went out in time"),
     # -- People: analyst assessment and review ------------------------------------
     ("People", "Review"): ("People / Analyst Miss", "The article was incorrectly excluded during human review"),
-    ("People", "Event Identification"): ("Event Identification", "Seen by an analyst and not recognised as a reportable event"),
-    ("People", "Prioritization"): ("Prioritization", "Seen by an analyst and ranked too low to raise"),
+    ("People", "Event Identification"): ("Event Identification", "Seen by an analyst and classified as not impactful"),
+    ("People", "Prioritization"): ("Prioritization", "Ranked too low to raise, so the customer heard late"),
     ("People", "Relevancy"): ("Impact Misclassification", "Judged not relevant to the customer, wrongly"),
     ("People", "Duplication"): ("Duplicate Assessment Error", "The same event assessed and published twice"),
     ("People", "Mapping"): ("Supplier Selection", "An impacted supplier was left off the WarRoom"),
-    ("People", "Tagging"): ("Industry Selection", "The industry tag was missed when the bulletin was published"),
-    ("People", "Industry selection"): ("Industry Selection", "The industry tag was missed when the bulletin was published"),
+    ("People", "Tagging"): ("Industry Selection", "Incorrect industry selection, or the industry was missed"),
+    ("People", "Industry selection"): ("Industry Selection", "Incorrect industry selection, or the industry was missed"),
     ("People", "Policy/Logic"): ("Incorrect Action", "The wrong action was taken on the event"),
     # `Delayed Notification` is a Process-list term used under People on purpose: the
     # People vocabulary has no word for lateness. No row carries this pair today -- the
@@ -1895,7 +1889,7 @@ DRIVERS = {
     # A term is a label, not a claim about the owner; the owner is the key it hangs on.
     ("People", "Captured Late"): ("Delayed Notification", "Captured, but the customer was told too late"),
     # -- Process: workflow and control ---------------------------------------------
-    ("Process", "Process Clarification"): ("SOP Unclear", "A working convention that was never written down or explained"),
+    ("Process", "Process Clarification"): ("SOP Unclear", "Reporting guidelines had to be clarified to the customer"),
     ("Process", "Captured Late"): ("Delayed Notification", "Captured, but the customer was told too late"),
     ("Process", "WarRoom Creation"): ("WarRoom Issue", "A required WarRoom was missing, delayed, duplicated, or not visible"),
     ("Process", "Visibility"): ("WarRoom Issue", "A required WarRoom was missing, delayed, duplicated, or not visible"),
@@ -1915,6 +1909,43 @@ ROOT_OWNERSHIP = {
     "Process": "Workflow and control",
 }
 ROOT_COLOURS = {"Product": "#8ab4f8", "People": "#f28b82", "Process": "#f6c177"}
+
+
+def name_subtypes(frame, col="Sub-type", head="What it means"):
+    """Put the plain-English label beside a tracker Sub-type, on any tab.
+
+    The Executive Summary translates the taxonomy and the source pages did not, so the
+    same failure read "Source Coverage" on one tab and "Source not in our vendor or
+    monitoring network" on another -- two vocabularies for one thing, which is the fault
+    `PLAIN_SUBTYPE` exists to fix. The tracker value stays in its own column because it
+    is the record; the label is inserted next to it, never over it.
+    """
+    if frame is None or frame.empty or col not in frame.columns:
+        return frame
+    out = frame.copy()
+    out.insert(list(out.columns).index(col) + 1, head,
+               out[col].map(lambda v: plain(v, PLAIN_SUBTYPE)))
+    return out
+
+
+def owner_pills(counts):
+    """The owner column as one pill per owner, in that owner's own colour.
+
+    It was the string "Product 12 · People 3", which reads as a single value and makes
+    the reader parse two names and two numbers out of one run of text -- on the widest
+    table on the page, where the owner is the column a VP actually looks for. One pill
+    each, name and count set apart, coloured with the same three hues the root-cause
+    cards and both donuts use, so the owner is recognised before it is read.
+
+    This is the one place in `excel_bar_table` that writes HTML into a cell, and the
+    strings are built here from `ROOT_COLOURS` keys -- never from anything a customer or
+    an analyst typed, which still goes through `esc()`.
+    """
+    out = []
+    for owner, n in counts.items():
+        colour = ROOT_COLOURS.get(owner, "#b6beca")
+        out.append(f"<span class='owner-pill' style='--c:{colour}'>{esc(owner)} <b>{int(n)}</b></span>")
+    return "".join(out)
 
 
 def plural(n, one, many=None):
@@ -2001,21 +2032,24 @@ def driver_table(df):
     gives `audit_pages.py` two counts for one label. The roots ride in their own column
     with their counts, the way `root_frame()` carries owners.
     """
-    cols = ["Driver", "Root cause", "What it means", "Misses", "% of Total"]
+    cols = ["Driver", "Owner", "What it means", "Misses", "% of Total"]
     rows = []
     for root, _, _, _, _ in root_summary(df):
         for _, r in root_drivers(df, root, top=99).iterrows():
-            rows.append({"Driver": r["Driver"], "Root cause": root,
+            rows.append({"Driver": r["Driver"], "Owner": root,
                          "What it means": r["What it means"], "Misses": int(r["Misses"])})
     if not rows:
         return pd.DataFrame(columns=cols)
     frame = pd.DataFrame(rows)
     out = []
     for driver, group in frame.groupby("Driver"):
-        roots = group.groupby("Root cause")["Misses"].sum().sort_values(ascending=False)
+        roots = group.groupby("Owner")["Misses"].sum().sort_values(ascending=False)
+        # The column is named Owner rather than Root cause because that is the question
+        # it answers on a leadership page, and it renders as one pill per owner for the
+        # same reason the deeper-root-cause table does: two names and two numbers run
+        # together in one string is not a column anybody reads.
         out.append({"Driver": driver,
-                    "Root cause": " · ".join(f"{k} {v}" for k, v in roots.items())
-                                  if len(roots) > 1 else roots.index[0],
+                    "Owner": owner_pills(roots),
                     "What it means": group["What it means"].iloc[0],
                     "Misses": int(group["Misses"].sum())})
     table = pd.DataFrame(out).sort_values("Misses", ascending=False).reset_index(drop=True)
@@ -2024,7 +2058,7 @@ def driver_table(df):
     return table[cols]
 
 
-def driver_bar(frame, colour, title="", slots=None):
+def driver_bar(frame, colour, title="", slots=None, xmax=None):
     """A compact bar of one root cause's drivers, all in that root's colour.
 
     One hue per chart on purpose: the root cause is already named on the card above, so
@@ -2049,8 +2083,14 @@ def driver_bar(frame, colour, title="", slots=None):
                       textposition="outside", textfont=dict(size=12, color="#f3f4f6"),
                       hovertemplate="<b>%{y}</b> — %{customdata[2]}, %{customdata[1]}"
                                     "<br>%{customdata[0]}<extra></extra>")
-    fig.update_yaxes(tickfont=dict(size=12, color="#f3f4f6"), gridcolor="#303846", title="")
-    fig.update_xaxes(visible=False)
+    fig.update_yaxes(tickfont=dict(size=12.5, color="#f3f4f6"), gridcolor="#303846", title="",
+                     automargin=True, ticklabelposition="outside")
+    # One x scale across all three panels. Each chart used to autoscale, so Process's
+    # 2-miss bar drew almost as long as Product's 24 -- three panels side by side are
+    # read as a comparison whether or not they are labelled one, and bar length is the
+    # thing a reader takes from a bar chart before the number beside it. The axis stays
+    # hidden; the count still rides on the end of every bar.
+    fig.update_xaxes(visible=False, range=[0, (xmax or float(data["Misses"].max())) * 1.16])
     # `slots` pads the axis to the longest of the three lists rather than stretching this
     # one's bars to fill the panel: three charts of equal height whose bars are three
     # different thicknesses compare their own shapes, not their numbers. The padding is
@@ -2067,8 +2107,8 @@ def driver_bar(frame, colour, title="", slots=None):
                       font=dict(color="#f3f4f6", size=12), showlegend=False, hovermode="y",
                       hoverlabel=dict(bgcolor="#11151b", bordercolor=colour, align="left",
                                       font=dict(color="#f3f4f6", size=12)),
-                      margin=dict(l=4, r=44, t=10, b=8),
-                      height=max(150, rows * 34 + 40))
+                      margin=dict(l=0, r=40, t=8, b=6),
+                      height=max(160, rows * 38 + 36))
     st.plotly_chart(fig, width="stretch")
     return fig
 
@@ -2203,6 +2243,49 @@ def missed_event_types(df):
     out.columns = ["Event type", "Records"]
     out["% of Total"] = (out["Records"] / max(len(missed), 1) * 100).round(1).astype(str) + "%"
     return out
+
+
+def all_event_types(df):
+    """Every email by event type, with the complaint/inquiry split on the row.
+
+    The miss table beside it answers "what do we fail to report"; this answers "what do
+    customers write to us about at all", and neither is readable without the other -- a
+    9-miss event type is a different fact depending on whether 10 emails named it or 40.
+    Same shape as `count_table`, so the Complaints and Inquiries columns are the ones
+    every other page carries.
+    """
+    cols = ["Event type", "Complaints", "Inquiries", "Records", "% of Total"]
+    if df.empty or "Event type" not in df.columns:
+        return pd.DataFrame(columns=cols)
+    return count_table(df, "Event type")
+
+
+def event_type_pairs(df):
+    """Event type by emails AND confirmed misses on one row, with the miss rate.
+
+    The two tables on their own leave the reader subtracting: this is the column that
+    says which event types we are actually bad at, as against the ones we merely get a
+    lot of. The rate carries its own base, because 100% of one email is not a finding.
+    """
+    cols = ["Event type", "Emails", "Complaints", "Inquiries", "Misses", "Miss rate", "% of Total"]
+    if df.empty or not {"Event type", "Missed_Flag"} <= set(df.columns):
+        return pd.DataFrame(columns=cols)
+    frame = df.copy()
+    frame["Event type"] = frame["Event type"].fillna("Blank").astype(str).str.strip()
+    frame["_miss"] = frame.get("Missed_Flag", pd.Series(dtype=str)).astype(str).str.strip().eq("Yes")
+    issue = frame.get("Issue Type", pd.Series("", index=frame.index)).astype(str).str.strip()
+    rows = []
+    for value, group in frame.groupby("Event type"):
+        misses = int(group["_miss"].sum())
+        rows.append({"Event type": value, "Emails": len(group),
+                     "Complaints": int(issue.loc[group.index].eq("Complaint").sum()),
+                     "Inquiries": int(issue.loc[group.index].eq("Inquiry").sum()),
+                     "Misses": misses,
+                     "Miss rate": f"{misses / max(len(group), 1) * 100:.0f}% of {len(group)}"})
+    out = pd.DataFrame(rows).sort_values(["Misses", "Emails"], ascending=False).reset_index(drop=True)
+    total = max(int(out["Misses"].sum()), 1)
+    out["% of Total"] = (out["Misses"] / total * 100).round(1).astype(str) + "%"
+    return out[cols]
 
 
 def nature_table(df):
@@ -2343,18 +2426,25 @@ def root_frame(df):
     if df.empty or not {"Root Cause", "Sub-type"} <= set(df.columns):
         return pd.DataFrame(columns=cols)
     frame = pd.DataFrame({
-        "Tracker value": df["Sub-type"].fillna("Blank").astype(str).str.strip(),
+        "_value": df["Sub-type"].fillna("Blank").astype(str).str.strip(),
         "_owner": df["Root Cause"].fillna("Blank").astype(str).str.strip(),
         "_miss": df.get("Missed_Flag", pd.Series(dtype=str)).astype(str).str.strip().eq("Yes"),
     })
+    # Grouped on the LABEL, not on the sub-type. Two pairs of tracker values deliberately
+    # share a label (`Prioritization`/`Captured Late`, `Tagging`/`Industry selection`), and
+    # grouping on the value would draw two bars carrying the same name -- which a y axis
+    # silently merges, and which gives `audit_pages.py` two counts for one label. Both
+    # tracker values ride in the `Tracker value` column, so nothing is hidden by the fold.
+    frame["What went wrong"] = frame["_value"].map(lambda v: plain(v, PLAIN_SUBTYPE))
     rows = []
     misses_total = max(int(frame["_miss"].sum()), 1)
-    for value, group in frame.groupby("Tracker value"):
+    for label, group in frame.groupby("What went wrong"):
         owners = group["_owner"].value_counts()
+        values = group["_value"].value_counts()
         rows.append({
-            "What went wrong": plain(value, PLAIN_SUBTYPE),
-            "Owner": " · ".join(f"{k} {v}" for k, v in owners.items()),
-            "Tracker value": value,
+            "What went wrong": label,
+            "Owner": owner_pills(owners),
+            "Tracker value": " · ".join(values.index) if len(values) > 1 else values.index[0],
             "Emails": len(group),
             "Misses": int(group["_miss"].sum()),
         })
@@ -2516,12 +2606,23 @@ if selected_page == "Executive Summary":
         st.markdown(
             f"<div class='insight-box' style='--accent:#8ab4f8'><b style='color:#8ab4f8'>"
             f"{never} of {missed} misses never entered our system.</b> "
-            f"{bucket(MISS_BUCKETS[0][0])} because we were not watching the source, "
-            f"{bucket(MISS_BUCKETS[1][0])} because a source we do watch carried it and no keyword "
-            f"matched. That is the size of the source-and-keyword problem; what to buy or build "
-            f"against it is Product's call, not this dashboard's.</div>", unsafe_allow_html=True)
-        cards = st.columns(len(roots))
-        for column, (root, n, share, owns, colour) in zip(cards, roots):
+            f"{bucket(MISS_BUCKETS[0][0])} because the source was not part of our vendor or "
+            f"monitoring network, {bucket(MISS_BUCKETS[1][0])} because a source we do monitor "
+            f"carried it and no keyword matched. That is the size of the source-and-keyword "
+            f"problem; what to buy or build against it is Product's call, not this "
+            f"dashboard's.</div>", unsafe_allow_html=True)
+        # One height for all three, from the longest list: three panels ending at three
+        # different depths reads as three unrelated charts rather than one comparison.
+        frames = {root: root_drivers(page, root) for root, *_ in roots}
+        slots = max((len(f) for f in frames.values()), default=1)
+        widest = max((float(f["Misses"].max()) for f in frames.values() if not f.empty), default=1.0)
+        # Card and bars in ONE column each, not two rows of three. As two separate
+        # st.columns calls the card sat in a row of its own and its drivers in another,
+        # so at the width this is read at the eye had to carry "Product" down past a
+        # card border to know whose bars it was looking at -- and the three cards, being
+        # equal-height, pushed the bars a full card below the fold. One column per root
+        # cause reads as one story per root cause.
+        for column, (root, n, share, owns, colour) in zip(st.columns(len(roots)), roots):
             with column:
                 st.markdown(
                     f"<div class='root-card' style='--accent:{colour}'>"
@@ -2530,14 +2631,7 @@ if selected_page == "Executive Summary":
                     f"<div class='rc-base'>of {missed} confirmed misses</div>"
                     f"<div class='rc-share'>{share:.0f}%</div>"
                     f"<div class='rc-desc'>{esc(owns)}</div></div>", unsafe_allow_html=True)
-        # One height for all three, from the longest list: three panels ending at three
-        # different depths reads as three unrelated charts rather than one comparison.
-        frames = {root: root_drivers(page, root) for root, *_ in roots}
-        slots = max((len(f) for f in frames.values()), default=1)
-        bars = st.columns(len(roots))
-        for column, (root, _, _, _, colour) in zip(bars, roots):
-            with column:
-                driver_bar(frames[root], colour, slots=slots)
+                driver_bar(frames[root], colour, slots=slots, xmax=widest)
         line = takeaway(page)
         if line:
             text, colour = line
@@ -2547,9 +2641,21 @@ if selected_page == "Executive Summary":
         if note:
             st.caption(note)
         drivers = driver_table(page)
+        # `wide roomy` plus a wrapped meaning column is the whole readability fix here.
+        # Without `wrap` the `wide` variant sets white-space:nowrap on every cell, so the
+        # explanation column ran the table off the right of the panel and a reader had to
+        # scroll sideways to read a sentence; without `roomy` the rows were 8px-padded
+        # 13px text with the sentence centred in its cell. The meaning now wraps inside
+        # 340-640px, left-aligned, and the table takes the page width it has rather than
+        # being squeezed to 100% of a narrower box.
         excel_bar_table(drivers, "Driver", value_col="Misses",
-                        extras=["Root cause", "What it means"], label_head="Driver",
-                        value_head="Confirmed misses", variant="wide")
+                        extras=["Owner", "What it means"], label_head="Failure driver",
+                        value_head="Confirmed misses", variant="wide roomy",
+                        wrap=["What it means"], raw=["Owner"], classes={"Owner": "owners"},
+                        caption="Every driver behind the three cards above, biggest first. "
+                                "Owner is the root cause on the record itself, so a driver "
+                                "that occurs under two owners shows both with their counts "
+                                "rather than being filed under whichever is larger.")
         downloads(drivers, "miss_drivers")
 
     add_rule()
@@ -2584,33 +2690,76 @@ if selected_page == "Executive Summary":
         downloads(accounts, "customers_impacted", f_cust)
 
     add_rule()
-    add_section("Missed event types", "What kinds of event we actually fail to report — counted "
-                "over the confirmed misses only, not over every email. This block used to count "
-                "all emails under the same heading, which answered a different question from the "
-                "one it asked.", "#f28b82")
-    types = missed_event_types(page)
-    if types.empty:
-        st.info("No email in the current filter is flagged as a confirmed miss.")
+    add_section("Event types", "Two charts over the same filter, then one table carrying both. "
+                "The left chart is every email a customer sent, by the kind of event it was "
+                "about; the right one is only the confirmed misses. Neither is readable alone — "
+                "nine misses is a different fact depending on whether ten emails named that "
+                "event type or forty — so the table under them puts both bases on one row and "
+                "prints the miss rate with its own denominator inside it.", "#f28b82")
+    types, everything = missed_event_types(page), all_event_types(page)
+    if types.empty and everything.empty:
+        st.info("No email in the current filter carries an event type.")
     else:
-        f_types = chart(types, "Event type", title="Confirmed misses by event type",
-                        x_title="Confirmed misses")
-        excel_bar_table(types, "Event type", label_head="Event type", value_head="Misses")
-        downloads(types, "missed_event_types", f_types)
+        left, right = st.columns(2)
+        with left:
+            st.markdown("**Every email, by event type**")
+            f_all = chart(everything, "Event type", title="", x_title="Customer emails") \
+                if not everything.empty else None
+        with right:
+            st.markdown("**Only the confirmed misses**")
+            f_types = chart(types, "Event type", title="", x_title="Confirmed misses") \
+                if not types.empty else None
+        pairs = event_type_pairs(page)
+        if not pairs.empty:
+            excel_bar_table(pairs, "Event type", value_col="Misses",
+                            extras=["Emails", "Complaints", "Inquiries", "Miss rate"],
+                            label_head="Event type", value_head="Confirmed misses",
+                            variant="wide roomy",
+                            caption="Emails counts every email that named this event type, "
+                                    "complaints and inquiries together; Confirmed misses counts "
+                                    "only the ones that did not reach the customer in time. The "
+                                    "two columns have different bases, which is why the rate "
+                                    "prints its own denominator rather than a bare percentage.")
+            downloads(pairs, "event_types", f_types or f_all)
 
     add_rule()
     add_section("Nature of complaints", "What the customer actually wrote about, folded onto the "
-                "eight categories the All customer emails tab defines. The tracker keeps each "
-                "customer's own wording — forty of them for these eight things — and that tab "
-                "lists every wording behind every category, so the fold can be checked rather "
-                "than trusted.", "#8ab4f8")
+                "eight categories the All customer emails tab defines. Each bar is split: the "
+                "darker part is the emails in that category that turned out to be a confirmed "
+                "miss, the lighter part the ones where the event did reach them. That split is "
+                "the answer to the question this block always raised — why the Event missed row "
+                "does not equal the miss count at the top of the page.", "#8ab4f8")
     nature = nature_table(page)
     if nature.empty:
         st.info("No email in the current filter carries a reason.")
     else:
-        f_nature = chart(nature, "Category", title="What customers wrote about",
-                         x_title="Customer emails")
-        excel_bar_table(nature, "Category", label_head="What they wrote about", value_head="Emails")
-        downloads(nature, "nature_of_complaints", f_nature)
+        # The category is what the customer complained about; Missed_Flag is whether the
+        # event reached them in time. They are different measurements and the numbers
+        # differ, which reads as an error until the chart shows the split on the bar
+        # itself. An event reported eleven days late WAS reported, so it is not
+        # `Event missed` -- but it did not arrive in time, so it is a miss.
+        split = nature.copy()
+        split["Reported, not a miss"] = split["Records"] - split["Misses"]
+        f_nature = stacked_bar(split, "Category", ["Misses", "Reported, not a miss"],
+                               {"Misses": "#f28b82", "Reported, not a miss": "#b6beca"},
+                               title="What customers wrote about, and how much of it we got wrong",
+                               x_title="Customer emails", rows=len(split))
+        excel_bar_table(nature, "Category", label_head="What they wrote about",
+                        value_head="Emails", variant="roomy")
+        top = split.sort_values("Misses", ascending=False)
+        others = top[top["Category"] != "Event missed"]
+        elsewhere = int(others["Misses"].sum())
+        named = ", ".join(f"{int(r['Misses'])} {r['Category'].lower()}"
+                          for _, r in others[others["Misses"] > 0].iterrows())
+        here = int(top.loc[top["Category"] == "Event missed", "Misses"].sum())
+        st.caption(
+            f"**Event missed carries {here} confirmed misses, not the {missed} on the cards "
+            f"above, and that is not an error.** This column counts what the customer wrote "
+            f"about; the miss count counts whether the event reached them in time. The other "
+            f"{elsewhere} confirmed miss(es) sit in categories where the event was reported and "
+            f"something else went wrong — {named}. "
+            f"{here} + {elsewhere} = {here + elsewhere}.")
+        downloads(split, "nature_of_complaints", f_nature)
 
     add_rule()
     add_section("Is it getting better?", "One bar per month: the share of that month's emails that "
@@ -2653,124 +2802,17 @@ if selected_page == "Executive Summary":
                              {"Emails": "#b6beca", "Misses": "#f28b82"},
                              title="Every failure: emails raised, and how many were confirmed misses")
         excel_bar_table(roots, "What went wrong", value_col="Misses",
-                        extras=["Owner", "Tracker value", "Emails"],
-                        label_head="What went wrong", value_head="Confirmed misses")
+                        extras=["Owner", "Emails", "Tracker value"],
+                        label_head="What went wrong", value_head="Confirmed misses",
+                        variant="wide roomy", wrap=["Tracker value"], raw=["Owner"],
+                        classes={"Owner": "owners"},
+                        caption="Emails is every email that named this failure; Confirmed "
+                                "misses is how many of those did not reach the customer in "
+                                "time — the gap between the two is the failures we mostly "
+                                "get away with. Tracker value is the Sub-type on the record, "
+                                "and where two of them mean one thing to a reader both are "
+                                "listed on the row.")
         downloads(roots, "root_cause_of_misses", f_root)
-elif selected_page == "Delivery performance":
-    page_header(selected_page); page = filtered; filter_note()
-    stats = close_stats(page)
-    if not stats:
-        st.info("No record in the current filter carries a Resolution Date, so cycle time "
-                "cannot be computed. Clear a filter or widen the date range.")
-    else:
-        cover = stats["n"] / max(stats["total"], 1) * 100
-        kpis([("Median days to close", f"{stats['median']:.0f}", f"over {stats['n']} dated close(s)", "#8ab4f8"),
-              ("Slowest 10%", f"{stats['p90']:.0f} days", "90th percentile", "#f6c177"),
-              ("Worst case", f"{stats['worst']} days", "longest single record", "#f28b82"),
-              ("Closed within 14 days", f"{stats['within14'] / max(stats['n'], 1) * 100:.0f}%",
-               f"{stats['within14']} of {stats['n']}", "#a8dab5"),
-              ("Coverage", f"{cover:.0f}%", f"{stats['n']} of {stats['total']} records are dated", "#b6beca")])
-    add_section("How long does a record take to close?",
-                "Days from the customer raising it to the record being closed out. Only records carrying a "
-                "Resolution Date can answer this -- most of the tracker predates the EAO project and has no "
-                "ticket to read a closing date from -- so every figure here names the denominator it rests on "
-                "rather than treating a blank as a zero.", "#f6c177")
-    trend = close_trend(page)
-    if trend.empty:
-        st.info("No dated closes in the current filter.")
-    else:
-        thin = trend[trend["Closed records"] < 3]["Month"].tolist()
-        if thin:
-            st.caption(f"Median over fewer than three records in {', '.join(thin)} — those points will move.")
-        f = rate_chart(trend, "Month", "Median days", title="Median days to close", suffix=" d")
-        styled_table(trend)
-        downloads(trend, "days_to_close", f)
-
-elif selected_page == "Open items":
-    page_header(selected_page); page = filtered; filter_note()
-    pending = open_items(page)
-    ages = days_open(pending)
-    oldest = int(ages.max()) if ages.notna().any() else 0
-    kpis([
-        ("Still open", f"{len(pending)} of {len(page)}", "Short Term Fix Status is Pending", "#f28b82"),
-        ("Oldest open item", f"{oldest}d", "Days since the email was raised", "#8ab4f8"),
-        ("Closed", f"{len(page) - len(pending)} of {len(page)}", "Answered one way or another", "#a8dab5"),
-    ], columns=3)
-    st.caption(f"{len(pending)} customer email(s) in this filter are genuinely open — the fix status "
-               f"still reads Pending. Everything else has been answered.")
-
-    # Cycle time is only honest over the records that carry a resolution date. Most of
-    # the tracker predates the EAO project and has no ticket to read one from, so the
-    # denominator is stated rather than hidden -- a median over a quarter of the rows
-    # is useful, a median presented as if it covered all of them is not.
-    closed = days_to_close(page).dropna()
-    dated = int(closed.count())
-    resolvable = int((~page.get("Short Term Fix Status", pd.Series(dtype=str))
-                      .astype(str).str.strip().eq("Pending")).sum()) if "Short Term Fix Status" in page.columns else 0
-    add_section("How long records take to close", "Measured from the date the record was raised to the "
-                "resolution date on its Jira ticket. Only records carrying a resolution date can be "
-                "measured; the rest are counted separately rather than assumed to be fast.", "#80cbc4")
-    if dated:
-        within = int((closed <= 14).sum())
-        kpis([
-            ("Median days to close", int(closed.median()), f"Across {dated} dated record(s)", "#80cbc4"),
-            ("Closed within 14 days", f"{within / dated * 100:.0f}%", f"{within} of {dated}", "#a8dab5"),
-            ("Slowest close", f"{int(closed.max())}d", "Longest measured turnaround", "#f6c177"),
-            ("No resolution date", resolvable - dated, "Closed records that cannot be measured", "#b6beca"),
-        ])
-        buckets = pd.cut(closed, [-1, 7, 14, 30, 60, 10**6],
-                         labels=["0-7 days", "8-14 days", "15-30 days", "31-60 days", "60+ days"])
-        spread = (buckets.value_counts().reindex(
-            ["0-7 days", "8-14 days", "15-30 days", "31-60 days", "60+ days"]).fillna(0).astype(int)
-            .rename_axis("Time to close").reset_index(name="Records"))
-        spread["% of Total"] = (spread["Records"] / dated * 100).round(1)
-        excel_bar_table(spread, "Time to close")
-        fig = chart(spread, "Time to close", title="Time to close")
-        downloads(spread, "time_to_close", fig)
-    else:
-        st.info("No record in this filter carries a resolution date, so nothing can be timed.")
-
-    COLS = ["Email/JIRA Date", "Jira Key", "Customer", "Event/Bulletin Title", "Reason",
-            "Severity", "Routed To", "Short Term Fix Status", "RCA Requested"]
-
-    if "Routed To" in page.columns and not pending.empty:
-        by_owner = pending["Routed To"].value_counts()
-        add_section("Who owns the open queue", "Records are routed by Root Cause: People and Process go to "
-                    "EventWatch Ops, Product goes to the platform team. EventWatch Ops still owns the "
-                    "customer-facing RCA on Product-routed records — this says who investigates, not who "
-                    "replies to the customer.", "#8ab4f8")
-        kpis([(owner, int(n), "Pending records", "#f28b82" if "Nitin" in owner else "#f6c177")
-              for owner, n in by_owner.items()])
-        for owner in by_owner.index:
-            sub = pending[pending["Routed To"] == owner]
-            t = sub.assign(**{"Days open": days_open(sub)}).sort_values("Days open", ascending=False)
-            cols = [c for c in COLS if c in t.columns] + ["Days open"]
-            st.markdown(f"**{esc(owner)} — {len(sub)} open**")
-            styled_table(t[cols])
-    add_section("Awaiting a fix", "Records whose short-term fix status is still Pending, oldest first. "
-                                  "These are the live queue.", "#f28b82")
-    if pending.empty:
-        st.success("Nothing is pending.")
-    else:
-        t = pending.assign(**{"Days open": days_open(pending)}).sort_values("Days open", ascending=False)
-        cols = [c for c in COLS if c in t.columns] + ["Days open"]
-        styled_table(t[cols]); downloads(t[cols], "open_pending")
-
-    add_section("Root cause analyses on file", "The RCA text for every record that has one, newest first. "
-                "Where the RCA went out only as a PDF attached to the ticket, the entry says so rather than "
-                "paraphrasing a document that is not in Jira.", "#a8dab5")
-    if "RCA Details" in page.columns:
-        rows = page[filled(page["RCA Details"])]
-        if rows.empty:
-            st.info("No RCA text on file for the current filter.")
-        else:
-            rows = rows.sort_values("Email/JIRA Date", ascending=False)
-            show = [c for c in ["Email/JIRA Date", "Jira Key", "Customer", "Short Term Fix Status",
-                                "Resolution Date", "RCA Details"] if c in rows.columns]
-            styled_table(rows[show]); downloads(rows[show], "rca_details")
-    else:
-        st.info("The tracker has no RCA Details column.")
-
 elif selected_page == "Repeat patterns":
     page_header(selected_page); page = filtered; filter_note()
     pat = repeat_patterns(page)
@@ -2869,23 +2911,6 @@ elif selected_page == "Dynamic Source Discovery":
         lt = long_pair_table(disc, first, second, base=max(len(page), 1))
         if not lt.empty: add_section(name, f"Readable detail table showing {first.lower()} and {second.lower()} as separate columns instead of a wide cross-tab.", "#a8dab5"); styled_table(lt, height=420); downloads(lt, name.lower().replace(" ", "_"))
     add_section("Complete Dynamic Source Discovery records", "All filtered records classified under Dynamic Source Discovery for detailed review.", "#b6beca"); styled_table(disc, height=420); downloads(disc, "dynamic_source_discovery_complete")
-elif selected_page == "Definitions":
-    page_header(selected_page)
-    payload = definitions_payload()
-    if not payload.get("groups"):
-        st.warning("definitions.json is missing or unreadable. Run "
-                   "`python3 scripts/export_definitions.py` and redeploy.")
-    else:
-        st.caption(f"{payload.get('terms', 0)} terms, generated from the workbook's Definitions "
-                   f"sheet and pruned to the values this tracker actually uses "
-                   f"({payload.get('pruned', 0)} unused term(s) omitted).")
-        for group in payload["groups"]:
-            rows = pd.DataFrame(group["rows"], columns=["Term", "Definition", "Allowed values / interpretation"])
-            if not rows["Allowed values / interpretation"].str.strip().any():
-                rows = rows[["Term", "Definition"]]
-            st.markdown(f"<div class='definition-group'><h3>{group['title']}</h3>", unsafe_allow_html=True)
-            styled_table(rows)
-            st.markdown("</div>", unsafe_allow_html=True)
 elif selected_page == "All customer emails":
     page_header(selected_page); page = with_reason_category(filtered); filter_note()
     complaints = int(page.get("Issue Type", pd.Series(dtype=str)).astype(str).eq("Complaint").sum())
