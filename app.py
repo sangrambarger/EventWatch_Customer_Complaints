@@ -86,7 +86,7 @@ h1,h2,h3,h4,h5,h6,p,span,div,label{color:var(--ink)!important}.page-hero,.sectio
 .excel-table.grid td.wrap.narrow,.excel-table.grid th.wrap.narrow{min-width:170px;max-width:200px}
 .excel-table.grid td.wrap.mid,.excel-table.grid th.wrap.mid{min-width:220px;max-width:260px}
 .excel-table.grid td.wrap.bullets{white-space:pre-line}
-.excel-table tbody tr.total td{background:#1a202a!important;border-top:2px solid var(--line2);font-weight:800;color:var(--ink)!important}.excel-table tbody tr.total td .bar-box:before{opacity:.35}
+.excel-table tbody tr.total td{background:#1a202a!important;border-top:2px solid var(--line2);font-weight:800;color:var(--ink)!important}.excel-table.stickytotal tbody tr.total td{position:sticky;bottom:0;z-index:2;box-shadow:0 -2px 6px rgba(0,0,0,.45)}.excel-table tbody tr.total td .bar-box:before{opacity:.35}
 .excel-table.grid tbody tr.total td{--cell-bg:#1a202a;background:#1a202a!important;border-top:2px solid var(--line2);border-bottom:0;font-weight:800;color:var(--ink)!important}
 .excel-table.grid td.wrap>.cell{max-height:100px;overflow-y:auto;background:linear-gradient(var(--cell-bg) 32%,rgba(0,0,0,0)) top/100% 22px no-repeat local,linear-gradient(rgba(0,0,0,0),var(--cell-bg) 68%) bottom/100% 22px no-repeat local,radial-gradient(farthest-side at 50% 0,rgba(138,180,248,.42),rgba(0,0,0,0)) top/100% 11px no-repeat,radial-gradient(farthest-side at 50% 100%,rgba(138,180,248,.42),rgba(0,0,0,0)) bottom/100% 11px no-repeat}
 .excel-table.grid td.wrap>.cell::-webkit-scrollbar{width:8px}
@@ -438,7 +438,8 @@ def esc(v):
 
 
 def excel_bar_table(df, label_col, value_col="Records", extras=None, label_head=None,
-                    value_head="Total emails", height=None, total_row=True, variant=None):
+                    value_head="Total emails", height=None, total_row=True, variant=None,
+                    totals=None):
     """A ranked table whose last-but-one column is a bar drawn inside the cell.
 
     `extras` are the columns carried between the label and the bar; the default picks
@@ -466,13 +467,27 @@ def excel_bar_table(df, label_col, value_col="Records", extras=None, label_head=
         # formatted string: "29.5%" cannot be added up after the fact, and the total of
         # a column of shares is 100% of whatever base the table was built from, not the
         # sum of the strings in it.
-        sums = "".join(f"<td>{esc(int(pd.to_numeric(df[c], errors='coerce').fillna(0).sum()))}</td>"
-                       if pd.api.types.is_numeric_dtype(df[c]) else "<td></td>" for c in extra)
-        grand = int(pd.to_numeric(df[value_col], errors="coerce").fillna(0).sum())
+        #
+        # `totals` overrides a column's sum with the true figure, for the one table whose
+        # rows deliberately double-count: an email naming two accounts appears on both
+        # their rows, so the columns add to more than the tracker holds. Adding the
+        # column up there would print a total that contradicts every other number on the
+        # page, which is exactly what a total row exists to prevent.
+        def foot(col):
+            if totals and col in totals:
+                return int(totals[col])
+            if pd.api.types.is_numeric_dtype(df[col]):
+                return int(pd.to_numeric(df[col], errors="coerce").fillna(0).sum())
+            return None
+        sums = "".join(f"<td>{esc(v)}</td>" if (v := foot(c)) is not None else "<td></td>"
+                       for c in extra)
+        grand = foot(value_col)
         rows.append(f"<tr class='total'><td>Total</td>{sums}<td>{esc(grand)}</td>"
                     f"<td>{'100%' if '% of Total' in df.columns else ''}</td></tr>")
     heads = "".join(f"<th>{esc(c)}</th>" for c in extra)
     box = f" style='max-height:{int(height)}px;overflow-y:auto'" if height else ""
+    if height and total_row:
+        variant = f"{variant} stickytotal" if variant else "stickytotal"
     klass = "excel-table" + (f" {variant}" if variant else "")
     st.markdown(f"<div class='table-wrap'{box}><table class='{klass}'><thead><tr>"
                 f"<th>{esc(label_head or label_col)}</th>" + heads +
@@ -1879,10 +1894,38 @@ def miss_by_customer(df):
     for label in labels:
         out[label] = [int(grid.loc[c, label]) if c in grid.index else 0 for c in out["Customer"]]
     out["Misses"] = out[labels].sum(axis=1) if labels else 0
-    total = max(int(out["Misses"].sum()), 1)
+    # Against the tracker's own miss count, NOT the sum of this column: the column
+    # double-counts every email that names two accounts, so a share taken from it would
+    # be a share of a number that appears nowhere else on the dashboard.
+    total = max(int((miss_bucket_series(df) != "").sum()), 1)
     out["% of Total"] = (out["Misses"] / total * 100).round(1).astype(str) + "%"
     cols = ["Customer", "Emails", "Complaints", "Inquiries"] + labels + ["Misses", "% of Total"]
     return out[cols].sort_values(["Misses", "Emails"], ascending=False).reset_index(drop=True)
+
+
+def customer_totals(df):
+    """The true column totals for `miss_by_customer()`, and how far its rows overshoot.
+
+    Returns `(totals, overshoot)`. The per-account rows deliberately double-count: an
+    email naming `Ford/GM` is one email in the tracker and a row on both accounts, which
+    is the rule the whole app uses so that "how many emails touched Ford" has an answer.
+    Adding the columns up therefore prints 120 emails against a tracker of 115 -- a
+    number that appears nowhere else on the dashboard, and the first thing a reader
+    challenges. The total row carries these figures instead, and `overshoot` is what the
+    caption needs to explain the gap rather than leave it to be noticed.
+    """
+    issue = df.get("Issue Type", pd.Series(dtype=str)).astype(str).str.strip()
+    buckets = miss_bucket_series(df)
+    totals = {"Emails": len(df),
+              "Complaints": int(issue.eq("Complaint").sum()),
+              "Inquiries": int(issue.eq("Inquiry").sum()),
+              "Misses": int((buckets != "").sum())}
+    for label, n in buckets[buckets != ""].value_counts().items():
+        totals[label] = int(n)
+    shared = df["Customer"].fillna("").astype(str).str.contains("/") if "Customer" in df.columns else pd.Series(dtype=bool)
+    overshoot = {"emails": int(shared.sum()),
+                 "misses": int((shared & (buckets != "")).sum())}
+    return totals, overshoot
 
 
 def missed_event_types(df):
@@ -2228,9 +2271,9 @@ if selected_page == "Executive Summary":
     add_section("Customers impacted", "Every account in the filter. Emails is every email that named "
                 "the account, complaints and inquiries together; the columns after it count only the "
                 "confirmed misses, split by what failed. Both bases sit on the row, because 44 on its "
-                "own does not say 44 of what. Accounts are split on the slash, so a Ford/GM email "
-                "counts for both — which is why the Emails total is larger than the number of emails "
-                "in the tracker.", "#f6c177")
+                "own does not say 44 of what. Accounts are split on the slash, so an email naming two "
+                "of them appears on both rows — the rows therefore add to more than the tracker holds, "
+                "and the Total row is the distinct count, not the column sum.", "#f6c177")
     if accounts.empty:
         st.info("No customer recorded in the current filter.")
     else:
@@ -2240,11 +2283,19 @@ if selected_page == "Executive Summary":
                              miss_colours(page, cats),
                              title="Confirmed misses by account, and what failed",
                              x_title="Confirmed misses")
+        totals, over = customer_totals(page)
         excel_bar_table(accounts, "Customer", value_col="Misses",
                         extras=["Emails", "Complaints", "Inquiries"] + bucket_names,
                         label_head="Customer", value_head="Confirmed misses", height=460,
-                        variant="wide")
-        st.caption(f"All {len(accounts)} account(s) in the current filter, scrolling in place.")
+                        variant="wide", totals=totals)
+        rows_add = int(accounts["Emails"].sum())
+        st.caption(
+            f"All {len(accounts)} account(s) in the current filter, scrolling in place. "
+            f"The rows add to {rows_add} emails because {over['emails']} email(s) name two "
+            f"accounts each and are counted for both — {over['misses']} of those are "
+            f"confirmed misses. **The Total row is the distinct count: {totals['Emails']} "
+            f"emails and {totals['Misses']} misses**, the same figures as the cards at the "
+            f"top of this page and every other tab.")
         downloads(accounts, "customers_impacted", f_cust)
 
     add_rule()
