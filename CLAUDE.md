@@ -213,8 +213,13 @@ with a fix or a clarification, so presenting them as open work made resolved rec
 unresolved. Closing a fix status does not discharge a promise that was never kept, so
 they stay visible -- under "RCA promised but never delivered", not under open items.
 
-`insights()` states what the data shows, as KPI cards, at the top of the Executive
-Summary. Six frequency tables answer "what is there"; nobody was reading "what changed"
+`insights()` states what the data shows, as KPI cards, at the **foot** of the Executive
+Summary -- it used to sit at the top, where it competed with the eight cards that open
+the page for the same glance.  Its headline number is the current share (`27%`, footed
+"of the last 3 months, up from 12%") rather than the difference between two shares
+(`+15 pts`), because a point difference asks the reader to hold both shares in their
+head to know what it is 15 of.  Sub-type names on these cards go through
+`PLAIN_SUBTYPE`, like every other label on the page. Six frequency tables answer "what is there"; nobody was reading "what changed"
 out of them. It computes sub-type drift over two windows, customer concentration,
 accounts whose every record was a confirmed miss, and the worst recurring
 customer+sub-type pair -- all from the frame on screen, so it respects
@@ -235,12 +240,23 @@ leaves a hole when there are four. Pass the count. The ticket-
 traceability finding was dropped: it measured when the EAO project started, which is
 the same recording artifact the June rule above warns about.
 
-Below it, **`miss_categories()`** splits the missed records by what actually failed and
-**who fixes it**: `Source Miss` (Sub-type `Source Coverage`), `Keyword Miss` (`Keyword
-Update`), `Analyst Miss` and `Model Miss` (both `Review` / `Event Identification` /
-`Prioritization`, separated by `Root Cause` People against Product), and `Other`. It runs
-24 / 12 / 25 / 6 / 11 of 78, so the biggest single cause over the whole tracker is an
-analyst miss, a point ahead of source coverage.
+**`miss_categories()`** splits the missed emails by what actually failed and
+**who fixes it**: `Not in a source we watch` (Sub-type `Source Coverage`), `Watched, but
+terms missed it` (`Keyword Update`), `An analyst let it through` and `The model did not
+spot it` (both `Review` / `Event Identification` / `Prioritization`, separated by
+`Root Cause` People against Product), and `Other failures`. It runs
+23 / 12 / 26 / 6 / 11 of 78, so the biggest single cause over the whole tracker is an
+analyst miss, three ahead of source coverage. The five are named in English rather than
+in the tracker's taxonomy because they are read by people outside the team, and
+`audit_pages.py` recomputes all five from the CSV **under the same names** -- so a
+bucket renamed in `app.py` and not in the audit fails it rather than quietly ceasing to
+be checked (the audit records a label it cannot find as "not rendered", not as a
+mismatch).
+
+`miss_bucket_series()` is the one implementation: it returns the bucket for each row and
+`miss_categories()`, the per-account table and everything else aggregate it, so no two
+blocks on the page can disagree about which bucket an email is in. Non-misses start out
+claimed, so they can never take a bucket.
 
 Those were 20 / 9 / 25 / 13 / 10 until six records were found whose `Automation
 Opportunity` read "Source coverage expansion" or "Keyword expansion" -- the team's own
@@ -297,9 +313,9 @@ Whatever built that deck, it was not this file. Do not reconcile to it.
 
 **And the cumulative ring hides the quarter.** `miss_recent_note()` prints a line under
 the donut naming the last three months whenever the frame spans more than six, because
-reading the ring as "the picture" gets the wrong two priorities: over nine months Source
-Miss is 31% and second, over Jul-Sep it is 40% and first, while Model Miss falls 12% to
-zero -- no record in the last three months is a model miss at all. It lists only buckets that moved 5 points or more, biggest recent share first -- the
+reading the ring as "the picture" gets the wrong two priorities: over nine months the
+source bucket is 30% and second, over Jul-Sep it is 38% and first, while the model bucket
+falls to zero -- no email in the last three months is a model miss at all. It lists only buckets that moved 5 points or more, biggest recent share first -- the
 same threshold rule `insights()` applies. This exists because a claim that source misses
 "had not moved" survived review here, on the coincidence that the slide's 20 equals
 today's 20; 11 of those 20 had landed in the previous three months. **Two equal numbers
@@ -318,8 +334,9 @@ however the taxonomy grows. `audit_pages.py` recomputes all five from the CSV
 independently, so a bucket quietly redefined in `app.py` fails the audit rather than
 agreeing with itself.
 
-Colour: Source and Keyword are one family in two steps of `BLUE_RAMP` (both are "it never
-reached a person"); Analyst and Model take `--red` and `--amber`; the residue is
+Colour: the source and keyword buckets are one family in two steps of `BLUE_RAMP` (both
+are "it never reached a person"); the analyst and model buckets take `--red` and
+`--amber`; the residue is
 `--muted`. `--green` is **deliberately unused here even though it measures clean** --
 `--red` against `--green` is dE 9.7 deutan and 20.5 normal, so the dE 3.6 pair warned
 about above is a saturated red/green, not these two tokens -- because every slice on this
@@ -334,6 +351,78 @@ which is worse.
 and SOURCE 06 are those pages, and repeating them here made the Executive Summary a
 scroll rather than a summary.
 
+## The Executive Summary, section by section
+
+The page is a story in eight parts, separated by `add_rule()` -- a full-width hairline,
+because the heading card alone was not enough and two adjacent sections read as one.
+Every section is chart-then-table, in that order, so the eye learns the shape once.
+
+1. **Eight cards**, two rows of four via `kpis(..., columns=4)`. Never eight across: at
+   the width this is read at that is 180px a card, and the number is the first thing to
+   shrink. Row one is what came in (emails, complaints, confirmed misses, complaints
+   that were not a miss); row two is what it means (`Never captured by us`, `Seen, but
+   overlooked`, the last three months' rate, and the largest account's share of the
+   whole page). **`Never captured by us`, not "never notified to customers"** -- the
+   second is true of all 78 misses, so it stops contrasting with the card beside it.
+2. **What customers sent us** -- two donuts. `overview_split()` is all 115 in three
+   mutually exclusive parts (78 misses / 17 complaints that were not / 20 inquiries);
+   `miss_owner_split()` is the 78 by who fixes them, in `PLAIN_ROOT` words.
+3. **Why the events were missed** -- the five buckets, with the page's headline
+   underneath: *N of 78 misses never entered our system*, computed from the first two
+   buckets so it cannot go stale. That sentence is the number Product sizes the
+   source-and-keyword problem with; what to buy against it is deliberately not on the
+   dashboard.
+4. **Customers impacted** -- `miss_by_customer()`, the eight worst as a stacked bar and
+   **every** account in a scrolling table. A scroll box, not a collapsed expander: a
+   collapsed expander lays out at zero height, so `innerText` reads empty and
+   `audit_pages.py` silently stops reconciling every row it hides. All 33 accounts are
+   audited because of that choice.
+5. **Missed event types** -- `missed_event_types()`, over the **confirmed misses only**.
+   The block this replaced carried the same heading and counted every email, which
+   answered a different question from the one it asked.
+6. **Nature of complaints** -- the eight `REASON_CATEGORIES`, the same vocabulary the
+   All customer emails tab defines and lists the wordings behind.
+7. **Is it getting better?** -- `trend_windows()` / `trend_chart()`: nine monthly points,
+   plus the last three months and the three before drawn as flat shelves **over their own
+   months**, so what each average is the average of is visible rather than asserted.
+   Both pooled on counts. The two values ride in the legend, not as annotations -- as
+   annotations they crossed the monthly line wherever the two met. Only the signed delta
+   is drawn on the plot.
+8. **The deeper root cause** -- two sunbursts, all emails and misses only, inner ring
+   `PLAIN_ROOT`, outer ring `PLAIN_SUBTYPE`. Anything under four emails folds into one
+   `Other (N kinds)` per owner, and `uniformtext` **hides** a label rather than shrinking
+   it below 11px: a four-record wedge carrying five words of unreadable type is worse
+   than a wedge with no label, since the arc still shows the size, the hover still names
+   it and the table below lists every row.
+
+**`PLAIN_ROOT` and `PLAIN_SUBTYPE` translate the taxonomy, they do not replace it.**
+`Root Cause` and `Sub-type` are the vocabulary of the people who file the records, and on
+a leadership page they say nothing -- `Review`, the largest People bucket, is the vaguest
+word in the file. The tracker keeps its own wording because that is the record; only the
+chart label is translated, and the tracker term travels beside it in the table so an
+analyst can tie any slice back to a field. `plain()` falls back to the value itself, so a
+term added tomorrow appears as itself rather than vanishing. `Review` reads "Reviewed,
+and not raised" rather than naming the analyst, because it sits under **both** People and
+Product and a label naming the analyst is wrong on the Product rows.
+
+**No RCA figure appears on this page, by decision.** The tracker holds 85 emails marked
+`RCA Requested`, 38 carrying any text in `RCA Details` and 31 marked `RCA Shared` --
+three numbers for one thing, none agreeing -- so any share quoted from them picks one and
+hopes. Open items and Delivery performance still compute from those fields; that is the
+remaining inconsistency, and hiding a wrong number on one page while two others show it
+is worse than showing it everywhere.
+
+**The sidebar is `--bg`, and the nav accent is per group.** The sidebar was `#171b22`
+against a `#0f1115` page -- two greys four points apart, which reads as a mistake rather
+than a separation; the 1px `--line` border is the split. `NAV_GROUPS` gives the fifteen
+pages four colours by the job they do, not fifteen hues: repeating a hue across unrelated
+pages claims a kinship that is not there, and fifteen is confetti. The index is derived
+from `PAGES`, so reordering or renaming a page cannot leave a rule pointing at the wrong
+row, and each option reads its colour from a `--nav` custom property the generated CSS
+sets -- the hover and selected rules no longer hardcode `--blue`. Verify
+`div[role="radiogroup"]>label:nth-of-type(N)` against the live DOM after a Streamlit
+upgrade, along with the two selectors named further down.
+
 `REASON_ALIASES` / `normalise_reason()` fold the `Reason` wordings that all mean "an
 event we should have reported was not reported" onto one `Missed Event` label for the
 Nature-of-complaints table: forty distinct strings for a handful of complaint kinds put
@@ -343,14 +432,17 @@ failures. Hybrids (`Missed / Delayed Event`, `Delayed / Missing WarRoom`) are le
 the customer's own wording, because that wording is the record of what they said. It is deterministic, so it is regression-testable and needs no API key, which
 is why the no-network rule in `app.py` still holds.
 
-The Executive Summary opens on the miss-rate question, because a grid of nine monthly
-percentages does not answer "are we getting better" and nobody was reading one out of
-it. `missed_verdict()` says it in a sentence: the last three months' pooled miss rate
-against the three before, on **counts, not the mean of monthly percentages** -- a month
-with 4 records must not weigh the same as one with 18. A move under 5 points reads as
-"Not improving" rather than being dressed up as a trend, and a thin latest month is
-flagged so nobody leans on a point that will move. At 103 records over nine months the
-current answer is 73% against 70%: flat, and the page now says so.
+`missed_verdict()` answers the miss-rate question in a sentence above the trend chart,
+because a grid of nine monthly percentages does not answer "are we getting better" and
+nobody was reading one out of it: the last three months' pooled miss rate against the
+three before, on **counts, not the mean of monthly percentages** -- a month with 4 emails
+must not weigh the same as one with 18. A move under 5 points reads as "Not improving"
+rather than being dressed up as a trend, and a thin latest month is flagged so nobody
+leans on a point that will move. At 115 emails over nine months the current answer is
+64% against 72%, down 7.6 points -- which clears the threshold, and the caption under the
+chart still names both denominators (45 and 43 emails) so nobody reads eight points off
+ninety emails as a result. It no longer opens the page: the eight cards do, and the
+comparison sits seventh, where it reads as the end of the story rather than the start.
 
 `Sub-type` sits beneath `Root Cause` in the taxonomy and was charted nowhere until
 SOURCE 04 gained a heatmap of the two together, with a customer selector above it. The
@@ -415,7 +507,7 @@ upgrade; a silently failing selector here brings the dots back or loses the high
 used to inherit that: "Missed Event", "Missed insolvency alert" and "WarRoom should have
 been created but was not" are one category written three ways, so no chart of `Reason`
 could rank anything. `REASON_CATEGORIES` / `reason_category()` / `with_reason_category()`
-fold them onto eight reusable categories -- Event missed 64, Classified wrongly 14,
+fold them onto eight reusable categories -- Event missed 63, Classified wrongly 14,
 Question about coverage 14, Reported late 12, Supplier not linked 6, Published but not
 visible 3, Duplicate published 2, Hidden by the customer's own filter 1 -- and that
 wording is what every tab shows. **`Question about coverage` now holds 14 inquiries, no
@@ -424,7 +516,7 @@ asking how something works, so a record in it that turned out to be a failure be
 somewhere else.
 
 **The category and `Missed_Flag` measure different things, and the gap needs saying out
-loud.** 77 emails are confirmed misses but only 62 sit under `Event missed`: the category
+loud.** 78 emails are confirmed misses but only 63 sit under `Event missed`: the category
 is what the customer complained about, the flag is whether the event reached them in
 time. An event reported eleven days late *was* reported, so it is not `Event missed` --
 but it did not reach them in time, so it is a miss. The other 15 are 11 reported late,
@@ -544,16 +636,15 @@ touched on every visit, and Streamlit's own sidebar collapse (the arrow at its t
 what widens the page for reading a table.
 
 **A complaint is not automatically a miss**, and that gap is the first thing a reader
-asks about: 22 of the 97 complaints are ones where the event *was* reported and the
-failure, if any, was something else -- wrong classification 9, a coverage question that
-turned out to be nothing 5, published twice 2, not visible 2, supplier not linked 2,
-hidden by the customer's own filter 1, late 1. The KPI row states it (`Complaints, not a
-miss  22 of 97`) and a table below breaks it down, rather than leaving a reader to
-subtract 78 from 97 and get a number that is wrong anyway, since three of the misses are
-inquiries.
+asks about: 17 of the 95 complaints are ones where the event *was* reported and the
+failure, if any, was something else -- wrong classification 9, published twice 2, not
+visible 2, supplier not linked 2, hidden by the customer's own filter 1, late 1. The KPI
+row states it (`Complaints, not a miss  17 of 95`) and a table below breaks it down,
+rather than leaving a reader to subtract. All 78 confirmed misses are now complaints and
+no inquiry is one, which `validate.py`'s `issue_type` keeps true.
 
 `% of these` rather than `% of emails`: the column is a share of whatever frame the table
-was built from -- all 115 in one place, the 22 non-miss complaints in the other -- and
+was built from -- all 115 in one place, the 17 non-miss complaints in the other -- and
 "% of emails" reads as a share of the whole tracker in both.
 
 **Vocabulary: a row is a "customer email", not a "record".** `filter_note()` and the

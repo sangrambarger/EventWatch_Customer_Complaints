@@ -717,7 +717,7 @@ def check_cause_agreement(df: pd.DataFrame, rep: Report) -> None:
     `Event Identification`. Nothing noticed, because no rule compares the two, and the
     Executive Summary's miss buckets key on `Sub-type`: the source and keyword misses
     read 20 and 9 when the records themselves said 23 and 12, and the difference landed
-    in `Model Miss` instead. The reader who caught it had to know the tracker well
+    in the model-miss bucket instead. The reader who caught it had to know the tracker well
     enough to disbelieve the chart.
 
     A warning rather than a failure, because which of the two fields is wrong is a
