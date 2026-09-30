@@ -147,15 +147,15 @@ instead of pushing, so a bad row cannot reach the dashboard silently.
 
 `Resolution Date` is what makes any timing metric possible, and the app treats it as
 the record's closing date. `days_to_close()` is the cycle time and is what
-`account_scorecard()` reads; `days_open()` and `age_days()` are both gone with the pages
-that used them. The column is blank on 73 closed records: those predate the
+`days_to_close()`, `days_open()` and `age_days()` are all gone with the pages that used
+them, so **no cycle-time figure is computed anywhere in the app**. The column is blank on 73 closed records: those predate the
 EAO project and carry no ticket to read a date from, so every cycle-time figure names
 its own denominator rather than treating a blank as zero. Backfill came from each
 ticket's Jira `resolutiondate` via the connector -- never guessed, and never taken for
 a merged incident unless every one of its keys resolved.
 
 `date_filter()` is one control in the sidebar, not one per page. Every page used to own a
-private copy, so narrowing Executive Summary to September and then opening SOURCE 04
+private copy, so narrowing Executive Summary to September and then opening Root cause
 showed the full year with nothing to say the two disagreed -- a reader comparing the
 pages was comparing different populations. It now sits beside Customer and Severity,
 inside `sidebar_filters()`, and `filter_note()` prints the surviving count at the top of
@@ -186,9 +186,9 @@ question:
 | --- | --- |
 | Executive Summary | the whole story, in eight sections |
 | All customer emails | the records, and the vocabulary every other tab uses |
-| SOURCE 01 Monthly trend | volume by month, then the summary's own trend block |
-| SOURCE 04 Root cause | the summary's two root-cause blocks, then the heatmap, the drift and the per-owner drill-downs |
-| SOURCE 05 Top customers | the summary's Customers impacted block, then the scorecard and the workbook's own basis |
+| Monthly trend | volume by month, then the summary's own trend block |
+| Root cause | the summary's two root-cause blocks, then the heatmap and the per-owner drill-downs |
+| Top customer complaints | the summary's Customers impacted block, then one account at a time from a dropdown |
 | DETAIL Event workload | the summary's Event types block |
 | Dynamic Source Discovery | the source and keyword deep dive |
 
@@ -228,15 +228,20 @@ and records with no Jira key split 36 `Fixed` to 4 `RCA Shared` while ticketed o
 recording practice changed then, so a shift in what the fields say is not evidence that
 the work changed. Test the June hypothesis before publishing a trend line.
 
-`account_scorecard()` on SOURCE 05 is one row per account -- emails, complaint/inquiry
-split, miss rate, median close with its own count in brackets, last contact, most common
-failure. It exists because answering "how is Ford doing" previously meant
-holding one name in your head across five pages. Accounts are split on the slash like
-everywhere else, so the totals agree with `customer_exposure()`, and single-record
-accounts are folded out: a 100% miss rate over one record outranks a real pattern and
-says nothing. Most common failure prints the plain label, not the tracker value, so the
-same failure is not called two things on two tabs: Ford reads 44 emails, 77% miss rate
-and "Source not in our vendor or monitoring network", all in one line.
+**Top customer complaints is one account at a time**, chosen from a dropdown. The three
+tables it used to end with were `long_pair_table` dumps -- one row per customer-and-value
+pair, thirty-three accounts deep, unranked and ungrouped, so reading one account meant
+scanning past thirty-two others, and "Customer root-cause patterns" said only Product /
+People / Process, which names the team and not the problem. `render_account_view()`
+replaces all three: a KPI row for the account, one computed sentence
+(`account_headline()`), `account_failures()` keyed on the **(Root Cause, Sub-type)** pair
+so the owner is a pill and the failure sits beside it in the dashboard's own words, then
+the reason categories and the event types with a chart each. The selector narrows that
+block only; the tables above keep following the sidebar.
+
+`account_scorecard()` is gone, on the owner's call. It was one row per account across
+five columns, and every one of those columns is now either on the dropdown view above or
+on the Customers impacted table this page already carries.
 
 ## No RCA figure is published anywhere
 
@@ -251,8 +256,8 @@ still show it leaves the pages disagreeing, which is worse than showing it every
 What went: the Executive Summary's RCA card, Delivery performance's RCA funnel
 (`rca_funnel()`, deleted), Open items' `RCA never delivered` and `RCA on file` cards and
 its "RCA promised but never delivered" table, `open_items()`'s second return value
-(`owed`), `age_days()` (it existed only for that mixed open/closed table), and
-`account_scorecard()`'s `RCA owed` column on SOURCE 05.
+(`owed`), `age_days()` (it existed only for that mixed open/closed table), and the
+`RCA owed` column on the account scorecard, itself since removed.
 
 What stayed, and why: **the RCA text itself**, on Open items' "Root cause analyses on
 file" table and on the record card -- that is what somebody wrote, not a statistic. And
@@ -697,8 +702,8 @@ label now says.
 
 Everything that aggregates on a label has to **sum into it, never key on the sub-type**,
 or the second value of a pair silently overwrites the first. Three places do this and all
-three were changed together: `root_frame()` groups on the label, `subtype_drift()` takes
-its shares on the label, and `audit_pages.miss_buckets()` uses `+=`. Written the obvious
+three were changed together: `root_frame()` groups on the label, `account_failures()`
+groups on the label, and `audit_pages.miss_buckets()` uses `+=`. Written the obvious
 way, `Incorrect industry selection` read 1 where the tracker holds 2.
 
 **No label names an actor where the tracker puts that sub-type under more than one
@@ -711,10 +716,10 @@ labels on the page allowed to say "analyst" or "model" because the owner is part
 rule that picks their rows.
 
 **The vocabulary is now on every tab, not just the Executive Summary.**
-`name_subtypes()` puts the label beside a tracker Sub-type on SOURCE 04's drill-downs,
-`subtype_matrix()` labels the heatmap's rows with it, `subtype_drift()` labels the
-dumbbell, and `account_scorecard()`'s Most common failure prints it. Ford read
-"Source Coverage" on SOURCE 05 and "Source not in our vendor or monitoring network" on
+`name_subtypes()` puts the label beside a tracker Sub-type on Root cause's drill-downs,
+`subtype_matrix()` labels the heatmap's rows with it, and `owner_accounts()` and
+`account_failures()` print it on the Root cause and Top customer complaints tabs. Ford read
+"Source Coverage" on Top customer complaints and "Source not in our vendor or monitoring network" on
 the Executive Summary -- two vocabularies for one failure on two tabs a reader moves
 between.
 
@@ -731,6 +736,14 @@ and a label naming the analyst is wrong on the Product rows.
 **No RCA figure appears on this page**, for the reason set out under "No RCA figure is
 published anywhere" above -- and it is gone from every other page too, so the dashboard
 does not contradict itself.
+
+**Three tabs were renamed** on the owner's call: `SOURCE 01 · Monthly trend` is
+**Monthly trend**, `SOURCE 04 · Root cause` is **Root cause**, `SOURCE 05 · Top
+customers` is **Top customer complaints**. The `SOURCE nn` prefixes were a map of the
+Excel workbook's chart sources, which is a thing no reader of this dashboard has ever
+needed. The names are the key in `PAGES`, `PAGE_KICKERS`, `DESCRIPTIONS`, `NAV_GROUPS`,
+`smoke_app.EXPECTED` and `audit_pages.expectations()`, so a rename touches all six --
+grep the old string across `app.py` and `scripts/` rather than editing `PAGES` alone.
 
 **The sidebar is `--bg`, and the nav accent is per group.** The sidebar was `#171b22`
 against a `#0f1115` page -- two greys four points apart, which reads as a mistake rather
@@ -764,8 +777,31 @@ chart still names both denominators (45 and 43 emails) so nobody reads eight poi
 ninety emails as a result. It no longer opens the page: the eight cards do, and the
 comparison sits seventh, where it reads as the end of the story rather than the start.
 
+**The per-owner drill-downs are three tables stacked full width, not two squeezed into
+`st.columns(2)`.** Side by side, a `count_table` with six numeric columns and a wrapped
+meaning column had about forty characters of width each: every header wrapped to three
+lines and the meaning column was unreadable, which is the opposite of what a drill-down
+is for. `render_owner_drilldown()` gives each owner a computed sentence
+(`owner_insight()`) and then three tables that answer three different questions --
+**what failed** (the taxonomy, with the plain label beside the tracker value), **what the
+customer called it** (their own wording, folded onto the categories), and **which
+accounts carry it** (`owner_accounts()`).
+
+That last one replaces a `long_pair_table(root_df, "Customer", "Reason")` dump: one row
+per customer-and-wording pair, forty wordings against thirty-three accounts, long and
+unranked and saying nothing the two tables above it had not. The question a drill-down
+exists for is *whose problem is this*, and that needs the account's own base beside the
+count -- 26 Product failures at Ford is a different fact from 2 at an account that only
+ever sent 2 emails, which is why `Share of their emails` is a column. It carries **no
+Total row**: an email naming two accounts is counted for both, so the column would add
+to more than the tracker holds, and the rule here is that a total is a reconciliation or
+it is absent.
+
+"Which failures are growing" (the `subtype_drift` dumbbell) was removed on the owner's
+call, with `subtype_drift()` and `dumbbell()`.
+
 `Sub-type` sits beneath `Root Cause` in the taxonomy and was charted nowhere until
-SOURCE 04 gained a heatmap of the two together, with a customer selector above it. The
+Root cause gained a heatmap of the two together, with a customer selector above it. The
 selector narrows that block only -- the drill-downs below keep following the sidebar --
 because the question the page exists to answer is "for Ford, how many were a source
 miss", and answering it should not depend on knowing the sidebar has a filter at all. The shape is the point: `Review` is 18
@@ -791,9 +827,7 @@ alone. In-bar labels wear `--panel` rather than `--ink`: white on `--red` is 2.2
 dark is 6.9:1, and the label sits on the fill rather than the surface.
 
 Three forms beyond the bar charts, each chosen for its job rather than for variety:
-a **heatmap** for the Root Cause x Sub-type grid, a **dumbbell** for each sub-type's
-share then against now (two dots and the distance between them, rather than making the
-reader subtract two bar charts), and **proportion bars** for ratios such as each
+a **heatmap** for the Root Cause x Sub-type grid, and **proportion bars** for ratios such as each
 account's confirmed-miss share -- ratios on a shared 100% baseline, where a two-slice
 pie is the classic wrong answer. Both layout faults found by screenshotting them are
 worth remembering: a delta label anchored to the end dot printed across its own
@@ -817,7 +851,15 @@ naming three bucket columns still adding to 27 / 24 / 13 where the chart above t
 26 / 23 / 12. Columns whose foot is a formatted string -- a share, a blank -- carry no
 plain integer and are skipped. 16 feet across 6 pages today.
 
-**A shared renderer needs a shared registration.** The first run after SOURCE 05 started
+**The reconciled figures belong to a TABLE, not a page.** `reconciled_totals()` is keyed
+by page, and `total_row_problems()` applied it to every Total row on that page -- which
+was harmless while Customers impacted was the only table there with a foot. The first run
+after Top customer complaints gained per-account tables failed with "Total row shows 44
+for EMAILS, the tracker says 115": 44 is Ford's own total and perfectly correct. A table
+is the double-counting one only if it carries a **miss-bucket column**, which is the
+signature of Customers impacted and of nothing else, so that is the guard.
+
+**A shared renderer needs a shared registration.** The first run after Top customer complaints started
 calling the Executive Summary's own `render_customers()` failed here with the same
 120-against-115 this check was written for: the table reconciles its own total, but
 `reconciled_totals()` named only the Executive Summary. Both pages are registered now.
@@ -844,7 +886,7 @@ see that 1 of the first were misses and 20 of the second. It is a clean partitio
 `Records`, so the Total row adds up and `audit_pages.py` reconciles it like any other
 column. `excel_bar_table`'s default `extras` is `("Complaints", "Inquiries", "Misses")`
 for the same reason. The Excel Dashboard still counts complaints only, so its Top
-Customers figures differ from the app on two axes; SOURCE 05 shows the workbook's basis
+Customers figures differ from the app on two axes; Top customer complaints shows the workbook's basis
 in its own table so the two reconcile.
 
 The sidebar navigation is a list with a left accent bar, not twelve radio buttons.
@@ -991,6 +1033,11 @@ column -- three columns all measured exactly 280px until the `th` was named too.
 cell wants only the first: on a one- or two-line cell the shadow's cover layers are
 shorter than the shadows they hide, so a band shows on a cell with nothing to scroll --
 `wrapcol` wraps without the cap or the shadow, and the category name uses it.
+A **wrapped column holding one label rather than a sentence wants `tight`**: the
+`wide roomy` wrap floor is 340px, and two such columns at 340 pushed the owner-accounts
+table 350px past its panel -- wider than the nowrap version the wrap was added to fix.
+`tight` is 150-190px. Shortening a header ("All their emails" to "Their total") bought
+the last 46px; fighting the CSS for it would not have.
 And measure the table against its panel (`table.getBoundingClientRect().width` against
 `.table-wrap` `clientWidth`) rather than eyeballing a screenshot crop: a fixed-width crop
 cannot tell a table that overflows from one the crop simply cut.
@@ -1092,7 +1139,7 @@ every other tab.
 The Complaint Tracker page's entry form writes into `st.session_state`, and
 `apply_staged()` appends those rows to the frame **before** `sidebar_filters()`. Every
 page derives from that one frame, so an entry added there is counted immediately on all
-eleven -- Executive Summary's total goes 103 to 104, SOURCE 05's Ford tally 37 to 38.
+eleven -- Executive Summary's total goes 103 to 104, Top customer complaints's Ford tally 37 to 38.
 The form's pickers are built from the tracker's own distinct values, so a staged row can
 only carry terms the Definitions sheet already defines, and `derive_row()` fills Month,
 Reporting Month, Month_Sort, Number of Customers and Routed To -- a staged row pasted
@@ -1198,8 +1245,8 @@ If a resave already happened, restore the four `cm="1"` attributes and
   Customers` set. One incident reported by two customers is **one row**, not two.
   A merged incident may also carry slash-separated Jira keys (`EAO-35/EAO-36`).
 - **The app counts customers one way throughout: split on the slash.**
-  `customer_exposure()` does it for the Executive Summary and SOURCE 05, and
-  `customer_names()` / `names_match()` do it for the sidebar filter and the SOURCE 04
+  `customer_exposure()` does it for the Executive Summary and Top customer complaints, and
+  `customer_names()` / `names_match()` do it for the sidebar filter and the Root cause
   selector. It was not always so: the sidebar matched the whole cell, so filtering to
   Ford returned 37 records where the Executive Summary counted 42 -- the five
   `Ford/GM`, `Eaton/Ford` and `Penske/Ford` rows silently vanished, all of them
@@ -1209,7 +1256,7 @@ If a resave already happened, restore the four `cm="1"` attributes and
   accounts that share a row returns it once, not twice.
 - **The workbook still counts customers the other way, and that is the remaining
   divergence.** Excel's `COUNTIFS` matches the whole string, so `Eaton/Ford` is its own
-  category there and Ford reads 37. SOURCE 05 shows the exact-match table too, labelled,
+  category there and Ford reads 37. Top customer complaints shows the exact-match table too, labelled,
   so the two reconcile. Making Excel agree means rewriting `Dashboard!A64`, `B64` and the
   `B74` "Other customers" formula to be token-aware -- not done.
 - `Jira Key` links to the `EAO` project (EventWatch_AI_Ops); older strays live in
