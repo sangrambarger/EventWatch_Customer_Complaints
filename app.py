@@ -1069,7 +1069,8 @@ def inquiry_table(df):
     return out
 
 
-def donut(t, label_col="Category", value_col="Records", colours=None, centre="", title=""):
+def donut(t, label_col="Category", value_col="Records", colours=None, centre="", title="",
+          meanings=None):
     """Parts of one whole, labelled on the slice.
 
     A pie is usually the wrong answer, but this is the one shape it is right for: four
@@ -1081,16 +1082,26 @@ def donut(t, label_col="Category", value_col="Records", colours=None, centre="",
         st.info(f"Chart cannot be rendered because required fields are missing: {label_col}.")
         return None
     total = int(t[value_col].sum())
+    # Each slice explains itself on hover, wrapped before it reaches plotly -- plotly's
+    # hover label neither wraps nor is clipped to the panel, so an unwrapped sentence
+    # runs off both edges of a half-width column and loses its own ends.
+    note = [("<br>".join(textwrap.wrap((meanings or {}).get(str(label), ""), 44)))
+            for label in t[label_col]]
     fig = go.Figure(go.Pie(
         labels=list(t[label_col]), values=list(t[value_col]), hole=0.58, sort=False,
         direction="clockwise", marker=dict(colors=colours or MISS_COLOURS,
                                            line=dict(color="#1b1f26", width=2)),
-        texttemplate="%{label}<br><b>%{percent}</b> · %{value}", textposition="outside",
-        textfont=dict(size=13, color="#f3f4f6"),
-        hovertemplate="%{label}<br>%{value} record(s) · %{percent}<extra></extra>"))
+        # One decimal on the share, like the table under it. Plotly's default gives two
+        # significant figures, so a 3-miss slice printed 3.85% beside a table saying 3.8%.
+        texttemplate="%{label}<br><b>%{percent:.1%}</b> · %{value}", textposition="outside",
+        textfont=dict(size=13, color="#f3f4f6"), customdata=note,
+        hovertemplate="<b>%{label}</b> — %{value} of " + str(total) +
+                      ", %{percent:.1%}<br>%{customdata}<extra></extra>"))
     fig.update_layout(
         template="plotly_dark", plot_bgcolor="#1b1f26", paper_bgcolor="#1b1f26",
         font=dict(color="#f3f4f6", size=13), showlegend=False, title=title,
+        hoverlabel=dict(bgcolor="#11151b", align="left",
+                        font=dict(color="#f3f4f6", size=12)),
         margin=dict(l=90, r=90, t=70 if title else 40, b=40), height=440,
         annotations=[dict(text=f"<b style='font-size:30px'>{total}</b><br>{centre}",
                           x=0.5, y=0.5, showarrow=False,
@@ -1792,6 +1803,15 @@ PLAIN_SUBTYPE = {
 # ring never rests on colour alone.
 SPLIT_COLOURS = ["#f28b82", "#f6c177", "#8ab4f8"]
 
+# What each slice of the left ring means, for its hover.
+SPLIT_MEANING = {
+    "Confirmed misses": "The event did not reach the customer in time, and the "
+                        "investigation agreed it was our failure",
+    "Complaints, not a miss": "The customer asserted we failed; we did report it, and the "
+                              "issue turned out to be something else",
+    "Inquiries": "The customer asked how something works rather than asserting we failed",
+}
+
 
 def plain(value, mapping):
     """A taxonomy value in English, or the value itself if nothing maps it.
@@ -2064,6 +2084,27 @@ def takeaway(df):
     return (f"Most confirmed misses are concentrated in <b>{esc(root)}</b> — "
             f"{misses} of {total}, {share:.0f}% — primarily driven by <b>{esc(named)}</b>.",
             colour)
+
+
+def miss_owner_split(df):
+    """The confirmed misses by who has to fix them, as the second ring.
+
+    Named `Product` / `People` / `Process`, the tracker's own values, so the ring and the
+    three cards below it speak one vocabulary -- it briefly read "The platform / Our
+    analysts / How we work" here and the tracker's names in the section underneath, which
+    is two words for one thing on one page. The ownership line rides on each slice's
+    hover instead, which is where the plain English belongs.
+    """
+    cols = ["Category", "Records", "% of Total"]
+    if df.empty or not {"Missed_Flag", "Root Cause"} <= set(df.columns):
+        return pd.DataFrame(columns=cols)
+    missed = df[df["Missed_Flag"].astype(str).str.strip().eq("Yes")]
+    if missed.empty:
+        return pd.DataFrame(columns=cols)
+    out = missed["Root Cause"].fillna("Blank").astype(str).str.strip().value_counts().reset_index()
+    out.columns = ["Category", "Records"]
+    out["% of Total"] = (out["Records"] / max(len(missed), 1) * 100).round(1).astype(str) + "%"
+    return out
 
 
 def miss_by_customer(df):
@@ -2424,20 +2465,28 @@ if selected_page == "Executive Summary":
             if not biggest.empty else "no customer recorded"), "#b6beca")], columns=4)
 
     add_rule()
-    add_section("What customers sent us", "Every email in the filter, in the three things an email "
-                "can be: one we confirmed as a miss, a complaint where we did report it and the "
-                "issue turned out to be something else, and a question about how coverage works. It "
-                "answers what a reader asks first — not every complaint is a failure, and not every "
-                "email is a complaint. Who has to fix the misses is the section below.", "#8ab4f8")
-    split = overview_split(page)
-    left, right = st.columns([3, 2])
+    add_section("What customers sent us", "Two rings over the same filter. The left one is every "
+                "email, split into the three things an email can be. The right one takes only the "
+                "confirmed misses and splits them by who has to fix it — so the first answers "
+                "\u201cis every complaint a failure\u201d and the second \u201cwhen we do fail, whose "
+                "problem is it\u201d. Hover any slice for what it means.", "#8ab4f8")
+    split, owners = overview_split(page), miss_owner_split(page)
+    left, right = st.columns(2)
     with left:
-        f_split = donut(split, colours=SPLIT_COLOURS, centre="customer<br>emails")
+        st.markdown("**Every email we received**")
+        f_split = donut(split, colours=SPLIT_COLOURS, centre="customer<br>emails",
+                        meanings=SPLIT_MEANING)
     with right:
-        if not split.empty:
-            excel_bar_table(split, "Category", label_head="Every email", value_head="Emails")
+        st.markdown("**Only the confirmed misses**")
+        f_owner = donut(owners, colours=[ROOT_COLOURS.get(c, "#b6beca") for c in owners["Category"]],
+                        centre="confirmed<br>misses",
+                        meanings=ROOT_OWNERSHIP) if not owners.empty else None
     if not split.empty:
+        excel_bar_table(split, "Category", label_head="Every email", value_head="Emails")
         downloads(split, "email_split", f_split)
+    if not owners.empty:
+        excel_bar_table(owners, "Category", label_head="Who fixes the miss", value_head="Misses")
+        downloads(owners, "miss_owner_split", f_owner)
 
     add_rule()
     add_section("Why the events were missed", "Two tiers. The cards are the three root causes the "
