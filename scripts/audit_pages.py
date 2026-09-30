@@ -10,7 +10,7 @@ pairs out, and compares them against counts computed independently from the CSV.
 page whose figures do not reconcile fails, naming the label and both numbers.
 
   python3 scripts/audit_pages.py
-  python3 scripts/audit_pages.py --page "SOURCE 04"     # just the matching pages
+  python3 scripts/audit_pages.py --page "Root cause"   # just the matching pages
 Exits non-zero on any mismatch.
 """
 from __future__ import annotations
@@ -125,13 +125,13 @@ def expectations(df: pd.DataFrame) -> dict[str, dict[str, int]]:
     return {
         "Executive Summary": {**split_all, **dict(drivers), **miss_types, **inbox,
                               **reason_category_counts(df)},
-        # SOURCE 04 renders the Executive Summary's own root-cause blocks, so it is
+        # Root cause renders the Executive Summary's own root-cause blocks, so it is
         # checked against the same driver and failure counts -- if the two tabs ever
         # drift, one of them fails here rather than both agreeing with themselves.
-        "SOURCE 04 · Root cause": {**counts(df, "Root Cause"), **dict(drivers)},
-        "SOURCE 05 · Top customers": dict(split_all),
+        "Root cause": {**counts(df, "Root Cause"), **dict(drivers)},
+        "Top customer complaints": dict(split_all),
         "DETAIL · Event workload": {**counts(df, "Event type"), **miss_types},
-        "SOURCE 01 · Monthly trend": {f"{m} Complaint": int(monthly.loc[m].get("Complaint", 0))
+        "Monthly trend": {f"{m} Complaint": int(monthly.loc[m].get("Complaint", 0))
                                       for m in monthly.index},
         # The reason categories on All customer emails. Imported from app.py rather
         # than restated, because a second copy of the fold would drift and the whole point
@@ -169,7 +169,7 @@ def reconciled_totals(df: pd.DataFrame) -> dict[str, dict[str, int]]:
     115, and 27 / 24 / 13 where the chart above it said 26 / 23 / 12, before this check
     existed. Everything else is checked against the column above it.
 
-    It is registered for BOTH pages that render it. SOURCE 05 now calls the Executive
+    It is registered for BOTH pages that render it. Top customer complaints calls the Executive
     Summary's own `render_customers()`, and the first run after that wiring failed here
     with the same 120-against-115 the check was written for -- the table was reconciled,
     the audit's registration was not. A shared renderer means shared expectations.
@@ -182,7 +182,7 @@ def reconciled_totals(df: pd.DataFrame) -> dict[str, dict[str, int]]:
         "CONFIRMED MISSES": int(df["Missed_Flag"].astype(str).str.strip().eq("Yes").sum()),
     }
     exec_page.update({k.upper(): v for k, v in miss_buckets(df).items()})
-    return {"Executive Summary": exec_page, "SOURCE 05 · Top customers": dict(exec_page)}
+    return {"Executive Summary": exec_page, "Top customer complaints": dict(exec_page)}
 
 
 def total_row_problems(page: str, tables, df: pd.DataFrame, reconciled) -> list[str]:
@@ -192,7 +192,15 @@ def total_row_problems(page: str, tables, df: pd.DataFrame, reconciled) -> list[
     total that disagrees with the tracker is worse, because the reader trusts the foot
     over the rows. Both have shipped here. Columns whose foot is a formatted string
     (a share, a blank) carry no plain integer and are skipped.
+
+    The reconciled figures apply to the ONE table that double-counts, not to the page.
+    They were applied page-wide, and the first run after Top customer complaints gained
+    per-account tables failed with "Total row shows 44 for EMAILS, the tracker says 115"
+    -- 44 is Ford's own total and perfectly correct. A table is the double-counting one
+    only if it carries a miss-bucket column, which is the signature of Customers
+    impacted and of nothing else.
     """
+    buckets = {k.upper() for k in miss_buckets(df)}
     out = []
     for rows in tables:
         if len(rows) < 3:
@@ -209,7 +217,7 @@ def total_row_problems(page: str, tables, df: pd.DataFrame, reconciled) -> list[
             if not shown:
                 continue                                  # a share, a label, a blank
             shown = int(shown.group(0))
-            fixed = reconciled.get(page, {}).get(column)
+            fixed = reconciled.get(page, {}).get(column) if buckets & set(head) else None
             if fixed is not None:
                 want, why = int(fixed), "the tracker"
             else:

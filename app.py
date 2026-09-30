@@ -26,15 +26,15 @@ PAGES = [
     # tab uses is defined, so a reader who stops on a category name anywhere else finds
     # its meaning one click away rather than at the bottom of a list of fifteen.
     "Executive Summary", "All customer emails",
-    "SOURCE 01 · Monthly trend", "SOURCE 04 · Root cause", "SOURCE 05 · Top customers",
+    "Monthly trend", "Root cause", "Top customer complaints",
     "DETAIL · Event workload", "Dynamic Source Discovery",
 ]
 
 DESCRIPTIONS = {
     "Executive Summary": "What customers sent in, how much of it we got wrong, why, who it hit, and whether it is moving.",
-    "SOURCE 01 · Monthly trend": "Month-by-month complaint and inquiry trend, sorted chronologically from January onward, with the missed-event rate that volume alone hides.",
-    "SOURCE 04 · Root cause": "People, Process, and Product themes with deeper drill-downs below the current summary.",
-    "SOURCE 05 · Top customers": "Customers with the highest complaint or inquiry volume and the reasons behind those records.",
+    "Monthly trend": "Month-by-month complaint and inquiry trend, sorted chronologically from January onward, with the missed-event rate that volume alone hides.",
+    "Root cause": "People, Process, and Product themes with deeper drill-downs below the current summary.",
+    "Top customer complaints": "Customers with the highest complaint or inquiry volume and the reasons behind those records.",
     "DETAIL · Event workload": "Event types that repeatedly drive complaints, inquiries, or operational workload.",
     "Dynamic Source Discovery": "Source coverage, feed, keyword, vendor monitoring, and event-discovery gaps.",
     "All customer emails": "Every complaint and inquiry a customer sent in, with the category behind each one, downloads, and controlled manual-entry staging.",
@@ -76,7 +76,7 @@ h1,h2,h3,h4,h5,h6,p,span,div,label{color:var(--ink)!important}.page-hero,.sectio
 .excel-table.grid td.wrap.narrow,.excel-table.grid th.wrap.narrow{min-width:170px;max-width:200px}
 .excel-table.grid td.wrap.mid,.excel-table.grid th.wrap.mid{min-width:220px;max-width:260px}
 .excel-table.grid td.wrap.bullets{white-space:pre-line}
-.excel-table.roomy td{padding:12px 14px;font-size:13.5px;line-height:1.5}.excel-table.roomy th{padding:11px 14px;font-size:11px;letter-spacing:.06em}.excel-table.roomy td:first-child{font-weight:700;font-size:14px;line-height:1.4;padding-right:18px}.excel-table.roomy td.wrap,.excel-table.roomy th.wrap{text-align:left;font-weight:400;color:var(--muted)!important}.excel-table.roomy td:not(:first-child):not(.wrap){font-variant-numeric:tabular-nums}.excel-table.wide.roomy td.wrap,.excel-table.wide.roomy th.wrap{min-width:340px;max-width:640px}.owner-pill{display:inline-flex;align-items:baseline;gap:5px;padding:2px 9px;margin:1px 4px 1px 0;border-radius:999px;font-size:11.5px;font-weight:800;letter-spacing:.02em;white-space:nowrap;background:color-mix(in srgb,var(--c) 15%,transparent);border:1px solid color-mix(in srgb,var(--c) 40%,transparent)}.excel-table td .owner-pill,.excel-table td .owner-pill b{color:var(--c)!important}.excel-table td .owner-pill b{font-weight:900;font-size:12.5px}.excel-table td.owners{text-align:left!important;white-space:normal}.excel-table tbody tr.total td{background:#1a202a!important;border-top:2px solid var(--line2);font-weight:800;color:var(--ink)!important}.excel-table.stickytotal tbody tr.total td{position:sticky;bottom:0;z-index:2;box-shadow:0 -2px 6px rgba(0,0,0,.45)}.excel-table tbody tr.total td .bar-box:before{opacity:.35}
+.excel-table.roomy td{padding:12px 14px;font-size:13.5px;line-height:1.5}.excel-table.roomy th{padding:11px 14px;font-size:11px;letter-spacing:.06em}.excel-table.roomy td:first-child{font-weight:700;font-size:14px;line-height:1.4;padding-right:18px}.excel-table.roomy td.wrap,.excel-table.roomy th.wrap{text-align:left;font-weight:400;color:var(--muted)!important}.excel-table.roomy td:not(:first-child):not(.wrap){font-variant-numeric:tabular-nums}.excel-table.wide.roomy td.wrap,.excel-table.wide.roomy th.wrap{min-width:340px;max-width:640px}.excel-table.wide.roomy td.wrap.tight,.excel-table.wide.roomy th.wrap.tight{min-width:150px;max-width:190px}.owner-pill{display:inline-flex;align-items:baseline;gap:5px;padding:2px 9px;margin:1px 4px 1px 0;border-radius:999px;font-size:11.5px;font-weight:800;letter-spacing:.02em;white-space:nowrap;background:color-mix(in srgb,var(--c) 15%,transparent);border:1px solid color-mix(in srgb,var(--c) 40%,transparent)}.excel-table td .owner-pill,.excel-table td .owner-pill b{color:var(--c)!important}.excel-table td .owner-pill b{font-weight:900;font-size:12.5px}.excel-table td.owners{text-align:left!important;white-space:normal}.excel-table tbody tr.total td{background:#1a202a!important;border-top:2px solid var(--line2);font-weight:800;color:var(--ink)!important}.excel-table.stickytotal tbody tr.total td{position:sticky;bottom:0;z-index:2;box-shadow:0 -2px 6px rgba(0,0,0,.45)}.excel-table tbody tr.total td .bar-box:before{opacity:.35}
 .excel-table.grid tbody tr.total td{--cell-bg:#1a202a;background:#1a202a!important;border-top:2px solid var(--line2);border-bottom:0;font-weight:800;color:var(--ink)!important}
 .excel-table.grid td.wrap>.cell{max-height:100px;overflow-y:auto;background:linear-gradient(var(--cell-bg) 32%,rgba(0,0,0,0)) top/100% 22px no-repeat local,linear-gradient(rgba(0,0,0,0),var(--cell-bg) 68%) bottom/100% 22px no-repeat local,radial-gradient(farthest-side at 50% 0,rgba(138,180,248,.42),rgba(0,0,0,0)) top/100% 11px no-repeat,radial-gradient(farthest-side at 50% 100%,rgba(138,180,248,.42),rgba(0,0,0,0)) bottom/100% 11px no-repeat}
 .excel-table.grid td.wrap>.cell::-webkit-scrollbar{width:8px}
@@ -95,8 +95,8 @@ st.markdown(CSS, unsafe_allow_html=True)
 # wrong row.
 NAV_GROUPS = {
     "Where you start": ("#8ab4f8", ("Executive Summary", "All customer emails")),
-    "Why it happened": ("#f28b82", ("SOURCE 01 · Monthly trend", "SOURCE 04 · Root cause")),
-    "Who it happened to": ("#f6c177", ("SOURCE 05 · Top customers", "DETAIL · Event workload")),
+    "Why it happened": ("#f28b82", ("Monthly trend", "Root cause")),
+    "Who it happened to": ("#f6c177", ("Top customer complaints", "DETAIL · Event workload")),
     "What we do about it": ("#80cbc4", ("Dynamic Source Discovery",)),
 }
 NAV_ACCENT = {page: colour for colour, names in NAV_GROUPS.values() for page in names}
@@ -191,9 +191,9 @@ def load_data():
 
 PAGE_KICKERS = {
     "Executive Summary": ("Overview", "#8ab4f8"),
-    "SOURCE 01 · Monthly trend": ("Chart source", "#80cbc4"),
-    "SOURCE 04 · Root cause": ("Chart source", "#80cbc4"),
-    "SOURCE 05 · Top customers": ("Chart source", "#80cbc4"),
+    "Monthly trend": ("Chart source", "#80cbc4"),
+    "Root cause": ("Chart source", "#80cbc4"),
+    "Top customer complaints": ("Chart source", "#80cbc4"),
     "DETAIL · Event workload": ("Detail view", "#f6c177"),
     "Dynamic Source Discovery": ("Coverage gap", "#f6c177"),
     "All customer emails": ("The records", "#f28b82"),
@@ -217,7 +217,7 @@ def date_filter(df):
     """Filter the whole dashboard by the date each record was actually raised.
 
     One range in the sidebar, not fourteen. Every page used to own a private copy of
-    this control, so narrowing Executive Summary to September and then opening SOURCE 04
+    this control, so narrowing Executive Summary to September and then opening Root cause
     showed the full year with no hint that the two disagreed -- a reader comparing the
     two pages was comparing different populations. The date now sits beside Customer and
     Severity, because it is the same kind of thing: one choice the whole dashboard obeys.
@@ -1204,82 +1204,6 @@ def heatmap(grid, title=""):
     return fig
 
 
-def subtype_drift(df, window=3, minimum=3):
-    """Each sub-type's share of records in the last `window` months against the window
-    before it. This is the table behind the "Source Coverage is rising" finding."""
-    if not {"Sub-type", "Email/JIRA Date"} <= set(df.columns) or df.empty:
-        return pd.DataFrame()
-    months = pd.to_datetime(df["Email/JIRA Date"], errors="coerce").dt.to_period("M")
-    order = sorted(m for m in months.dropna().unique())
-    if len(order) < window * 2:
-        return pd.DataFrame()
-    recent, prior = df[months.isin(order[-window:])], df[months.isin(order[-window * 2:-window])]
-    # Shares are taken on the LABEL, not the tracker value. Two pairs of sub-types share
-    # a label by design, and computing each one separately would draw two dots carrying
-    # the same name on a chart whose y axis silently merges them -- and would halve a
-    # share that belongs to one row.
-    field = "_label"
-    for frame in (recent, prior):
-        frame[field] = frame["Sub-type"].fillna("").astype(str).str.strip().map(
-            lambda v: plain(v, PLAIN_SUBTYPE))
-    rows = []
-    labels = sorted({plain(v, PLAIN_SUBTYPE)
-                     for v in df["Sub-type"].dropna().astype(str).str.strip().unique() if v})
-    for value in labels:
-        now, was = _share(recent, field, value), _share(prior, field, value)
-        if max(now, was) < minimum:
-            continue
-        rows.append({"Sub-type": value, "Then %": round(was, 1), "Now %": round(now, 1),
-                     "Change": round(now - was, 1)})
-    out = pd.DataFrame(rows)
-    return out.sort_values("Change", ascending=False).reset_index(drop=True) if not out.empty else out
-
-
-def dumbbell(frame, label_col, start_col, end_col, title=""):
-    """Before and after per item, joined by a line -- the form built for exactly this.
-
-    Two bar charts side by side make the reader do the subtraction; the dumbbell draws
-    it. Direction is carried by the connector colour AND by a signed label, so identity
-    is never colour alone.
-    """
-    if frame is None or frame.empty:
-        st.info(f"Chart cannot be rendered because required fields are missing: {label_col}.")
-        return None
-    data = frame.sort_values(end_col).copy()
-    rise, fall = RED_BLUE
-    fig = go.Figure()
-    for _, row in data.iterrows():
-        colour = rise if row[end_col] >= row[start_col] else fall
-        fig.add_trace(go.Scatter(x=[row[start_col], row[end_col]], y=[row[label_col]] * 2,
-                                 mode="lines", line=dict(color=colour, width=3),
-                                 hoverinfo="skip", showlegend=False))
-    fig.add_trace(go.Scatter(x=data[start_col], y=data[label_col], mode="markers", name="Then",
-                             marker=dict(size=11, color="#b6beca", line=dict(width=2, color="#1b1f26")),
-                             hovertemplate="%{y}<br>then %{x:.1f}%<extra></extra>"))
-    fig.add_trace(go.Scatter(x=data[end_col], y=data[label_col], mode="markers", name="Now",
-                             marker=dict(size=11, color="#f3f4f6", line=dict(width=2, color="#1b1f26")),
-                             hovertemplate="%{y}<br>now %{x:.1f}%<extra></extra>"))
-    # The delta sits beyond the OUTER dot, never beside the end dot. Anchored to the end
-    # dot it printed straight across its own connector on every falling row, because
-    # there the end dot is the left-hand one and the text runs back over the line.
-    outer = data[[start_col, end_col]].max(axis=1)
-    fig.add_trace(go.Scatter(x=outer, y=data[label_col], mode="text", showlegend=False,
-                             text=[f"  {v:+.0f} pts" for v in data[end_col] - data[start_col]],
-                             textposition="middle right", textfont=dict(size=12, color="#b6beca"),
-                             hoverinfo="skip", cliponaxis=False))
-    span = float(max(data[start_col].max(), data[end_col].max()))
-    fig.update_xaxes(ticksuffix="%", tickfont=dict(size=12, color="#f3f4f6"), gridcolor="#303846",
-                     title="Share of records", range=[0, span * 1.22 + 2])
-    fig.update_yaxes(tickfont=dict(size=12, color="#f3f4f6"), gridcolor="#303846", title="")
-    fig.update_layout(template="plotly_dark", plot_bgcolor="#1b1f26", paper_bgcolor="#1b1f26",
-                      font=dict(color="#f3f4f6", size=13), title=title,
-                      legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0), legend_title_text="",
-                      margin=dict(l=20, r=110, t=70, b=40),
-                      height=max(340, len(data) * 36 + 150))
-    st.plotly_chart(fig, width="stretch")
-    return fig
-
-
 def proportion_bar(frame, label_col, part_col, whole_col, part_name, rest_name, title=""):
     """A ratio per row, drawn to a common 100% width.
 
@@ -1313,61 +1237,6 @@ def proportion_bar(frame, label_col, part_col, whole_col, part_name, rest_name, 
                       height=max(320, len(data) * 40 + 150))
     st.plotly_chart(fig, width="stretch")
     return fig
-
-
-def account_scorecard(df, minimum=2):
-    """One row per account, answering "how is this customer doing" in one line.
-
-    Every other page makes you hold one account in your head across five pages to
-    assemble this. Accounts are split on the slash, so a record naming two of them
-    counts for both -- the same rule `customer_exposure()` uses, so the totals agree.
-    Single-record accounts are folded out by default: a 100% miss rate over one record
-    ranks above a real pattern and says nothing.
-    """
-    if df.empty or "Customer" not in df.columns:
-        return pd.DataFrame()
-    raised = pd.to_datetime(df.get("Email/JIRA Date"), errors="coerce")
-    closed = days_to_close(df)
-    missed = df.get("Missed_Flag", pd.Series(dtype=str)).astype(str).str.strip().eq("Yes")
-    issue = df.get("Issue Type", pd.Series(dtype=str)).astype(str).str.strip()
-    rows = []
-    for name in customer_names(df["Customer"]):
-        hit = names_match(df["Customer"], [name])
-        block = df[hit]
-        if len(block) < minimum:
-            continue
-        sub = block.get("Sub-type", pd.Series(dtype=str)).astype(str).str.strip()
-        sub = sub[sub.ne("") & sub.ne("nan")]
-        days = closed[hit].dropna()
-        rows.append({
-            "Customer": name,
-            "Records": len(block),
-            "Complaints": int(issue[hit].eq("Complaint").sum()),
-            "Inquiries": int(issue[hit].eq("Inquiry").sum()),
-            "Miss rate": f"{missed[hit].mean() * 100:.0f}%",
-            "Median close": f"{days.median():.0f}d ({len(days)})" if not days.empty else "no dated closes",
-            "Last raised": raised[hit].max().strftime("%d-%b-%Y") if raised[hit].notna().any() else "",
-            # The plain label, not the tracker value: this column read "Source Coverage"
-            # on SOURCE 05 while the Executive Summary called the same failure "Source
-            # not in our vendor or monitoring network", which is two vocabularies for one
-            # thing on two tabs a reader moves between.
-            "Most common failure": plain(sub.value_counts().index[0], PLAIN_SUBTYPE) if not sub.empty else "",
-        })
-    if not rows:
-        return pd.DataFrame()
-    return pd.DataFrame(rows).sort_values("Records", ascending=False).reset_index(drop=True)
-
-
-def resolved_on(df):
-    return pd.to_datetime(df.get("Resolution Date"), errors="coerce")
-
-
-def days_to_close(df):
-    """Days from the record being raised to the customer being closed out. NaN where
-    no resolution date exists -- most of the tracker predates the EAO project and has
-    no ticket to read one from, and counting those as zero would flatter the median."""
-    raised = pd.to_datetime(df.get("Email/JIRA Date"), errors="coerce")
-    return (resolved_on(df) - raised).dt.days
 
 
 def missed_rate(df):
@@ -1474,6 +1343,279 @@ def downloads(df, name, fig=None):
         c2.download_button("Download chart HTML", fig.to_html().encode(), f"{name}_chart.html", "text/html", key=f"chart_{name}")
 
 
+def owner_accounts(root_df, page):
+    """Which accounts this owner's failures actually land on, and what it costs them.
+
+    This replaces a `long_pair_table(root_df, "Customer", "Reason")` dump, which printed
+    one row per customer-and-wording pair -- forty wordings against thirty-three accounts,
+    so the table was long, unranked, and said nothing the tables above it had not already
+    said. The question a drill-down is for is "whose problem is this", and that needs the
+    account's own base beside the count: 12 Product failures at Ford is a different fact
+    from 12 at an account that only ever sent 12 emails.
+    """
+    cols = ["Customer", "Emails", "Misses", "Their total", "Share of theirs",
+            "What went wrong most", "What they wrote about most"]
+    if root_df.empty or "Customer" not in root_df.columns:
+        return pd.DataFrame(columns=cols)
+    rows = []
+    for name in customer_names(root_df["Customer"]):
+        here = root_df[names_match(root_df["Customer"], [name])]
+        if here.empty:
+            continue
+        theirs = page[names_match(page["Customer"], [name])]
+        sub = here["Sub-type"].fillna("").astype(str).str.strip()
+        sub = sub[sub.ne("") & sub.ne("nan")]
+        cat = reason_category(here)
+        cat = cat[cat.ne("")]
+        rows.append({
+            "Customer": name,
+            "Emails": len(here),
+            "Misses": int(here.get("Missed_Flag", pd.Series(dtype=str)).astype(str).str.strip().eq("Yes").sum()),
+            "Their total": len(theirs),
+            "Share of theirs": f"{len(here) / max(len(theirs), 1) * 100:.0f}%",
+            "What went wrong most": plain(sub.value_counts().index[0], PLAIN_SUBTYPE) if not sub.empty else "",
+            "What they wrote about most": cat.value_counts().index[0] if not cat.empty else "",
+        })
+    if not rows:
+        return pd.DataFrame(columns=cols)
+    return pd.DataFrame(rows).sort_values(["Emails", "Misses"],
+                                          ascending=False).reset_index(drop=True)[cols]
+
+
+def owner_insight(root, root_df, page):
+    """One computed sentence naming this owner's biggest failure and worst account."""
+    if root_df.empty:
+        return ""
+    miss = root_df.get("Missed_Flag", pd.Series(dtype=str)).astype(str).str.strip().eq("Yes")
+    sub = root_df["Sub-type"].fillna("").astype(str).str.strip()
+    sub = sub[sub.ne("") & sub.ne("nan")]
+    first = (f"<b>{esc(root)}</b> carries {plural(len(root_df), 'customer email')}, "
+             f"{int(miss.sum())} of them confirmed misses")
+    if not sub.empty:
+        top = sub.value_counts()
+        first += (f", and {int(top.iloc[0])} of those emails are "
+                  f"<b>{esc(plain(top.index[0], PLAIN_SUBTYPE))}</b>")
+    out = [first]
+    accounts = owner_accounts(root_df, page)
+    if not accounts.empty:
+        worst = accounts.iloc[0]
+        out.append(f"The account most exposed to it is <b>{esc(worst['Customer'])}</b> — "
+                   f"{int(worst['Emails'])} of their "
+                   f"{plural(int(worst['Their total']), 'email')} "
+                   f"({worst['Share of theirs']})")
+    return ". ".join(out) + "."
+
+
+def render_owner_drilldown(root, root_df, page):
+    """One owner's failures: what broke, what customers called it, and who it hit.
+
+    Three tables **stacked full width**, not two squeezed into `st.columns(2)`. Side by
+    side, a `count_table` with six numeric columns and a wrapped meaning column had about
+    forty characters of width per column: every header wrapped to three lines and the
+    meaning column was unreadable, which is the opposite of what a drill-down is for.
+
+    Each table answers a different question, and none of them repeats another:
+    what failed (the taxonomy), what the customer called it (their own words, folded),
+    and which accounts carry it (with the account's own base beside the count).
+    """
+    colour = {"Product": "#8ab4f8", "People": "#f28b82"}.get(root, "#f6c177")
+    add_section(f"{root} drill-down",
+                f"Everything the tracker holds under {root}, in the order a reader needs it: "
+                f"what actually failed, what the customer called it, and which accounts it "
+                f"landed on. {ROOT_OWNERSHIP.get(root, '')} is the area that owns the fix.",
+                colour)
+    line = owner_insight(root, root_df, page)
+    if line:
+        st.markdown(f"<div class='takeaway' style='--accent:{colour}'>{line}</div>",
+                    unsafe_allow_html=True)
+
+    if "Sub-type" in root_df.columns:
+        st.markdown(f"**What failed, under {root}**")
+        failures = name_subtypes(count_table(root_df, "Sub-type"))
+        excel_bar_table(failures, "Sub-type", label_head="Tracker value", value_head="Emails",
+                        extras=["What it means", "Complaints", "Inquiries", "Misses",
+                                "Reported timely"],
+                        wrap=["What it means"], variant="wide roomy",
+                        caption="Every row adds up: **Emails = Confirmed misses + Reported "
+                                "timely.** Tracker value is the Sub-type on the record; "
+                                "What it means is the same failure in the words the rest of "
+                                "the dashboard uses.")
+        downloads(failures, f"{root.lower()}_failures")
+
+    if "Reason" in root_df.columns:
+        st.markdown(f"**What customers wrote about, under {root}**")
+        cats = nature_table(root_df)
+        excel_bar_table(cats, "Category", label_head="What they wrote about",
+                        value_head="Emails",
+                        extras=["What it means", "Complaints", "Inquiries", "Misses",
+                                "Reported timely"],
+                        wrap=["What it means"], variant="wide roomy",
+                        caption="The customer's own wording, folded onto the categories every "
+                                "tab uses. It is not the same cut as the table above: that one "
+                                "says what broke, this one says what they told us about it.")
+        downloads(cats, f"{root.lower()}_categories")
+
+    accounts = owner_accounts(root_df, page)
+    if not accounts.empty:
+        st.markdown(f"**Which accounts {root} failures land on**")
+        excel_bar_table(accounts, "Customer", value_col="Emails",
+                        extras=["Misses", "Their total", "Share of theirs",
+                                "What went wrong most", "What they wrote about most"],
+                        label_head="Customer", value_head=f"Emails under {root}",
+                        # Both "most" columns hold a whole label -- without wrap the
+                        # `wide` nowrap rule pushed this table 1350px into a 1138px
+                        # panel and it scrolled sideways, which is the fault this page
+                        # was being cleaned of.
+                        wrap=["What went wrong most", "What they wrote about most"],
+                        classes={"What went wrong most": "tight",
+                                 "What they wrote about most": "tight"},
+                        variant="wide roomy", height=380, total_row=False,
+                        caption=f"Share of theirs is how much of that account's whole "
+                                f"traffic sits under {root} — the number that says whether this "
+                                f"is their main problem or a side issue. No Total row: an email "
+                                f"naming two accounts is counted for both, so the column would "
+                                f"add to more than the tracker holds.")
+        downloads(accounts, f"{root.lower()}_accounts")
+
+
+def account_failures(frame):
+    """One account's failures at full granularity: owner, what went wrong, both bases.
+
+    "Customer root-cause patterns" used to be Product / People / Process and nothing
+    else, which names the team and not the problem -- "Ford: Product 34" tells a reader
+    who to go and see and nothing about what to say when they get there. This keys on the
+    (Root Cause, Sub-type) pair, so the owner is still there and the failure sits beside
+    it in the words the rest of the dashboard uses.
+    """
+    cols = ["What went wrong", "Owner", "Emails", "Misses", "Reported timely", "% of Total"]
+    if frame.empty or not {"Root Cause", "Sub-type"} <= set(frame.columns):
+        return pd.DataFrame(columns=cols)
+    work = pd.DataFrame({
+        "What went wrong": frame["Sub-type"].fillna("Blank").astype(str).str.strip().map(
+            lambda v: plain(v, PLAIN_SUBTYPE)),
+        "_owner": frame["Root Cause"].fillna("Blank").astype(str).str.strip(),
+        "_miss": frame.get("Missed_Flag", pd.Series(dtype=str)).astype(str).str.strip().eq("Yes"),
+    })
+    rows = []
+    for label, group in work.groupby("What went wrong"):
+        misses = int(group["_miss"].sum())
+        rows.append({"What went wrong": label,
+                     "Owner": owner_pills(group["_owner"].value_counts()),
+                     "Emails": len(group), "Misses": misses,
+                     "Reported timely": len(group) - misses})
+    out = pd.DataFrame(rows).sort_values(["Emails", "Misses"], ascending=False).reset_index(drop=True)
+    out["% of Total"] = (out["Emails"] / max(int(out["Emails"].sum()), 1) * 100).round(1).astype(str) + "%"
+    return out[cols]
+
+
+def account_headline(name, frame, page):
+    """What this account's numbers actually say, in one computed sentence."""
+    if frame.empty:
+        return ""
+    miss = int(frame.get("Missed_Flag", pd.Series(dtype=str)).astype(str).str.strip().eq("Yes").sum())
+    rate = miss / max(len(frame), 1) * 100
+    whole = len(page.get("Customer", pd.Series(dtype=str)))
+    out = [f"<b>{esc(name)}</b> sent {plural(len(frame), 'email')} — "
+           f"{len(frame) / max(whole, 1) * 100:.0f}% of everything in this filter — "
+           f"and {miss} of them ({rate:.0f}%) were confirmed misses"]
+    fails = account_failures(frame)
+    second = ""
+    if not fails.empty:
+        top = fails.iloc[0]
+        second = (f"Their biggest single failure is <b>{esc(top['What went wrong'])}</b>, "
+                  f"{int(top['Emails'])} of their {len(frame)} emails")
+    cats = reason_category(frame)
+    cats = cats[cats.ne("")]
+    if not cats.empty:
+        top_cat = cats.value_counts()
+        tail = (f"what they wrote about most is <b>{esc(top_cat.index[0])}</b> "
+                f"({int(top_cat.iloc[0])})")
+        second = f"{second}, and {tail}" if second else tail[0].upper() + tail[1:]
+    if second:
+        out.append(second)
+    return ". ".join(out) + "."
+
+
+def render_account_view(page):
+    """One account at a time, chosen from a dropdown -- not every account in one list.
+
+    The three tables this replaces were `long_pair_table` dumps: one row per
+    customer-and-value pair, thirty-three accounts deep, unranked and ungrouped, so
+    reading one account meant scanning past thirty-two others. A reader asking about an
+    account wants that account. The selector narrows THIS block only; the tables above
+    keep following the sidebar, so the two never silently disagree.
+    """
+    add_section("One account at a time", "Pick an account to see what it sent, what failed on "
+                "it, and what its people actually wrote about. A record naming two accounts "
+                "counts for both, the same way every other tab counts it.", "#a8dab5")
+    options = customer_names(page.get("Customer"))
+    if not options:
+        st.info("No customer recorded in the current filter.")
+        return
+    # Default to the busiest account rather than the alphabetically first: an empty-looking
+    # page on first load reads as a broken filter, and the busiest one is the question
+    # this page is usually opened to answer.
+    busiest = max(options, key=lambda n: int(names_match(page["Customer"], [n]).sum()))
+    picked = st.selectbox("Account", options, index=options.index(busiest),
+                          key="account_view_pick",
+                          help="Applies to this section only. The tables above follow the sidebar.")
+    frame = page[names_match(page["Customer"], [picked])]
+    if frame.empty:
+        st.info(f"No emails for {picked} in the current filter.")
+        return
+    issue = frame.get("Issue Type", pd.Series(dtype=str)).astype(str).str.strip()
+    miss = int(frame.get("Missed_Flag", pd.Series(dtype=str)).astype(str).str.strip().eq("Yes").sum())
+    kpis([("Emails", len(frame), f"{int(issue.eq('Complaint').sum())} complaints · "
+                                 f"{int(issue.eq('Inquiry').sum())} inquiries", "#8ab4f8"),
+          ("Confirmed misses", f"{miss} of {len(frame)}",
+           f"{miss / max(len(frame), 1) * 100:.0f}% of their emails", "#f28b82"),
+          ("Reported timely", f"{len(frame) - miss} of {len(frame)}",
+           "the event did reach them in time", "#80cbc4"),
+          ("Share of this filter", f"{len(frame) / max(len(page), 1) * 100:.0f}%",
+           f"of {plural(len(page), 'email')} on this page", "#f6c177")], columns=4)
+    line = account_headline(picked, frame, page)
+    if line:
+        st.markdown(f"<div class='takeaway' style='--accent:#a8dab5'>{line}</div>",
+                    unsafe_allow_html=True)
+
+    st.markdown(f"**What went wrong for {picked}**")
+    fails = account_failures(frame)
+    if fails.empty:
+        st.info("No root cause recorded on this account's emails.")
+    else:
+        f_fail = chart(fails.rename(columns={"Emails": "Records"}), "What went wrong",
+                       title=f"{picked}: what failed", x_title="Customer emails")
+        excel_bar_table(fails, "What went wrong", value_col="Emails",
+                        extras=["Owner", "Misses", "Reported timely"],
+                        label_head="What went wrong", value_head="Emails",
+                        raw=["Owner"], classes={"Owner": "owners"}, variant="wide roomy",
+                        caption="Owner is the team that fixes it; the failure beside it is what "
+                                "actually broke. Every row adds up: **Emails = Misses + Reported "
+                                "timely.**")
+        downloads(fails, f"account_failures_{picked}", f_fail)
+
+    left, right = st.columns(2)
+    with left:
+        st.markdown(f"**What {picked} wrote about**")
+        cats = nature_table(frame)
+        f_cat = chart(cats.rename(columns={"Records": "Records"}), "Category", title="",
+                      x_title="Customer emails") if not cats.empty else None
+    with right:
+        st.markdown(f"**Which events {picked} raised**")
+        types = count_table(frame, "Event type")
+        f_type = chart(types, "Event type", title="", x_title="Customer emails") \
+            if not types.empty else None
+    if not cats.empty:
+        excel_bar_table(cats, "Category", label_head="What they wrote about", value_head="Emails",
+                        extras=["What it means", "Complaints", "Inquiries", "Misses",
+                                "Reported timely"],
+                        wrap=["What it means"], variant="wide roomy")
+        downloads(cats, f"account_categories_{picked}", f_cat)
+    if not types.empty:
+        excel_bar_table(types, "Event type", label_head="Event type", value_head="Emails")
+        downloads(types, f"account_event_types_{picked}", f_type)
+
+
 def source_page(title, df, col, key, primary=None, summary=True):
     """`primary` overrides how the main table is counted -- Customer needs a counter that
     credits every account named in a multi-customer row, not the whole string.
@@ -1515,9 +1657,7 @@ def source_page(title, df, col, key, primary=None, summary=True):
                 pb = proportion_bar(rate, "Customer", "Missed", "Records",
                                     "Confirmed miss", "Not a miss", title="Confirmed misses as a share of each account's records")
                 downloads(rate, "customer_miss_rate", pb)
-        for first, second, name, desc in [("Customer", "Reason", "Customer complaint reasons", "Shows each customer and the specific reasons tied to that customer."), ("Customer", "Event type", "Customer event-type patterns", "Shows which event types are driving records for each customer."), ("Customer", "Root Cause", "Customer root-cause patterns", "Shows whether each customer’s records are People, Process, or Product related.")]:
-            lt = long_pair_table(page, first, second)
-            if not lt.empty: add_section(name, desc, "#a8dab5"); styled_table(lt, height=420); downloads(lt, name.lower().replace(" ", "_"))
+        render_account_view(page)
     if col == "Root Cause":
         add_section("Sub-type by root cause", "Sub-type is the category beneath Root Cause in the "
                     "taxonomy, and until now nothing showed the two together. Darker means more "
@@ -1551,28 +1691,11 @@ def source_page(title, df, col, key, primary=None, summary=True):
             flat = grid.reset_index().rename(columns={"index": "Sub-type", "Sub-type": "What went wrong"})
             flat["Total"] = grid.sum(axis=1).values
             styled_table(flat); downloads(flat, "subtype_by_root_cause", hm)
-        drift = subtype_drift(page)
-        if not drift.empty:
-            add_section("Which failures are growing", "Each sub-type's share of records in the last three "
-                        "months against the three before. The dot on the left is where it was, the dot on "
-                        "the right is where it is now, and the join shows the distance travelled.", "#f6c177")
-            db = dumbbell(drift, "Sub-type", "Then %", "Now %", title="Sub-type share: then and now")
-            downloads(drift, "subtype_drift", db)
         for root in ["Product", "People", "Process"]:
             root_df = page[page["Root Cause"].astype(str).eq(root)] if "Root Cause" in page.columns else page.iloc[0:0]
-            if root_df.empty: continue
-            add_section(f"{root} drill-down", f"Breaks {root.lower()} root-cause records into reasons, event types, customers, and automation focus areas for action planning.", "#f6c177" if root == "Process" else "#8ab4f8" if root == "Product" else "#b6beca")
-            c1, c2 = st.columns(2)
-            with c1: st.markdown(f"**{root} reasons**"); styled_table(count_table(root_df, "Reason") if "Reason" in root_df.columns else pd.DataFrame())
-            with c2:
-                st.markdown(f"**{root} sub-types**")
-                styled_table(name_subtypes(count_table(root_df, "Sub-type"))
-                             if "Sub-type" in root_df.columns else pd.DataFrame(),
-                             wrap=["What it means"])
-            c3, _ = st.columns(2)
-            with c3: st.markdown(f"**{root} event types**"); styled_table(count_table(root_df, "Event type") if "Event type" in root_df.columns else pd.DataFrame())
-            pair = long_pair_table(root_df, "Customer", "Reason")
-            if not pair.empty: st.markdown(f"**{root} customer and reason detail**"); styled_table(pair, height=320); downloads(pair, f"{root.lower()}_customer_reason_detail")
+            if root_df.empty:
+                continue
+            render_owner_drilldown(root, root_df, page)
 
 
     return page
@@ -2519,11 +2642,11 @@ def grouped_bar(frame, label_col, series, colours, title="", x_title="Customer e
 def render_root_cause(page):
     """Why the events were missed: the three owner cards and their failure drivers.
 
-    One implementation, called by the Executive Summary and by SOURCE 04. The two used
+    One implementation, called by the Executive Summary and by Root cause. The two used
     to be different code answering the same question, which is how a dashboard ends up
     contradicting itself -- and it is also the only honest way to satisfy "put the
     Executive Summary views on the internal pages" without the internal page being a
-    second, drifting copy. The summary calls it and stops; SOURCE 04 calls it and then
+    second, drifting copy. The summary calls it and stops; Root cause calls it and then
     goes deeper.
     """
     missed = int(page.get("Missed_Flag", pd.Series(dtype=str)).astype(str).str.strip().eq("Yes").sum())
@@ -2867,7 +2990,7 @@ if selected_page == "Executive Summary":
 
     add_rule()
     render_deeper_root_cause(page)
-elif selected_page == "SOURCE 01 · Monthly trend":
+elif selected_page == "Monthly trend":
     page_header(selected_page); page = filtered; filter_note()
     if "Month Label" in page.columns and "Issue Type" in page.columns:
         monthly = page.groupby("Month Label", dropna=False)["Issue Type"].value_counts().unstack(fill_value=0).reset_index()
@@ -2890,7 +3013,7 @@ elif selected_page == "SOURCE 01 · Monthly trend":
     # to tell which was the real one.
     render_trend(page)
 
-elif selected_page == "SOURCE 04 · Root cause":
+elif selected_page == "Root cause":
     # The Executive Summary's two root-cause sections, then the cuts that do not fit on
     # a summary: the sub-type heatmap, what is growing, and the per-owner drill-downs.
     # It is the same code, so the two tabs cannot disagree about a driver's count or
@@ -2900,7 +3023,7 @@ elif selected_page == "SOURCE 04 · Root cause":
     render_deeper_root_cause(filtered)
     add_rule()
     source_page(selected_page, filtered, "Root Cause", "root_cause", summary=False)
-elif selected_page == "SOURCE 05 · Top customers":
+elif selected_page == "Top customer complaints":
     page = source_page(selected_page, filtered, "Customer", "top_customers",
                        primary=customer_exposure, summary=False)
     # The Executive Summary's Customers impacted block, unchanged, so the account
@@ -2916,16 +3039,6 @@ elif selected_page == "SOURCE 05 · Top customers":
                 f"account. Kept here so the two artefacts can be reconciled. The table above is the one that "
                 f"answers how many emails and questions a customer sent in.", "#b6beca")
     styled_table(exact, height=420); downloads(exact, "top_customers_exact")
-    add_section("Account scorecard", "One row per account, so \"how is Ford doing\" is answered here rather "
-                "than by holding one name in your head across five pages. Miss rate is the share of that "
-                "account's emails that were a confirmed miss, and median close carries the number of dated "
-                "closes behind it in brackets. Accounts with a single email are left out -- a 100% miss rate "
-                "over one email outranks a real pattern and says nothing.", "#8ab4f8")
-    card = account_scorecard(page)
-    if card.empty:
-        st.info("No account in the current filter has more than one record.")
-    else:
-        styled_table(card, height=460, variant="wide"); downloads(card, "account_scorecard")
 elif selected_page == "DETAIL · Event workload":
     page_header(selected_page); page = filtered; filter_note()
     # The Executive Summary's Event types block is the whole answer here; the generic

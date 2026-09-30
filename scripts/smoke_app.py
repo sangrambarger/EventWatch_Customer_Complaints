@@ -36,9 +36,9 @@ CHROMIUM = "/opt/pw-browsers/chromium"
 # renders zero is the exact symptom of the bug this script exists to catch.
 EXPECTED: dict[str, tuple[int, int]] = {
     "Executive Summary": (8, 6),
-    "SOURCE 01 · Monthly trend": (2, 2),
-    "SOURCE 04 · Root cause": (6, 6),
-    "SOURCE 05 · Top customers": (2, 6),
+    "Monthly trend": (2, 2),
+    "Root cause": (5, 12),
+    "Top customer complaints": (5, 5),
     "DETAIL · Event workload": (2, 1),
     "Dynamic Source Discovery": (3, 7),
     "All customer emails": (0, 6),
