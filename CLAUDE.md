@@ -255,8 +255,9 @@ Update`), `An analyst let it through` and `The model did not spot it` (both `Rev
 `Event Identification` / `Prioritization`, split on `Root Cause` People against Product).
 Every other missed email takes a bucket **named after its own sub-type**, generated in
 `miss_bucket_series()` from `PLAIN_SUBTYPE`. Ten buckets on the current data:
-26 / 23 / 12 / 6, then captured too late 3, supplier not linked 2, no WarRoom 2,
-published but never showed 2, industry tag 1, scoring or rules 1.
+27 / 24 / 12 / 6, then supplier not linked 2, published but never showed 2, a
+convention not explained 1, captured too late 1, industry tag 1, no WarRoom 1,
+scoring or rules 1.
 
 A residue bucket is how eleven real and different failures became one grey slice nobody
 could act on, and it also hides a sub-type added to the tracker tomorrow -- which would
@@ -439,7 +440,10 @@ built from, not the sum of the strings in it.
    and `--amber`.
 
    **Bottom tier**: `root_drivers()` under each card, the top four drivers biggest first,
-   then one `Other` row. All three charts pad their axis to the longest list (`slots`)
+   then one `Other` row -- unless the tail holds exactly one driver, which is shown by
+   name instead: "Other: 1 smaller driver: Industry Selection (1)" is longer than
+   "Industry Selection" and hides a name to save no space. All three charts pad their
+   axis to the longest list (`slots`)
    rather than stretching their bars to fill the panel: equal panel height with three
    different bar thicknesses compares shapes, not numbers. `takeaway()` states the
    finding underneath in one computed sentence, and `driver_table()` lists every driver
@@ -537,39 +541,39 @@ Talking an unmapped pair into the nearest plausible heading is how a taxonomy st
 meaning anything, and burying it in `Other` is how a mis-filed row stays mis-filed.
 `Needs Review` is a data-quality signal, so it is always its own row.
 
-**It found three mis-filed rows on its first run, and all three were data faults rather
-than gaps in the map** -- in each the `Sub-type` did not describe what the record's own
-evidence said had failed. Fixed with `update_row.py`, each against the thematic precedent
-of a row already in the tracker, which is the method to use here:
+**It found three mis-filed rows on its first run.** All three were data faults rather
+than gaps in the map -- the `Sub-type` did not describe what had failed -- and **all three
+were settled by the tracker's owner, not by reading the record**. The first pass got every
+one of them wrong, and how it went wrong is the lesson:
 
-* **Bombardier / STELIA ransomware** (CSV row 52) was `Product` / `Process
-  Clarification`. Its Comments read "STELIA is listed supplier but no WarRoom/notification
-  created" -- the supplier *was* resolved and the WarRoom was not created, which is
-  `WarRoom Creation`, not a convention nobody explained. Its twin is the META row (CSV
-  75): "EventWatch alert published but corresponding WarRoom not created despite supplier
-  normalization." Now `Process` / `WarRoom Creation`, and `Routed To` moved to EventWatch
-  Ops with it -- Root Cause and Routed To agree on every row in the tracker and this was
-  the one that would not have. Its `Automation Opportunity` still reads "Mapping
-  validation", which the Comments contradict; the umbrella remedy is not evidence of the
-  cause, so it was left alone rather than rewritten on a second guess.
-* **Sandisk / EAO-37** (CSV row 103) was `People` / `Captured Late`. Its RCA is explicit:
-  "Not a coverage gap and not a Not Impactful call... this one was delayed in reporting
-  and only published on 09-Sep-2026, after the customer had raised the query on 08-Sep."
-  The sub-type was already right; the root cause was not. Now `Process` / `Captured
-  Late`, matching the Collins Aerospace precedent (CSV 41, "WarRoom created ~18 hours
-  after tornado").
-* **HPE / SEC notification** (CSV row 24) was `People` / `Process Clarification`. Reason
-  "SEC notification not captured/provided on time", remedy "Regulatory feed timeliness
-  checks + publication timestamp comparison", focus `Other Control Automation` -- a
-  lateness failure with a timeliness control as its fix. Now `Process` / `Captured Late`.
-  **This is the thinnest of the three**: no `RCA Details`, and a one-line Comment that
-  says only that an investigation was requested. It rests on the Reason and the remedy,
-  and it is the one to revisit if the closure inputs ever arrive.
+* **Bombardier / STELIA ransomware** (CSV row 52) is `Product` / `Source Coverage`.
+  Its Comments read "STELIA is listed supplier but no WarRoom/notification created",
+  which reads as a WarRoom that failed to fire on a correctly mapped supplier. The email
+  thread says otherwise: *"the feed associated with that URL has not been received by our
+  application."* **It never entered the portal at all** -- a source miss, not a WarRoom
+  issue. A supplier being listed says nothing about whether the story arrived. Its
+  `Automation Opportunity` still reads "Mapping validation" and its focus
+  `Entity & Supplier Resolution`, both of which the thread contradicts; left as they are
+  rather than rewritten on a second guess, and worth correcting when someone confirms the
+  real remedy.
+* **Sandisk / EAO-37** (CSV row 103) is `People` / `Review` -- an analyst overlooked it.
+  Its own RCA says "delayed in reporting", which reads as a timing failure and was filed
+  under `Captured Late`. The delay was the *symptom*; the analyst missing the story was
+  the cause. **An RCA describing what the customer experienced is not an RCA naming the
+  cause.**
+* **HPE / SEC notification** (CSV row 24) is `Process` / `Process Clarification`. The
+  news was not available in the public domain and a clarification went back. "Not
+  captured/provided on time" reads as lateness and was filed under `Captured Late`.
 
-All three landed in `Process`, which took its misses from 3 to 6 (Product 46 to 45,
-People 29 to 27, the total still 78). That is a large relative move on a small bucket and
-it happened because all three were timing or workflow failures filed elsewhere -- worth
-knowing before reading Process's share as a trend.
+**The pattern in all three: the symptom the record describes was mistaken for the cause,
+and in each case the cause sat somewhere the tracker does not hold** -- an email thread,
+or the owner's own knowledge. Where a row's fields do not settle it, the honest move is to
+leave it in `Needs Review` and ask, not to reclassify it into something plausible. That is
+what `Needs Review` is for, and these three are why it earns its place.
+
+`DRIVERS` carries `("People", "Captured Late")` although no row uses it: the People
+vocabulary has no word for lateness, so a future row on that pair would land in
+`Needs Review` for want of a label rather than for want of a decision.
 
 **`PLAIN_SUBTYPE` still translates the taxonomy for the tables, and does not replace it.**
 `Sub-type` is the vocabulary of the people who file the records, and on a leadership page

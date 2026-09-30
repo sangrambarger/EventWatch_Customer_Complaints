@@ -1888,6 +1888,12 @@ DRIVERS = {
     ("People", "Tagging"): ("Industry Selection", "The industry tag was missed when the bulletin was published"),
     ("People", "Industry selection"): ("Industry Selection", "The industry tag was missed when the bulletin was published"),
     ("People", "Policy/Logic"): ("Incorrect Action", "The wrong action was taken on the event"),
+    # `Delayed Notification` is a Process-list term used under People on purpose: the
+    # People vocabulary has no word for lateness. No row carries this pair today -- the
+    # one that briefly did turned out to be an analyst who overlooked the story, which is
+    # `Review` -- but the pair is plausible and mapping it keeps it out of Needs Review.
+    # A term is a label, not a claim about the owner; the owner is the key it hangs on.
+    ("People", "Captured Late"): ("Delayed Notification", "Captured, but the customer was told too late"),
     # -- Process: workflow and control ---------------------------------------------
     ("Process", "Process Clarification"): ("SOP Unclear", "A working convention that was never written down or explained"),
     ("Process", "Captured Late"): ("Delayed Notification", "Captured, but the customer was told too late"),
@@ -1965,6 +1971,11 @@ def root_drivers(df, root, top=4):
     review = grouped[grouped["Driver"] == NEEDS_REVIEW]
     rest = grouped[grouped["Driver"] != NEEDS_REVIEW]
     keep, tail = rest.head(top), rest.iloc[top:]
+    # An `Other` holding one driver hides a name to save no space -- "Other: 1 smaller
+    # driver: Industry Selection (1)" is longer than "Industry Selection". Fold only when
+    # there are at least two to fold.
+    if len(tail) == 1:
+        keep, tail = rest.head(top + 1), rest.iloc[top + 1:]
     rows = keep.to_dict("records")
     if not tail.empty:
         # The fold names itself. `Other` on a leadership chart is only honest if the
