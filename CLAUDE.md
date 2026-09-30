@@ -552,10 +552,15 @@ one of them wrong, and how it went wrong is the lesson:
   thread says otherwise: *"the feed associated with that URL has not been received by our
   application."* **It never entered the portal at all** -- a source miss, not a WarRoom
   issue. A supplier being listed says nothing about whether the story arrived. Its
-  `Automation Opportunity` still reads "Mapping validation" and its focus
-  `Entity & Supplier Resolution`, both of which the thread contradicts; left as they are
-  rather than rewritten on a second guess, and worth correcting when someone confirms the
-  real remedy.
+  `Automation Opportunity` read "Mapping validation" and its focus
+  `Entity & Supplier Resolution` -- both of them the mapping theory the thread disproves,
+  and both since corrected on the owner's instruction: the remedy is feed-receipt
+  verification on a source URL raised in an escalation, and the focus is
+  `Dynamic Source Discovery`, where the four other feed-not-ingested source misses
+  already sit (CSV rows 16, 18, 20, 23). `RCA Details` was blank and now carries the
+  thread's own finding -- the URL raised was the page URL, not the news source URL, and
+  the feed behind it had not been received -- kept close to the wording rather than
+  elaborated, per "Do not invent RCA narrative".
 * **Sandisk / EAO-37** (CSV row 103) is `People` / `Review` -- an analyst overlooked it.
   Its own RCA says "delayed in reporting", which reads as a timing failure and was filed
   under `Captured Late`. The delay was the *symptom*; the analyst missing the story was
@@ -915,6 +920,15 @@ error text, or a page rendering fewer charts/tables than it should. Run against 
 commit before the `chart()` argument fix it flags 8 pages with "required fields are
 missing" and zero charts — the bug that previously only a screenshot caught. Prefer
 it over screenshots; it costs a fraction of the tokens.
+
+**Charts pass `width="stretch"`, never `use_container_width`.** Streamlit removed that
+argument after 2025-12-31, and Streamlit Cloud resolves whatever `requirements.txt`
+allows, so a loose pin gets the newest release and every one of the twelve
+`st.plotly_chart` calls raises on it -- the deployed app stops loading while the local
+one, on an older wheel, is fine. `requirements.txt` therefore pins `streamlit>=1.63`,
+which is the floor that has `width`. `smoke_app.py` catches this, but only if it runs
+against the same Streamlit version Cloud resolves; a local run on a pinned-back
+environment will not see it.
 
 ## Python's job vs. the model's job
 
