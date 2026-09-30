@@ -3,6 +3,7 @@ from __future__ import annotations
 import html
 import json
 import os
+import textwrap
 from datetime import datetime
 from pathlib import Path
 
@@ -1890,6 +1891,11 @@ ROOT_OWNERSHIP = {
 ROOT_COLOURS = {"Product": "#8ab4f8", "People": "#f28b82", "Process": "#f6c177"}
 
 
+def plural(n, one, many=None):
+    """"1 miss" / "2 misses" -- a leadership page does not write "miss(es)"."""
+    return f"{n} {one if n == 1 else (many or one + 's')}"
+
+
 def driver_of(root, subtype):
     """The internal term and its plain English, or Needs Review for an unmapped pair."""
     return DRIVERS.get((str(root).strip(), str(subtype).strip()),
@@ -1941,9 +1947,12 @@ def root_drivers(df, root, top=4):
     keep, tail = rest.head(top), rest.iloc[top:]
     rows = keep.to_dict("records")
     if not tail.empty:
+        # The fold names itself. `Other` on a leadership chart is only honest if the
+        # reader can find out what is in it without leaving the chart, so the row carries
+        # every driver it swallowed, with each one's count, on its own hover.
+        inside = ", ".join(f"{r['Driver']} ({int(r['Misses'])})" for _, r in tail.iterrows())
         rows.append({"Driver": DRIVER_OTHER,
-                     "What it means": f"{len(tail)} lower-volume driver(s): "
-                                      + ", ".join(tail["Driver"]),
+                     "What it means": f"{plural(len(tail), 'smaller driver')}: {inside}",
                      "Misses": int(tail["Misses"].sum())})
     rows += review.to_dict("records")
     out = pd.DataFrame(rows)
@@ -1995,13 +2004,19 @@ def driver_bar(frame, colour, title="", slots=None):
         st.caption("No confirmed miss for this root cause in the current filter.")
         return None
     data = frame.copy()
+    # Plotly's hover label does not wrap and is not clipped to the panel, so a long
+    # meaning ran off both edges of a third-width column and lost its own ends. Wrapping
+    # it here is the only thing that keeps the tooltip inside the card.
+    data["_hover"] = data["What it means"].map(
+        lambda t: "<br>".join(textwrap.wrap(str(t), 44)) or "")
+    data["_count"] = data["Misses"].map(lambda n: plural(int(n), "confirmed miss", "confirmed misses"))
     fig = px.bar(data, x="Misses", y="Driver", orientation="h", text="Misses",
                  title=title, color_discrete_sequence=[colour],
-                 custom_data=["What it means", "% of Total"],
+                 custom_data=["_hover", "% of Total", "_count"],
                  category_orders={"Driver": list(data["Driver"])})
     fig.update_traces(opacity=.93, marker_line_width=0, cliponaxis=False,
                       textposition="outside", textfont=dict(size=12, color="#f3f4f6"),
-                      hovertemplate="<b>%{y}</b> — %{x} miss(es), %{customdata[1]}"
+                      hovertemplate="<b>%{y}</b> — %{customdata[2]}, %{customdata[1]}"
                                     "<br>%{customdata[0]}<extra></extra>")
     fig.update_yaxes(tickfont=dict(size=12, color="#f3f4f6"), gridcolor="#303846", title="")
     fig.update_xaxes(visible=False)
@@ -2014,8 +2029,13 @@ def driver_bar(frame, colour, title="", slots=None):
     # below the shortest list rather than above it -- otherwise a root cause with two
     # drivers draws them at the foot of an empty panel.
     fig.update_yaxes(range=[len(data) - rows - 0.5, len(data) - 0.5])
+    # hovermode "y" so the tooltip fires anywhere along the row, not only on the bar:
+    # a one-miss bar is fourteen pixels wide, and the rows a reader most wants explained
+    # -- Other, Needs Review -- are exactly the short ones.
     fig.update_layout(template="plotly_dark", plot_bgcolor="#1b1f26", paper_bgcolor="#1b1f26",
-                      font=dict(color="#f3f4f6", size=12), showlegend=False,
+                      font=dict(color="#f3f4f6", size=12), showlegend=False, hovermode="y",
+                      hoverlabel=dict(bgcolor="#11151b", bordercolor=colour, align="left",
+                                      font=dict(color="#f3f4f6", size=12)),
                       margin=dict(l=4, r=44, t=10, b=8),
                       height=max(150, rows * 34 + 40))
     st.plotly_chart(fig, use_container_width=True)
