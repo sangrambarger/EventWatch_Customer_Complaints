@@ -32,9 +32,12 @@ PAGES = [
 ]
 
 DESCRIPTIONS = {
-    "Executive Summary": "Leadership cockpit for complaint volume, customer pain, why events were missed, RCA exposure and root causes.",
-    "Delivery performance": "How long we take to close a record, how the outcome of that work has shifted, and what happened to every RCA a customer asked for.",
-    "Open items": "Everything still outstanding: records awaiting a fix, and records where the customer asked for an RCA that has not been delivered. Includes the RCA text where one has been shared.",
+    "Executive Summary": "What customers sent in, how much of it we got wrong, why, who it hit, and whether it is moving.",
+    # No RCA figure appears on this page: the tracker holds 85 emails marked RCA
+    # requested, 38 carrying any written RCA and 31 marked RCA Shared -- three numbers
+    # for one thing, none agreeing, so any share quoted from them picks one and hopes.
+    "Delivery performance": "How long we take to close a customer email, over the emails that carry a resolution date.",
+    "Open items": "Customer emails still awaiting a fix, who owns them, how long they have been open, and the root cause text on file where one was written.",
     "SOURCE 01 · Monthly trend": "Month-by-month complaint and inquiry trend, sorted chronologically from January onward, with the missed-event rate that volume alone hides.",
     "SOURCE 02 · Fix status": "Resolution posture across fixed, RCA-shared, and clarification-provided records.",
     "SOURCE 03 · Severity": "Severity distribution for leadership prioritization.",
@@ -52,9 +55,11 @@ DESCRIPTIONS = {
 CSS = """
 <style>
 :root{--bg:#0f1115;--panel:#1b1f26;--panel2:#202631;--ink:#f3f4f6;--muted:#b6beca;--line:#3a414d;--line2:#515a68;--blue:#8ab4f8;--teal:#80cbc4;--amber:#f6c177;--red:#f28b82;--green:#a8dab5}
-html,body,[data-testid="stAppViewContainer"],[data-testid="stMain"]{background:var(--bg)!important;color:var(--ink)!important}.main .block-container{padding-top:.75rem;max-width:1450px;background:var(--bg)!important}[data-testid="stHeader"],[data-testid="stToolbar"]{background:#0c0e12!important}[data-testid="stSidebar"]{background:#171b22!important;border-right:1px solid var(--line)}[data-testid="stSidebar"] *{color:var(--ink)!important}[data-testid="stSidebar"] label{color:var(--muted)!important}
-[data-testid="stSidebar"] div[role="radiogroup"]{gap:0!important;margin-top:4px}[data-testid="stSidebar"] label[data-testid="stRadioOption"]{width:100%;box-sizing:border-box;background:transparent!important;border:0!important;border-left:3px solid transparent!important;border-radius:0!important;padding:11px 16px!important;margin:0!important;display:flex!important;align-items:center!important;box-shadow:none!important;cursor:pointer;transition:background .12s ease,border-left-color .12s ease}[data-testid="stSidebar"] label[data-testid="stRadioOption"]:hover{background:rgba(138,180,248,.07)!important;border-left-color:rgba(138,180,248,.35)!important}[data-testid="stSidebar"] label[data-testid="stRadioOption"] p{font-size:13.5px!important;font-weight:500!important;color:var(--muted)!important;margin:0!important;line-height:1.3}[data-testid="stSidebar"] label[data-testid="stRadioOption"][data-selected="true"]{border-left-color:var(--blue)!important;background:rgba(138,180,248,.12)!important}[data-testid="stSidebar"] label[data-testid="stRadioOption"][data-selected="true"] p{color:#fff!important;font-weight:700!important}[data-testid="stSidebar"] label[data-testid="stRadioOption"] div:has(+[data-testid="stMarkdownContainer"]){display:none!important}[data-testid="stSidebar"] label[data-testid="stRadioOption"] input{display:none!important}
-h1,h2,h3,h4,h5,h6,p,span,div,label{color:var(--ink)!important}.page-hero,.section-card,.kpi,.insight-box,.excel-table.wide{width:auto;min-width:100%}.excel-table.wide td,.excel-table.wide th{white-space:nowrap}.excel-table.wide td:first-child{overflow-wrap:normal}.excel-table.wide td.wrap,.excel-table.wide th.wrap{white-space:normal;overflow-wrap:anywhere;text-align:left;min-width:280px;max-width:520px;vertical-align:top}.excel-table.record td{text-align:left;overflow-wrap:anywhere;white-space:normal}.excel-table.record td:first-child{width:220px;color:var(--muted)!important;font-weight:700}.definition-group{background:var(--panel)!important;border:1px solid var(--line);box-shadow:0 2px 8px rgba(0,0,0,.28)}.page-hero{position:relative;overflow:hidden;border-left:5px solid var(--accent,var(--blue));padding:14px 18px;margin-bottom:16px}.page-hero:after{content:"";position:absolute;inset:0;background:linear-gradient(120deg,rgba(255,255,255,.05),transparent 55%);pointer-events:none}.page-kicker{display:flex;align-items:center;gap:7px;font-size:11px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--accent,var(--blue))!important;margin-bottom:5px}.page-kicker .dot{width:7px;height:7px;border-radius:50%;background:var(--accent,var(--blue));box-shadow:0 0 0 3px color-mix(in srgb,var(--accent,var(--blue)) 25%,transparent)}.page-hero h1{margin:0 0 4px 0;font-size:25px}.page-hero p,.section-card p{margin:0;color:var(--muted)!important;font-size:14px;line-height:1.4}.section-card{border-left:4px solid var(--accent,var(--blue));border-radius:8px;padding:12px 14px;margin:18px 0 10px;display:flex;flex-direction:column;gap:2px}.section-card h3{margin:0 0 2px 0;font-size:20px;display:flex;align-items:center;gap:8px}.section-card h3:before{content:"";width:9px;height:9px;border-radius:3px;background:var(--accent,var(--blue));display:inline-block;flex:none}.kpi-grid{display:grid;grid-template-columns:repeat(5,minmax(145px,1fr));gap:10px;margin:10px 0 14px}.kpi{position:relative;min-height:92px;border-top:4px solid var(--accent);border-radius:8px;padding:11px 13px;transition:transform .15s ease,box-shadow .15s ease}.kpi:hover{transform:translateY(-3px);box-shadow:0 10px 22px rgba(0,0,0,.4)}.kpi-label{font-size:11px;color:var(--muted)!important;font-weight:800;text-transform:uppercase;letter-spacing:.04em}.kpi-num{font-size:29px;font-weight:900;line-height:1.05;margin:6px 0 4px;background:linear-gradient(180deg,#fff,var(--ink));-webkit-background-clip:text;background-clip:text}.kpi-foot{font-size:12px;color:var(--muted)!important}.insight-row{display:grid;grid-template-columns:repeat(2,minmax(260px,1fr));gap:10px}.insight-box{border-left:4px solid var(--accent);border-radius:8px;padding:11px 12px;font-size:14px}
+html,body,[data-testid="stAppViewContainer"],[data-testid="stMain"]{background:var(--bg)!important;color:var(--ink)!important}.main .block-container{padding-top:.75rem;max-width:1450px;background:var(--bg)!important}[data-testid="stHeader"],[data-testid="stToolbar"]{background:#0c0e12!important}[data-testid="stSidebar"]{background:var(--bg)!important;border-right:1px solid var(--line)}[data-testid="stSidebar"] *{color:var(--ink)!important}[data-testid="stSidebar"] label{color:var(--muted)!important}
+[data-testid="stSidebar"] div[role="radiogroup"]{gap:0!important;margin-top:4px}[data-testid="stSidebar"] label[data-testid="stRadioOption"]{width:100%;box-sizing:border-box;background:transparent!important;border:0!important;border-left:3px solid color-mix(in srgb,var(--nav,var(--blue)) 42%,transparent)!important;border-radius:0!important;padding:11px 16px!important;margin:0!important;display:flex!important;align-items:center!important;box-shadow:none!important;cursor:pointer;transition:background .12s ease,border-left-color .12s ease}[data-testid="stSidebar"] label[data-testid="stRadioOption"]:hover{background:color-mix(in srgb,var(--nav,var(--blue)) 9%,transparent)!important;border-left-color:var(--nav,var(--blue))!important}[data-testid="stSidebar"] label[data-testid="stRadioOption"] p{font-size:13.5px!important;font-weight:500!important;color:var(--muted)!important;margin:0!important;line-height:1.3}[data-testid="stSidebar"] label[data-testid="stRadioOption"][data-selected="true"]{border-left-color:var(--nav,var(--blue))!important;background:color-mix(in srgb,var(--nav,var(--blue)) 15%,transparent)!important}[data-testid="stSidebar"] label[data-testid="stRadioOption"][data-selected="true"] p{color:#fff!important;font-weight:700!important}[data-testid="stSidebar"] label[data-testid="stRadioOption"] div:has(+[data-testid="stMarkdownContainer"]){display:none!important}[data-testid="stSidebar"] label[data-testid="stRadioOption"] input{display:none!important}
+h1,h2,h3,h4,h5,h6,p,span,div,label{color:var(--ink)!important}.page-hero,.section-card,.kpi,.insight-box,.excel-table.wide{width:auto;min-width:100%}.excel-table.wide td,.excel-table.wide th{white-space:nowrap}.excel-table.wide td:first-child{overflow-wrap:normal}.excel-table.wide td.wrap,.excel-table.wide th.wrap{white-space:normal;overflow-wrap:anywhere;text-align:left;min-width:280px;max-width:520px;vertical-align:top}.excel-table.record td{text-align:left;overflow-wrap:anywhere;white-space:normal}.excel-table.record td:first-child{width:220px;color:var(--muted)!important;font-weight:700}.definition-group{background:var(--panel)!important;border:1px solid var(--line);box-shadow:0 2px 8px rgba(0,0,0,.28)}.page-hero{position:relative;overflow:hidden;border-left:5px solid var(--accent,var(--blue));padding:14px 18px;margin-bottom:16px}.page-hero:after{content:"";position:absolute;inset:0;background:linear-gradient(120deg,rgba(255,255,255,.05),transparent 55%);pointer-events:none}.page-kicker{display:flex;align-items:center;gap:7px;font-size:11px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--accent,var(--blue))!important;margin-bottom:5px}.page-kicker .dot{width:7px;height:7px;border-radius:50%;background:var(--accent,var(--blue));box-shadow:0 0 0 3px color-mix(in srgb,var(--accent,var(--blue)) 25%,transparent)}.page-hero h1{margin:0 0 4px 0;font-size:25px}.page-hero p,.section-card p{margin:0;color:var(--muted)!important;font-size:14px;line-height:1.4}.section-card{border-left:4px solid var(--accent,var(--blue));border-radius:8px;padding:12px 14px;margin:18px 0 10px;display:flex;flex-direction:column;gap:2px}.section-card h3{margin:0 0 2px 0;font-size:20px;display:flex;align-items:center;gap:8px}.section-card h3:before{content:"";width:9px;height:9px;border-radius:3px;background:var(--accent,var(--blue));display:inline-block;flex:none}.kpi-grid{display:grid;grid-template-columns:repeat(5,minmax(145px,1fr));gap:10px;margin:10px 0 14px}.kpi{position:relative;min-height:92px;border-top:4px solid var(--accent);border-radius:8px;padding:11px 13px;transition:transform .15s ease,box-shadow .15s ease}.kpi:hover{transform:translateY(-3px);box-shadow:0 10px 22px rgba(0,0,0,.4)}.kpi-label{font-size:11px;color:var(--muted)!important;font-weight:800;text-transform:uppercase;letter-spacing:.04em}.kpi-num{font-size:29px;font-weight:900;line-height:1.05;margin:6px 0 4px;background:linear-gradient(180deg,#fff,var(--ink));-webkit-background-clip:text;background-clip:text}.kpi-foot{font-size:12px;color:var(--muted)!important}.section-rule{height:1px;background:var(--line);margin:30px 0 14px}
+.donut-pair{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.insight-row{display:grid;grid-template-columns:repeat(2,minmax(260px,1fr));gap:10px}.insight-box{border-left:4px solid var(--accent);border-radius:8px;padding:11px 12px;font-size:14px}
 .table-wrap{overflow-x:auto;border-radius:8px;border:1px solid var(--line);box-shadow:0 2px 8px rgba(0,0,0,.22)}.excel-table{width:100%;border-collapse:collapse;background:var(--panel)!important;font-size:13px}.excel-table th{background:#2d3542!important;color:#fff!important;border:1px solid var(--line2);padding:9px 10px;text-align:center;font-weight:800;font-size:12px;text-transform:uppercase;letter-spacing:.03em;position:sticky;top:0}.excel-table td{border:1px solid var(--line);padding:8px 10px;background:#1f242d!important;color:var(--ink)!important;font-size:13px}.excel-table tr:nth-child(even) td{background:#242a34!important}.excel-table tbody tr{transition:background .1s ease}.excel-table tbody tr:hover td{background:#2c3542!important}.excel-table td:first-child{text-align:left;overflow-wrap:anywhere;font-weight:600}.excel-table td:not(:first-child){text-align:center}.bar-cell{padding:0!important}.bar-box{position:relative;min-height:32px;display:flex;align-items:center;justify-content:center;overflow:hidden;border-radius:4px}.bar-box:before{content:"";position:absolute;inset:0 auto 0 0;width:var(--w);background:linear-gradient(90deg,rgba(138,180,248,.7),rgba(138,180,248,.18))}.bar-box span{position:relative;z-index:1;font-weight:900;color:#fff!important;text-shadow:0 1px 2px #000}.definition-group{border-left:4px solid var(--teal);border-radius:8px;padding:12px 14px;margin:12px 0}.stDownloadButton button,.stButton button,.stFormSubmitButton button{background:#374151!important;color:#fff!important;border:1px solid var(--blue)!important;border-radius:7px!important;font-weight:800!important;transition:border-color .15s ease,transform .1s ease}.stDownloadButton button:hover,.stButton button:hover,.stFormSubmitButton button:hover{border-color:var(--teal)!important;transform:translateY(-1px)}[data-testid="stDataFrame"],[data-testid="stTable"]{background:var(--panel)!important;border:1px solid var(--line)!important;border-radius:8px!important;overflow:hidden}
 /* The Complaint Tracker's reading grid. It is `.wide` plus a restyle, so the sideways
    scroll and the bounded wrap columns still come from there. A full box grid, centred
@@ -90,6 +95,28 @@ h1,h2,h3,h4,h5,h6,p,span,div,label{color:var(--ink)!important}.page-hero,.sectio
 </style>
 """
 st.markdown(CSS, unsafe_allow_html=True)
+
+# The fifteen pages fall into four jobs, and the job -- not the page -- is what a colour
+# can usefully say. Fifteen hues would be confetti, and repeating a hue across unrelated
+# pages claims a kinship that is not there; four groups give the eye landmarks in a long
+# list while staying inside the app's own tokens. The index is derived from PAGES rather
+# than written out, so reordering or renaming a page cannot leave a rule pointing at the
+# wrong row.
+NAV_GROUPS = {
+    "Where you start": ("#8ab4f8", ("Executive Summary", "All customer emails")),
+    "Why it happened": ("#f28b82", ("SOURCE 01 · Monthly trend", "SOURCE 04 · Root cause",
+                                    "Repeat patterns")),
+    "Who it happened to": ("#f6c177", ("SOURCE 05 · Top customers", "DETAIL · Event workload")),
+    "What we do about it": ("#80cbc4", ("Delivery performance", "Open items",
+                                        "SOURCE 02 · Fix status", "SOURCE 06 · Automation focus",
+                                        "Automation urgency", "Dynamic Source Discovery")),
+}
+NAV_ACCENT = {page: colour for colour, names in NAV_GROUPS.values() for page in names}
+NAV_CSS = "".join(
+    f'[data-testid="stSidebar"] div[role="radiogroup"]>label:nth-of-type({i + 1})'
+    f'{{--nav:{NAV_ACCENT.get(name, "#b6beca")}}}'
+    for i, name in enumerate(PAGES))
+st.markdown(f"<style>{NAV_CSS}</style>", unsafe_allow_html=True)
 
 
 def read_csv_or_excel(src):
@@ -409,11 +436,23 @@ def esc(v):
     return html.escape(str(v)) if pd.notna(v) else ""
 
 
-def excel_bar_table(df, label_col, value_col="Records"):
+def excel_bar_table(df, label_col, value_col="Records", extras=None, label_head=None,
+                    value_head="Total emails", height=None):
+    """A ranked table whose last-but-one column is a bar drawn inside the cell.
+
+    `extras` are the columns carried between the label and the bar; the default picks
+    up the complaint/inquiry split wherever a table has it. `height` caps the table and
+    scrolls it in place -- which is how a full list of every account stays on an
+    executive page without either truncating it or costing thirty rows of scroll. It is
+    a scroll box rather than a collapsed expander on purpose: a collapsed expander is
+    laid out at zero height, so `innerText` reads empty and `audit_pages.py` stops
+    reconciling every row it hides.
+    """
     if df.empty or label_col not in df.columns or value_col not in df.columns:
         st.info("No data available for this view."); return
     max_v = max(float(df[value_col].max()), 1)
-    extra = [c for c in ("Complaints", "Inquiries") if c in df.columns]
+    extra = [c for c in (extras if extras is not None else ("Complaints", "Inquiries"))
+             if c in df.columns]
     rows = []
     for _, r in df.iterrows():
         width = float(r[value_col]) / max_v * 100
@@ -422,8 +461,10 @@ def excel_bar_table(df, label_col, value_col="Records"):
                     f"<td class='bar-cell'><div class='bar-box' style='--w:{width:.1f}%'><span>{esc(r[value_col])}</span></div></td>"
                     f"<td>{esc(r.get('% of Total',''))}</td></tr>")
     heads = "".join(f"<th>{esc(c)}</th>" for c in extra)
-    st.markdown("<div class='table-wrap'><table class='excel-table'><thead><tr><th>Category</th>" + heads +
-                "<th>Total emails</th><th>% of Total</th></tr></thead><tbody>" + "".join(rows) +
+    box = f" style='max-height:{int(height)}px;overflow-y:auto'" if height else ""
+    st.markdown(f"<div class='table-wrap'{box}><table class='excel-table'><thead><tr>"
+                f"<th>{esc(label_head or label_col)}</th>" + heads +
+                f"<th>{esc(value_head)}</th><th>% of Total</th></tr></thead><tbody>" + "".join(rows) +
                 "</tbody></table></div>", unsafe_allow_html=True)
 
 
@@ -706,7 +747,7 @@ def record_labels(frame):
     return labels
 
 
-def chart(df, label_col, value_col="Records", title=""):
+def chart(df, label_col, value_col="Records", title="", x_title="Records"):
     if df.empty or label_col not in df.columns or value_col not in df.columns:
         st.info(f"Chart cannot be rendered because required fields are missing: {label_col}, {value_col}."); return None
     # When the table carries the complaint/inquiry split, stack it so the bar shows what
@@ -724,7 +765,7 @@ def chart(df, label_col, value_col="Records", title=""):
     else:
         fig = px.bar(data, x=value_col, y=label_col, orientation="h", text=value_col, title=title, color_discrete_sequence=["#8ab4f8"])
     fig.update_yaxes(categoryorder="total ascending", tickfont=dict(size=13, color="#f3f4f6"), gridcolor="#303846", title="")
-    fig.update_xaxes(tickfont=dict(size=12, color="#f3f4f6"), gridcolor="#303846", title="Records")
+    fig.update_xaxes(tickfont=dict(size=12, color="#f3f4f6"), gridcolor="#303846", title=x_title)
     fig.update_traces(opacity=.92, cliponaxis=False, marker_line_width=0)
     if not parts: fig.update_traces(textposition="outside")
     fig.update_layout(template="plotly_dark", plot_bgcolor="#1b1f26", paper_bgcolor="#1b1f26", font=dict(color="#f3f4f6", size=13), margin=dict(l=20, r=60, t=64 if parts else 44, b=28), height=max(360, min(760, len(data) * 38 + 150)), showlegend=bool(parts))
@@ -810,27 +851,55 @@ def normalise_reason(df):
 # --red here (dE 9.7 deutan, 20.5 normal -- the dE 3.6 pair CLAUDE.md warns about is a
 # saturated red/green, not these two tokens): every slice on this chart is a failure, and
 # green would say one of them went well.
+# Named in English rather than in the tracker's taxonomy, because these five labels are
+# read by people outside the team and "Source Miss" is not a phrase that tells anyone
+# what happened. The rules underneath are unchanged, and `audit_pages.py` recomputes all
+# five from the CSV under the same names, so a bucket renamed here without being renamed
+# there fails the audit rather than quietly ceasing to be checked.
 MISS_BUCKETS = (
-    ("Source Miss", ("Source Coverage",), (), "#8ab4f8",
-     "The event was not in a source EventWatch monitors"),
-    ("Keyword Miss", ("Keyword Update",), (), "#4e7bb8",
-     "A monitored source carried it; no filter keyword matched"),
-    ("Analyst Miss", ("Review", "Event Identification", "Prioritization"), ("People",), "#f28b82",
+    ("Not in a source we watch", ("Source Coverage",), (), "#8ab4f8",
+     "The event never entered our system · Product"),
+    ("Watched, but terms missed it", ("Keyword Update",), (), "#4e7bb8",
+     "A source we monitor carried it; no keyword matched · Product"),
+    ("An analyst let it through", ("Review", "Event Identification", "Prioritization"), ("People",), "#f28b82",
      "Reached a human reviewer and was not raised · EventWatch Ops"),
-    ("Model Miss", ("Review", "Event Identification", "Prioritization"), ("Product",), "#f6c177",
-     "The model did not identify it as an event · Product"),
-    ("Other", (), (), "#b6beca",
+    ("The model did not spot it", ("Review", "Event Identification", "Prioritization"), ("Product",), "#f6c177",
+     "Captured, but not recognised as an event · Product"),
+    ("Other failures", (), (), "#b6beca",
      "Mapping, tagging, visibility, logic and timing failures"),
 )
 MISS_COLOURS = [c for _, _, _, c, _ in MISS_BUCKETS]
 
 
+def miss_bucket_series(df):
+    """The bucket each row falls in, or "" for a row that is not a missed event.
+
+    One implementation, so the cards, the ring, the per-account table and the monthly
+    split cannot disagree about which bucket a record belongs to. Buckets are applied in
+    order and are mutually exclusive by construction: non-misses start out claimed so
+    they can never take a bucket, and the last bucket has no sub-types, so it sweeps up
+    whatever the others left and the slices always sum to the missed count however the
+    taxonomy grows.
+    """
+    out = pd.Series("", index=df.index, dtype=object)
+    if df.empty or not {"Missed_Flag", "Sub-type", "Root Cause"} <= set(df.columns):
+        return out
+    missed = df["Missed_Flag"].astype(str).str.strip().eq("Yes")
+    sub = df["Sub-type"].fillna("Blank").astype(str).str.strip()
+    root = df["Root Cause"].fillna("Blank").astype(str).str.strip()
+    claimed = ~missed
+    for label, subs, roots, _, _ in MISS_BUCKETS:
+        hit = sub.isin(subs) if subs else pd.Series(True, index=df.index)
+        if roots:
+            hit = hit & root.isin(roots)
+        hit = hit & ~claimed
+        out[hit] = label
+        claimed = claimed | hit
+    return out
+
+
 def miss_categories(df):
     """Missed events split by what actually failed. Counts every missed record once.
-
-    Buckets are applied in order and are mutually exclusive by construction: the last
-    one has no sub-types and takes whatever the others did not claim, so the slices
-    always sum to the missed count however the taxonomy grows.
 
     Colour here fails the dataviz normal-vision floor at five categorical slots -- the
     grey residue against --blue scores dE 9.5 -- which is legal only with secondary
@@ -841,24 +910,14 @@ def miss_categories(df):
     keeps, which is the worse trade.
     """
     cols = ["Category", "Records", "% of Total"]
-    if df.empty or not {"Missed_Flag", "Sub-type", "Root Cause"} <= set(df.columns):
+    buckets = miss_bucket_series(df)
+    total = int((buckets != "").sum())
+    if total == 0:
         return pd.DataFrame(columns=cols)
-    missed = df[df["Missed_Flag"].astype(str).str.strip() == "Yes"]
-    if missed.empty:
-        return pd.DataFrame(columns=cols)
-    sub = missed["Sub-type"].fillna("Blank").astype(str).str.strip()
-    root = missed["Root Cause"].fillna("Blank").astype(str).str.strip()
-    claimed = pd.Series(False, index=missed.index)
-    rows = []
-    for label, subs, roots, _, _ in MISS_BUCKETS:
-        if subs:
-            hit = sub.isin(subs) & (root.isin(roots) if roots else True) & ~claimed
-        else:
-            hit = ~claimed
-        claimed |= hit
-        rows.append({"Category": label, "Records": int(hit.sum())})
-    out = pd.DataFrame(rows)
-    out["% of Total"] = (out["Records"] / max(len(missed), 1) * 100).round(1).astype(str) + "%"
+    counts = buckets[buckets != ""].value_counts()
+    out = pd.DataFrame({"Category": [label for label, *_ in MISS_BUCKETS]})
+    out["Records"] = [int(counts.get(label, 0)) for label in out["Category"]]
+    out["% of Total"] = (out["Records"] / total * 100).round(1).astype(str) + "%"
     return out
 
 
@@ -866,11 +925,12 @@ def miss_recent_note(df, window=3, span=6, move=5.0):
     """One line naming the last `window` months' miss mix when the ring is wider than that.
 
     The ring is cumulative over whatever the filter spans, and a cumulative mix buries a
-    quarter in which the mix changed. It did: read over nine months Source Miss is 26%
-    and third, but over Jul-Sep it is 38% and first, while Model Miss falls from 17% to
-    3%. A reader taking the ring as "the picture" gets the wrong two priorities, which is
-    exactly the misread this line exists to stop -- it is how a claim that source misses
-    had not moved survived, when 11 of the 20 had landed in the previous three months.
+    quarter in which the mix changed. It did: read over nine months the source bucket is
+    a third of the ring, but over the last three it is first and the model bucket falls
+    to nothing. A reader taking the ring as "the picture" gets the wrong two priorities,
+    which is exactly the misread this line exists to stop -- it is how a claim that
+    source misses had not moved survived, when 11 of the 20 had landed in the previous
+    three months.
 
     Only shown when the frame spans more than `span` months, because below that the two
     windows are mostly the same records and the line says nothing.
@@ -1165,33 +1225,8 @@ def close_trend(df):
         ["Month", "Median days", "Closed records"]]
 
 
-def rca_funnel(df):
-    """How the RCAs customers asked for were discharged.
-
-    `open_items()` already decides what counts as owed -- RCA Requested with a fix
-    status that is neither `RCA Shared` nor `Fixed`, because a fix can be the answer.
-    This states the whole funnel behind that one number, so a reader can see the rule
-    rather than having to trust it.
-    """
-    rca = df.get("RCA Requested", pd.Series(dtype=str)).astype(str).str.strip()
-    fix = df.get("Short Term Fix Status", pd.Series(dtype=str)).astype(str).str.strip()
-    asked = df[rca == "Yes"]
-    if asked.empty:
-        return pd.DataFrame(columns=["Outcome", "Records", "% of asks"]), 0
-    status = fix[asked.index]
-    rows = [("RCA shared", int((status == "RCA Shared").sum()), "the promise was kept directly"),
-            ("Closed by a fix", int((status == "Fixed").sum()), "treated as discharged: the fix was the answer"),
-            ("Clarification instead", int((status == "Clarification Provided").sum()), "an explanation went out, no RCA"),
-            ("Still pending", int((status == "Pending").sum()), "open in Jira, nothing issued yet")]
-    total = max(len(asked), 1)
-    table = pd.DataFrame([{"Outcome": name, "Records": n,
-                           "% of asks": f"{n / total * 100:.1f}%", "Meaning": why}
-                          for name, n, why in rows])
-    return table, len(asked)
-
-
 def account_scorecard(df, minimum=2):
-    """One row per account, answering "how is this customer doing" in five numbers.
+    """One row per account, answering "how is this customer doing" in one line.
 
     Every other page makes you hold one account in your head across five pages to
     assemble this. Accounts are split on the slash, so a record naming two of them
@@ -1205,7 +1240,6 @@ def account_scorecard(df, minimum=2):
     closed = days_to_close(df)
     missed = df.get("Missed_Flag", pd.Series(dtype=str)).astype(str).str.strip().eq("Yes")
     issue = df.get("Issue Type", pd.Series(dtype=str)).astype(str).str.strip()
-    _, owed = open_items(df)
     rows = []
     for name in customer_names(df["Customer"]):
         hit = names_match(df["Customer"], [name])
@@ -1222,7 +1256,6 @@ def account_scorecard(df, minimum=2):
             "Inquiries": int(issue[hit].eq("Inquiry").sum()),
             "Miss rate": f"{missed[hit].mean() * 100:.0f}%",
             "Median close": f"{days.median():.0f}d ({len(days)})" if not days.empty else "no dated closes",
-            "RCA owed": int(names_match(owed["Customer"], [name]).sum()) if not owed.empty else 0,
             "Last raised": raised[hit].max().strftime("%d-%b-%Y") if raised[hit].notna().any() else "",
             "Most common failure": sub.value_counts().index[0] if not sub.empty else "",
         })
@@ -1244,15 +1277,17 @@ def filled(series):
 
 
 def open_items(df):
-    """Rows that still need something done, and the RCA text where one exists."""
+    """Rows that still need something done: fix status Pending, nothing else.
+
+    It used to return an `owed` frame beside this one -- RCA Requested with a fix status
+    that was neither `RCA Shared` nor `Fixed`. That count is gone from the app, because
+    the three fields behind it do not agree: 85 emails are marked `RCA Requested`, 38
+    carry any text in `RCA Details` and 31 are marked `RCA Shared`. Any figure derived
+    from them picks one of three and hopes, so none is published. The RCA text itself is
+    still shown -- it is what somebody wrote, not a statistic.
+    """
     fix = df.get("Short Term Fix Status", pd.Series(dtype=str)).astype(str).str.strip()
-    rca = df.get("RCA Requested", pd.Series(dtype=str)).astype(str).str.strip()
-    pending = df[fix == "Pending"]
-    # An RCA the customer asked for and never got. Most of these sit on records that are
-    # otherwise CLOSED -- a clarification went out instead -- so this is a commitment
-    # backlog, not open work, and the page must not present the two as one thing.
-    owed = df[(rca == "Yes") & (~fix.isin(["RCA Shared", "Fixed"]))]
-    return pending, owed
+    return df[fix == "Pending"]
 
 
 def resolved_on(df):
@@ -1274,12 +1309,6 @@ def days_to_close(df):
     no ticket to read one from, and counting those as zero would flatter the median."""
     raised = pd.to_datetime(df.get("Email/JIRA Date"), errors="coerce")
     return (resolved_on(df) - raised).dt.days
-
-
-def age_days(df):
-    """One column for a mixed table: time to close where closed, time open where not."""
-    closed = days_to_close(df)
-    return closed.where(closed.notna(), days_open(df))
 
 
 def missed_rate(df):
@@ -1333,9 +1362,9 @@ def insights(df, window=3, move=6.0):
         for delta, value, now, was in sorted(drift, key=lambda d: -abs(d[0]))[:2]:
             rising = delta > 0
             out.append((
-                f"{value} {'rising' if rising else 'falling'}",
-                f"{'+' if rising else ''}{delta:.0f} pts",
-                f"{now:.0f}% of last {window} months, was {was:.0f}%",
+                f"{plain(value, PLAIN_SUBTYPE)} {'rising' if rising else 'falling'}",
+                f"{now:.0f}%",
+                f"of the last {window} months, {'up' if rising else 'down'} from {was:.0f}%",
                 "#f28b82" if rising else "#a8dab5"))
 
     # --- which account carries the exposure ----------------------------------------
@@ -1346,7 +1375,7 @@ def insights(df, window=3, move=6.0):
             pct = top["Records"] / max(len(df), 1) * 100
             if pct >= 25:
                 out.append((f"{top['Customer']} concentration", f"{pct:.0f}%",
-                            f"{int(top['Records'])} of {len(df)} records name them",
+                            f"{int(top['Records'])} of {len(df)} emails name them",
                             "#f6c177"))
 
     # --- accounts where everything they raise turns out to be real -------------------
@@ -1361,14 +1390,14 @@ def insights(df, window=3, move=6.0):
             if len(perfect) > 3:
                 names += f" +{len(perfect) - 3}"
             out.append(("Right every time", f"{len(perfect)} accounts",
-                        f"{names} — every record a confirmed miss", "#f28b82"))
+                        f"{names} — every email a confirmed miss", "#f28b82"))
 
     # --- one systemic problem, not many incidents ------------------------------------
     if {"Customer", "Sub-type"} <= set(df.columns):
         pairs = df.groupby(["Customer", "Sub-type"]).size().sort_values(ascending=False)
         if len(pairs) and pairs.iloc[0] >= 5:
             (customer, subtype), n = pairs.index[0], int(pairs.iloc[0])
-            out.append((f"{customer} · {subtype}", f"{n} records",
+            out.append((f"{customer} · {plain(subtype, PLAIN_SUBTYPE)}", f"{n} emails",
                         f"Same account, same failure — one problem, not {n} incidents",
                         "#f6c177"))
     # At most four, so the row stays a row. They are in priority order: what is moving,
@@ -1387,9 +1416,9 @@ def missed_verdict(rate, window=3, noise=5.0):
     unnoticed.
 
     Compared on POOLED counts, not the mean of monthly percentages: a month with four
-    records would otherwise carry the same weight as one with eighteen. A move smaller
+    emails would otherwise carry the same weight as one with eighteen. A move smaller
     than `noise` points is reported as flat rather than dressed up as a trend, and the
-    latest month is flagged when it is too thin to lean on -- these are 10-20 records a
+    latest month is flagged when it is too thin to lean on -- these are 10-20 emails a
     month, and reading a trend into that noise is worse than reading none.
     """
     if len(rate) < window * 2:
@@ -1413,11 +1442,11 @@ def missed_verdict(rate, window=3, noise=5.0):
     else:
         verdict, colour = "Not improving", "#f6c177"
         sentence = f"a {abs(delta):.1f}-point move, which is noise at this volume"
-    detail = (f"{now:.0f}% of records were genuine misses in {span} — {sentence}. "
-              f"{int(recent['Missed'].sum())} of {int(recent['Records'].sum())} records.")
+    detail = (f"{now:.0f}% of customer emails were confirmed misses in {span} — {sentence}. "
+              f"{int(recent['Missed'].sum())} of {int(recent['Records'].sum())} emails.")
     thin = rate.iloc[-1]
     if thin["Records"] < 8:
-        detail += f" {label(thin['Month'])} has only {int(thin['Records'])} records so far."
+        detail += f" {label(thin['Month'])} has only {int(thin['Records'])} emails so far."
     return verdict, detail, colour, now
 
 
@@ -1737,6 +1766,322 @@ def manual_entry_form(df):
     st.markdown("</div>", unsafe_allow_html=True)
 
 
+# ---------------------------------------------------------------------------
+# Executive Overview
+#
+# Everything from here to the page dispatch serves one page. It is grouped rather
+# than scattered because the page is a story told in sections, and these functions
+# only make sense as that story's parts.
+# ---------------------------------------------------------------------------
+
+# The tracker's taxonomy, read out in English. `Root Cause` and `Sub-type` are the
+# vocabulary of the people who file the records, and on a leadership page they say
+# nothing: "Event Identification" and "Prioritization" are not categories a reader
+# outside the team can rank, and "Review" -- the single largest People bucket -- is
+# the vaguest word in the file. The tracker keeps its own wording, because that is
+# the record; only the chart label is translated, and the original travels with it
+# in the table beside the chart so an analyst can tie any slice back to a field.
+PLAIN_ROOT = {
+    "People": "Our analysts",
+    "Process": "How we work",
+    "Product": "The platform",
+}
+
+PLAIN_SUBTYPE = {
+    "Source Coverage": "We were not watching the source",
+    "Keyword Update": "Our search terms missed it",
+    "Review": "Reviewed, and not raised",
+    "Event Identification": "Seen, but not recognised as an event",
+    "Prioritization": "Seen, but ranked too low",
+    "Mapping": "Supplier was not linked to the customer",
+    "Visibility": "Published, but it never showed",
+    "Policy/Logic": "Our scoring or rules got it wrong",
+    "Process Clarification": "A convention we had not explained",
+    "Captured Late": "Captured, but too late",
+    "Duplication": "The same event published twice",
+    "Tagging": "Industry tag missed at publishing",
+    "Industry selection": "Wrong industry chosen",
+    "Relevancy": "Judged not relevant to them",
+    "WarRoom Creation": "No WarRoom was created",
+    "Strategy": "How we group events",
+}
+
+# Who owns the fix, in the same three colours everywhere they appear on the page.
+OWNER_COLOURS = {"The platform": "#8ab4f8", "Our analysts": "#f28b82", "How we work": "#f6c177"}
+
+# The inbox in three parts. Red is the failure, amber the complaint that was not one,
+# blue the question -- and every slice carries its own label, count and share, so the
+# ring never rests on colour alone.
+SPLIT_COLOURS = ["#f28b82", "#f6c177", "#8ab4f8"]
+
+
+def plain(value, mapping):
+    """A taxonomy value in English, or the value itself if nothing maps it.
+
+    Falling back to the original matters: a term added to the tracker tomorrow shows
+    up as itself rather than vanishing from a chart or landing in an "Other" nobody
+    asked for.
+    """
+    return mapping.get(str(value).strip(), str(value).strip())
+
+
+def add_rule():
+    """A full-width hairline between sections.
+
+    The heading card alone was not enough separation: on a page this long the eye lost
+    which chart a table belonged to, and two adjacent sections read as one.
+    """
+    st.markdown("<div class='section-rule'></div>", unsafe_allow_html=True)
+
+
+def overview_split(df):
+    """Every email in three mutually exclusive parts: a failure, a complaint that was
+    not one, and a question.
+
+    This is the first thing a reader needs and no chart said it: not every complaint is
+    a miss, and not every email is a complaint.
+    """
+    cols = ["Category", "Records", "% of Total"]
+    if df.empty or not {"Issue Type", "Missed_Flag"} <= set(df.columns):
+        return pd.DataFrame(columns=cols)
+    issue = df["Issue Type"].astype(str).str.strip()
+    missed = df["Missed_Flag"].astype(str).str.strip().eq("Yes")
+    out = pd.DataFrame([
+        {"Category": "Confirmed misses", "Records": int(missed.sum())},
+        {"Category": "Complaints, not a miss", "Records": int((issue.eq("Complaint") & ~missed).sum())},
+        {"Category": "Inquiries", "Records": int(issue.eq("Inquiry").sum())},
+    ])
+    out["% of Total"] = (out["Records"] / max(len(df), 1) * 100).round(1).astype(str) + "%"
+    return out
+
+
+def miss_owner_split(df):
+    """The confirmed misses by who has to fix them, named in English.
+
+    The pair with `overview_split` is the point: the left ring answers "is every email a
+    failure", the right one "when we do fail, whose problem is it". Two shapes, no
+    arithmetic.
+    """
+    cols = ["Category", "Records", "% of Total"]
+    if df.empty or not {"Missed_Flag", "Root Cause"} <= set(df.columns):
+        return pd.DataFrame(columns=cols)
+    missed = df[df["Missed_Flag"].astype(str).str.strip().eq("Yes")]
+    if missed.empty:
+        return pd.DataFrame(columns=cols)
+    keys = missed["Root Cause"].fillna("Blank").astype(str).map(lambda v: plain(v, PLAIN_ROOT))
+    out = keys.value_counts().reset_index()
+    out.columns = ["Category", "Records"]
+    out["% of Total"] = (out["Records"] / max(len(missed), 1) * 100).round(1).astype(str) + "%"
+    return out
+
+
+def miss_by_customer(df):
+    """One row per account: emails, confirmed misses, and the misses split by what failed.
+
+    Accounts are split on the slash, the same rule `customer_exposure()` uses, so a
+    `Ford/GM` row counts for both and the email totals agree with every other page.
+    """
+    labels = [label for label, *_ in MISS_BUCKETS]
+    cols = ["Customer", "Emails"] + labels + ["Misses", "% of Total"]
+    if df.empty or "Customer" not in df.columns:
+        return pd.DataFrame(columns=cols)
+    frame = df.assign(_bucket=miss_bucket_series(df))
+    # explode() repeats the source index, and crosstab cannot reindex a duplicated axis,
+    # so the exploded frame gets a fresh one.
+    exploded = (frame.assign(_c=frame["Customer"].fillna("Blank").astype(str).str.split("/"))
+                     .explode("_c").reset_index(drop=True))
+    exploded["_c"] = exploded["_c"].str.strip().replace("", "Blank")
+    emails = exploded["_c"].value_counts()
+    grid = pd.crosstab(exploded["_c"], exploded["_bucket"])
+    out = pd.DataFrame({"Customer": list(emails.index), "Emails": list(emails.values)})
+    for label in labels:
+        out[label] = [int(grid.loc[c, label]) if c in grid.index and label in grid.columns else 0
+                      for c in out["Customer"]]
+    out["Misses"] = out[labels].sum(axis=1)
+    total = max(int(out["Misses"].sum()), 1)
+    out["% of Total"] = (out["Misses"] / total * 100).round(1).astype(str) + "%"
+    return out[cols].sort_values(["Misses", "Emails"], ascending=False).reset_index(drop=True)
+
+
+def missed_event_types(df):
+    """What kinds of event we actually miss -- fires, insolvencies, port disruption.
+
+    Counted over the confirmed misses only. The block that used to sit here was titled
+    "Missed event types" and counted every email, misses and non-misses alike, so it
+    answered a different question from the one its own heading asked.
+    """
+    cols = ["Event type", "Records", "% of Total"]
+    if df.empty or not {"Event type", "Missed_Flag"} <= set(df.columns):
+        return pd.DataFrame(columns=cols)
+    missed = df[df["Missed_Flag"].astype(str).str.strip().eq("Yes")]
+    if missed.empty:
+        return pd.DataFrame(columns=cols)
+    out = missed["Event type"].fillna("Blank").astype(str).str.strip().value_counts().reset_index()
+    out.columns = ["Event type", "Records"]
+    out["% of Total"] = (out["Records"] / max(len(missed), 1) * 100).round(1).astype(str) + "%"
+    return out
+
+
+def nature_table(df):
+    """The eight reusable categories behind what customers actually wrote.
+
+    The same fold, and the same eight words, the All customer emails tab defines -- so a
+    reader who stops on a category name here finds its meaning and the customer's own
+    wordings one click away instead of meeting a different vocabulary on every tab.
+    """
+    cols = ["Category", "Complaints", "Inquiries", "Records", "% of Total"]
+    if df.empty or "Reason" not in df.columns:
+        return pd.DataFrame(columns=cols)
+    frame = df.copy()
+    frame["Category"] = reason_category(df)
+    return count_table(frame, "Category")
+
+
+def stacked_bar(frame, label_col, parts, colours, title="", x_title="Records", rows=8):
+    """A ranked horizontal bar broken into named parts.
+
+    `chart()` stacks the complaint/inquiry split and nothing else; this takes any set of
+    part columns, which is what lets one account's bar say *why* it was missed rather
+    than only how often.
+    """
+    parts = [c for c in parts if c in frame.columns]
+    if frame.empty or label_col not in frame.columns or not parts:
+        st.info(f"Chart cannot be rendered because required fields are missing: {label_col}.")
+        return None
+    data = frame.head(rows).copy()
+    data[label_col] = data[label_col].astype(str)
+    fig = px.bar(data, x=parts, y=label_col, orientation="h", title=title,
+                 color_discrete_map=colours)
+    fig.update_layout(barmode="stack", legend_title_text="",
+                      legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0))
+    fig.update_yaxes(categoryorder="total ascending", tickfont=dict(size=13, color="#f3f4f6"),
+                     gridcolor="#303846", title="")
+    fig.update_xaxes(tickfont=dict(size=12, color="#f3f4f6"), gridcolor="#303846", title=x_title)
+    fig.update_traces(opacity=.92, cliponaxis=False, marker_line_width=0,
+                      hovertemplate="%{y}<br>%{fullData.name}: %{x}<extra></extra>")
+    fig.update_layout(template="plotly_dark", plot_bgcolor="#1b1f26", paper_bgcolor="#1b1f26",
+                      font=dict(color="#f3f4f6", size=13),
+                      margin=dict(l=20, r=40, t=86, b=34),
+                      height=max(340, min(720, len(data) * 40 + 190)))
+    st.plotly_chart(fig, use_container_width=True)
+    return fig
+
+
+def trend_windows(df, window=3):
+    """The monthly miss rate, plus the pooled rate of the last `window` months and the
+    `window` before them.
+
+    Pooled on counts, never on the mean of the monthly percentages: a month with 4
+    emails must not weigh the same as one with 18. Returns `(rate, band)` with band None
+    when there are not two full windows to compare, because two averages drawn over
+    four months of data is a shape, not a finding.
+    """
+    rate = missed_rate(df)
+    if len(rate) < window * 2:
+        return rate, None
+    def pooled(part):
+        emails = int(part["Records"].sum())
+        return {"months": list(part["Month"]), "emails": emails,
+                "value": part["Missed"].sum() / max(emails, 1) * 100}
+    return rate, {"older": pooled(rate.iloc[-window * 2:-window]), "recent": pooled(rate.tail(window))}
+
+
+def trend_chart(rate, band, title=""):
+    """Nine monthly points, and the two windows being compared drawn as flat shelves.
+
+    The shelf spans only its own three months, so what each average is the average *of*
+    is visible rather than asserted in a caption. The monthly line keeps the colour it
+    has on SOURCE 01; the shelves are grey for the older window and blue for the recent
+    one. Direction is never left to colour -- the delta is printed, signed, on the chart.
+    """
+    if rate.empty or "Missed %" not in rate.columns:
+        st.info("Chart cannot be rendered because required fields are missing: Month, Missed %.")
+        return None
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(
+        x=list(rate["Month"]), y=list(rate["Missed %"]), mode="lines+markers", name="Each month",
+        line=dict(color="#f6c177", width=3), marker=dict(size=9),
+        customdata=rate[["Missed", "Records"]].values,
+        hovertemplate="%{x}<br>%{y:.0f}% — %{customdata[0]} of %{customdata[1]} emails<extra></extra>"))
+    if band:
+        for key, colour, name in (("older", "#b6beca", "Earlier three months"),
+                                  ("recent", "#8ab4f8", "Last three months")):
+            part = band[key]
+            fig.add_trace(go.Scatter(
+                x=part["months"], y=[part["value"]] * len(part["months"]), mode="lines",
+                name=f"{name} · {part['value']:.0f}%", line=dict(color=colour, width=5),
+                hovertemplate=f"{name}: {part['value']:.0f}% of {part['emails']} emails<extra></extra>"))
+        move = band["recent"]["value"] - band["older"]["value"]
+        fig.add_annotation(x=band["recent"]["months"][len(band["recent"]["months"]) // 2],
+                           y=band["recent"]["value"], text=f"<b>{move:+.1f} points</b>",
+                           showarrow=False, yshift=-30, font=dict(size=14, color="#f3f4f6"))
+    fig.update_xaxes(tickfont=dict(size=12, color="#f3f4f6"), gridcolor="#303846", title="")
+    fig.update_yaxes(tickfont=dict(size=12, color="#f3f4f6"), gridcolor="#303846", title="",
+                     ticksuffix="%", rangemode="tozero")
+    fig.update_layout(template="plotly_dark", plot_bgcolor="#1b1f26", paper_bgcolor="#1b1f26",
+                      font=dict(color="#f3f4f6", size=13), title=title,
+                      legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0),
+                      margin=dict(l=20, r=40, t=86, b=28), height=400)
+    st.plotly_chart(fig, use_container_width=True)
+    return fig
+
+
+def root_frame(df):
+    """Who owns it, what exactly went wrong, and the tracker term behind both."""
+    cols = ["Owner", "What went wrong", "Tracker term", "Records", "% of Total"]
+    if df.empty or not {"Root Cause", "Sub-type"} <= set(df.columns):
+        return pd.DataFrame(columns=cols)
+    frame = pd.DataFrame({
+        "Owner": df["Root Cause"].fillna("Blank").astype(str).map(lambda v: plain(v, PLAIN_ROOT)),
+        "Tracker term": df["Sub-type"].fillna("Blank").astype(str).str.strip(),
+    })
+    out = frame.groupby(["Owner", "Tracker term"]).size().reset_index(name="Records")
+    out["What went wrong"] = out["Tracker term"].map(lambda v: plain(v, PLAIN_SUBTYPE))
+    out["% of Total"] = (out["Records"] / max(len(df), 1) * 100).round(1).astype(str) + "%"
+    return out[cols].sort_values(["Records", "Owner"], ascending=[False, True]).reset_index(drop=True)
+
+
+def sunburst(frame, title="", centre="", minimum=4):
+    """Two rings: who owns the failure, and what the failure actually was.
+
+    The taxonomy is genuinely two levels and genuinely unbalanced -- two sub-types carry
+    half the misses and eleven carry one or two each -- so the honest shape is a
+    sunburst with the tail folded rather than eleven unlabelled slivers a reader takes
+    for rounding. Everything under `minimum` becomes one `Other (N kinds)` segment per
+    owner, and the table below the chart still lists every row.
+    """
+    if frame is None or frame.empty:
+        st.info("Chart cannot be rendered because required fields are missing: Root Cause, Sub-type.")
+        return None
+    big = frame[frame["Records"] >= minimum][["Owner", "What went wrong", "Records"]]
+    small = frame[frame["Records"] < minimum]
+    if not small.empty:
+        rolled = (small.groupby("Owner")
+                       .agg(Records=("Records", "sum"), kinds=("Records", "size")).reset_index())
+        rolled["What went wrong"] = rolled["kinds"].map(lambda n: f"Other ({n} kinds)")
+        big = pd.concat([big, rolled[["Owner", "What went wrong", "Records"]]], ignore_index=True)
+    total = int(big["Records"].sum())
+    fig = px.sunburst(big, path=["Owner", "What went wrong"], values="Records",
+                      color="Owner", color_discrete_map=OWNER_COLOURS, title=title)
+    fig.update_traces(marker=dict(line=dict(color="#1b1f26", width=2)), sort=False,
+                      texttemplate="%{label}<br><b>%{value}</b>",
+                      insidetextorientation="horizontal",
+                      insidetextfont=dict(size=11, color="#0f1115"),
+                      hovertemplate="%{label}<br>%{value} of " + str(total) + "<extra></extra>")
+    # uniformtext hides a label rather than shrinking it below 11px. A four-record
+    # segment carrying five words of unreadable type is worse than a segment with no
+    # label at all: the arc still shows the size, the hover still names it, and the
+    # table below still lists every row.
+    fig.update_layout(template="plotly_dark", plot_bgcolor="#1b1f26", paper_bgcolor="#1b1f26",
+                      font=dict(color="#f3f4f6", size=13),
+                      uniformtext=dict(minsize=11, mode="hide"),
+                      margin=dict(l=6, r=6, t=64 if title else 14, b=14), height=650)
+    st.plotly_chart(fig, use_container_width=True)
+    if centre:
+        st.caption(centre)
+    return fig
+
+
 st.sidebar.title(APP_TITLE); st.sidebar.caption("Executive navigation")
 selected_page = st.sidebar.radio("Dashboard pages", PAGES, label_visibility="collapsed")
 df = load_data()
@@ -1752,70 +2097,192 @@ filtered = sidebar_filters(df)
 
 if selected_page == "Executive Summary":
     page_header(selected_page); page = filtered; filter_note()
-    complaints = page[page["Issue Type"].astype(str).eq("Complaint")] if "Issue Type" in page.columns else page
-    inquiries = page[page["Issue Type"].astype(str).eq("Inquiry")] if "Issue Type" in page.columns else page.iloc[0:0]
-    total = max(len(page), 1); missed = int((page.get("Missed_Flag", pd.Series(dtype=str)).astype(str) == "Yes").sum()) if "Missed_Flag" in page.columns else 0
-    people = int((page.get("Root Cause", pd.Series(dtype=str)).astype(str) == "People").sum()) if "Root Cause" in page.columns else 0; process = int((page.get("Root Cause", pd.Series(dtype=str)).astype(str) == "Process").sum()) if "Root Cause" in page.columns else 0; product = int((page.get("Root Cause", pd.Series(dtype=str)).astype(str) == "Product").sum()) if "Root Cause" in page.columns else 0
-    kpis([("Total records", len(page), f"{len(complaints)} complaints · {len(inquiries)} inquiries", "#8ab4f8"), ("Complaints %", f"{len(complaints)/total*100:.1f}%", "Share of selected records", "#f28b82"), ("Missed events", missed, f"{missed/total*100:.1f}% of selected records", "#f6c177"), ("People misses", people, "People-rooted · all records", "#b6beca"), ("Process/Product", f"{process}/{product}", "Process vs Product · all records", "#80cbc4")])
-    kpis([("High severity", int((page.get("Severity", pd.Series(dtype=str)).astype(str) == "High").sum()) if "Severity" in page.columns else 0, "Records needing leadership attention", "#f28b82"), ("RCA requested", int((page.get("RCA Requested", pd.Series(dtype=str)).astype(str) == "Yes").sum()) if "RCA Requested" in page.columns else 0, "RCA asks · all records", "#f6c177"), ("Fixed", int((page.get("Short Term Fix Status", pd.Series(dtype=str)).astype(str) == "Fixed").sum()) if "Short Term Fix Status" in page.columns else 0, "Short-term fixes · all records", "#a8dab5"), ("RCA shared", int((page.get("Short Term Fix Status", pd.Series(dtype=str)).astype(str) == "RCA Shared").sum()) if "Short Term Fix Status" in page.columns else 0, "RCA shared · all records", "#80cbc4"), ("Clarified", int((page.get("Short Term Fix Status", pd.Series(dtype=str)).astype(str) == "Clarification Provided").sum()) if "Short Term Fix Status" in page.columns else 0, "Clarified · all records", "#8ab4f8")])
-    rate = missed_rate(page)
-    verdict = missed_verdict(rate)
-    add_section("Are we missing fewer events?", "The share of each month's records that were a genuine "
-                "reporting miss. Volume rises and falls with how many tickets customers happened to raise; "
-                "this is the line that says whether coverage is actually improving.", "#f6c177")
-    if rate.empty:
-        st.info("No dated records in the current filter.")
-    else:
-        if verdict:
-            headline, detail, colour, _ = verdict
-            st.markdown(
-                f"<div class='insight-box' style='--accent:{colour}'>"
-                f"<b style='color:{colour}'>{esc(headline)}.</b> {esc(detail)}</div>",
-                unsafe_allow_html=True)
-        else:
-            st.caption("Fewer than six months of records in this filter — too short to call a trend.")
-        f = rate_chart(rate, "Month", "Missed %", title="Missed events as a share of records")
-        downloads(rate, "missed_event_rate", f)
-    found = insights(page)
-    add_section("What the complaints are telling us", "Findings computed from the records in the "
-                "current filter, not a fixed commentary. A finding that does not clear its own "
-                "threshold is not shown at all.", "#f6c177")
-    if not found:
-        st.info("Nothing in the current filter clears the thresholds for a finding. Widen the date range "
-                "or clear a sidebar filter.")
-    else:
-        kpis(found, columns=len(found))
-
+    issue = page.get("Issue Type", pd.Series(dtype=str)).astype(str).str.strip()
+    flag = page.get("Missed_Flag", pd.Series(dtype=str)).astype(str).str.strip()
+    complaints = int(issue.eq("Complaint").sum()); inquiries = int(issue.eq("Inquiry").sum())
+    total = max(len(page), 1)
+    missed = int(flag.eq("Yes").sum())
+    not_a_miss = int((issue.eq("Complaint") & flag.ne("Yes")).sum())
     cats = miss_categories(page)
-    add_section("Why the events were missed", "Every record flagged a genuine miss, split by what "
-                "failed and who fixes it. Analyst and model are the same failure under a different "
-                "Root Cause, so they are separate slices. `Other` is the residue the named categories "
-                "do not cover, shown rather than folded in.", "#f28b82")
+    bucket = lambda name: int(cats.loc[cats["Category"] == name, "Records"].iloc[0]) if not cats.empty else 0
+    never = bucket(MISS_BUCKETS[0][0]) + bucket(MISS_BUCKETS[1][0])
+    overlooked = bucket(MISS_BUCKETS[2][0])
+    rate, band = trend_windows(page)
+    accounts = miss_by_customer(page)
+    biggest = accounts.sort_values("Emails", ascending=False).head(1)
+    # Eight cards in two rows of four, not eight across: eight in one row is 180px each
+    # at the width this is read at, and the number -- the only part anyone reads from
+    # across a meeting room -- is the first thing to shrink. Every card prints its own
+    # denominator inside the number, because a bare percentage beside a bare count on
+    # one screen is what made the last read-out of this page unreadable.
+    kpis([("Customer emails", len(page), f"{complaints} complaints · {inquiries} inquiries", "#8ab4f8"),
+          ("Complaints", f"{complaints} of {len(page)}", f"{complaints / total * 100:.0f}% of these emails", "#f6c177"),
+          ("Confirmed misses", f"{missed} of {len(page)}", f"{missed / total * 100:.0f}% of these emails", "#f28b82"),
+          ("Complaints, not a miss", f"{not_a_miss} of {max(complaints, 1)}",
+           "we did report it; the issue was something else", "#80cbc4")], columns=4)
+    kpis([("Never captured by us", f"{never} of {max(missed, 1)}",
+           f"{never / max(missed, 1) * 100:.0f}% of misses — the event never entered our system", "#8ab4f8"),
+          ("Seen, but overlooked", f"{overlooked} of {max(missed, 1)}",
+           f"{overlooked / max(missed, 1) * 100:.0f}% of misses — captured, but an analyst did not raise it", "#f28b82"),
+          ("Last three months",
+           f"{band['recent']['value']:.0f}%" if band else "—",
+           (f"of emails were a miss, against {band['older']['value']:.0f}% in the three before"
+            if band else "needs six months of emails to compare"), "#f6c177"),
+          ("One customer's share",
+           f"{biggest['Customer'].iloc[0]}: {int(biggest['Emails'].iloc[0])} of {len(page)}" if not biggest.empty else "—",
+           (f"{int(biggest['Emails'].iloc[0]) / total * 100:.0f}% of every email on this page"
+            if not biggest.empty else "no customer recorded"), "#b6beca")], columns=4)
+
+    add_rule()
+    add_section("What customers sent us", "Two rings over the same filter. The left one is every "
+                "email, split into the three things an email can be. The right one takes only the "
+                "confirmed misses and splits them by who has to fix it — so the first answers "
+                "“is every complaint a failure” and the second “when we do fail, whose problem is it”.",
+                "#8ab4f8")
+    split, owners = overview_split(page), miss_owner_split(page)
+    left, right = st.columns(2)
+    with left:
+        st.markdown("**Every email we received**")
+        f_split = donut(split, colours=SPLIT_COLOURS, centre="customer<br>emails")
+    with right:
+        st.markdown("**Only the confirmed misses**")
+        f_owner = donut(owners, colours=[OWNER_COLOURS.get(c, "#b6beca") for c in owners["Category"]],
+                        centre="confirmed<br>misses") if not owners.empty else None
+    if not split.empty:
+        excel_bar_table(split, "Category", label_head="Every email", value_head="Emails")
+        downloads(split, "email_split", f_split)
+    if not owners.empty:
+        excel_bar_table(owners, "Category", label_head="Who fixes the miss", value_head="Misses")
+        downloads(owners, "miss_owner_split", f_owner)
+
+    add_rule()
+    add_section("Why the events were missed", "Every email we confirmed as a miss, split by what "
+                "actually failed. Analyst and model are separate slices because they have different "
+                "owners — one is EventWatch Ops' to fix, the other Product's — and merging them "
+                "throws away the part of the number that says who acts on it. The last bucket takes "
+                "whatever the named four do not, so the five always sum to the miss count.", "#f28b82")
     if cats.empty or int(cats["Records"].sum()) == 0:
-        st.info("No record in the current filter is flagged as a missed event.")
+        st.info("No email in the current filter is flagged as a confirmed miss.")
     else:
         kpis([(label, int(cats.loc[cats["Category"] == label, "Records"].iloc[0]),
                f"{cats.loc[cats['Category'] == label, '% of Total'].iloc[0]} of misses · {note}", colour)
               for label, _, _, colour, note in MISS_BUCKETS], columns=len(MISS_BUCKETS))
-        fig = donut(cats, centre="missed<br>events")
+        fig = donut(cats, centre="confirmed<br>misses")
         note = miss_recent_note(page)
         if note:
             st.caption(note)
-        excel_bar_table(cats, "Category")
+        # The headline of the whole page, and the one number Product can act on. Computed
+        # from the two buckets above rather than written down, so it cannot go stale.
+        st.markdown(
+            f"<div class='insight-box' style='--accent:#8ab4f8'><b style='color:#8ab4f8'>"
+            f"{never} of {missed} misses never entered our system.</b> "
+            f"{bucket(MISS_BUCKETS[0][0])} because we were not watching the source, "
+            f"{bucket(MISS_BUCKETS[1][0])} because a source we do watch carried it and no keyword "
+            f"matched. That is the size of the source-and-keyword problem; what to buy or build "
+            f"against it is Product's call, not this dashboard's.</div>", unsafe_allow_html=True)
+        excel_bar_table(cats, "Category", label_head="What failed", value_head="Misses")
         downloads(cats, "miss_categories", fig)
 
-    add_section("Event Summary Intelligence", "Customer pain, complaint nature, missed-event patterns and root causes for the selected date range. Every table here counts the same population as the cards above and as the SOURCE pages: all records the customer sent in, complaints and inquiries together. Severity and automation focus have their own pages — SOURCE 03 and SOURCE 06 — and are not repeated here.")
-    for title, col in [("Top complaints by customer", "Customer"), ("Nature of complaints", "Reason"), ("Missed event types", "Event type"), ("Root cause split", "Root Cause")]:
-        if col in page.columns:
-            source = normalise_reason(page) if col == "Reason" else page
-            t = (customer_exposure(page) if col == "Customer" else count_table(source, col)).head(10)
-            note = (f"Leading {col.lower()} values across every record in the current filter, with count "
-                    f"and share of the total.")
-            if col == "Reason":
-                note += (" Wordings that all mean 'an event we should have reported was not reported' "
-                         "— insolvency alerts, severe weather, WarRoom-not-created — are counted as one "
-                         "Missed Event. Labels that also carry a timing complaint are left separate.")
-            add_section(title, note); excel_bar_table(t, col); fig = chart(t, col, title=title); downloads(t, title.lower().replace(" ", "_"), fig)
+    add_rule()
+    add_section("Customers impacted", "The accounts carrying the misses, with each account's bar "
+                "broken into what failed for them. The chart ranks the eight worst; the table below "
+                "is every account in the filter, nothing dropped, scrolling in place. Accounts are "
+                "split on the slash, so a Ford/GM email counts for both.", "#f6c177")
+    if accounts.empty:
+        st.info("No customer recorded in the current filter.")
+    else:
+        bucket_names = [label for label, *_ in MISS_BUCKETS]
+        f_cust = stacked_bar(accounts[accounts["Misses"] > 0], "Customer", bucket_names,
+                             {label: colour for label, _, _, colour, _ in MISS_BUCKETS},
+                             title="Confirmed misses by account, and what failed",
+                             x_title="Confirmed misses")
+        excel_bar_table(accounts, "Customer", value_col="Misses",
+                        extras=["Emails"] + bucket_names, label_head="Customer",
+                        value_head="Confirmed misses", height=460)
+        st.caption(f"All {len(accounts)} account(s) in the current filter. Emails is every email "
+                   f"that named the account; the five columns beside it split only the misses.")
+        downloads(accounts, "customers_impacted", f_cust)
+
+    add_rule()
+    add_section("Missed event types", "What kinds of event we actually fail to report — counted "
+                "over the confirmed misses only, not over every email. This block used to count "
+                "all emails under the same heading, which answered a different question from the "
+                "one it asked.", "#f28b82")
+    types = missed_event_types(page)
+    if types.empty:
+        st.info("No email in the current filter is flagged as a confirmed miss.")
+    else:
+        excel_bar_table(types, "Event type", label_head="Event type", value_head="Misses")
+        f_types = chart(types, "Event type", title="Confirmed misses by event type",
+                        x_title="Confirmed misses")
+        downloads(types, "missed_event_types", f_types)
+
+    add_rule()
+    add_section("Nature of complaints", "What the customer actually wrote about, folded onto the "
+                "eight categories the All customer emails tab defines. The tracker keeps each "
+                "customer's own wording — forty of them for these eight things — and that tab "
+                "lists every wording behind every category, so the fold can be checked rather "
+                "than trusted.", "#8ab4f8")
+    nature = nature_table(page)
+    if nature.empty:
+        st.info("No email in the current filter carries a reason.")
+    else:
+        excel_bar_table(nature, "Category", label_head="What they wrote about", value_head="Emails")
+        f_nature = chart(nature, "Category", title="What customers wrote about",
+                         x_title="Customer emails")
+        downloads(nature, "nature_of_complaints", f_nature)
+
+    add_rule()
+    add_section("Is it getting better?", "The share of each month's emails that turned out to be a "
+                "confirmed miss, with the last three months and the three before them drawn as flat "
+                "lines over their own months. Both are pooled on counts, not averaged from the "
+                "monthly percentages, so a thin month cannot weigh the same as a full one.", "#f6c177")
+    if rate.empty:
+        st.info("No dated email in the current filter.")
+    else:
+        verdict = missed_verdict(rate)
+        if verdict:
+            headline, detail, colour, _ = verdict
+            st.markdown(f"<div class='insight-box' style='--accent:{colour}'>"
+                        f"<b style='color:{colour}'>{esc(headline)}.</b> {esc(detail)}</div>",
+                        unsafe_allow_html=True)
+        f_rate = trend_chart(rate, band, title="Confirmed misses as a share of each month's emails")
+        if band:
+            st.caption(f"On {band['older']['emails']} emails and {band['recent']['emails']} emails. "
+                       f"A single thin month moves this line several points, so read it as a "
+                       f"direction rather than a result.")
+        else:
+            st.caption("Fewer than six months of emails in this filter — too short to compare two windows.")
+        downloads(rate, "missed_event_rate", f_rate)
+
+    add_rule()
+    add_section("The deeper root cause", "Who owns the failure on the inner ring, what exactly went "
+                "wrong on the outer one — in plain words, with the tracker's own term beside it in "
+                "the table. Anything under four emails is folded into one Other segment per "
+                "owner, because eleven unlabelled slivers read as rounding; the table still lists "
+                "every row.", "#f28b82")
+    all_roots, miss_roots = root_frame(page), root_frame(page[flag.eq("Yes")])
+    left, right = st.columns(2)
+    with left:
+        st.markdown("**Every email we received**")
+        f_all = sunburst(all_roots, centre=f"All {len(page)} emails in the current filter.")
+    with right:
+        st.markdown("**Only the confirmed misses**")
+        f_miss = sunburst(miss_roots, centre=f"The {missed} confirmed misses.")
+    if not miss_roots.empty:
+        styled_table(miss_roots.rename(columns={"Records": "Misses", "% of Total": "% of misses"}),
+                     height=420, variant="wide", wrap=("What went wrong",))
+        st.caption("Every row behind the right-hand ring, including the ones folded into Other.")
+        downloads(miss_roots, "root_cause_of_misses", f_miss)
+
+    found = insights(page)
+    if found:
+        add_rule()
+        add_section("What stands out this period", "Findings computed from the emails in the current "
+                    "filter, not a fixed commentary. A finding that does not clear its own threshold "
+                    "is not shown at all, because a panel that always finds something is a horoscope.",
+                    "#80cbc4")
+        kpis(found, columns=len(found))
 elif selected_page == "Delivery performance":
     page_header(selected_page); page = filtered; filter_note()
     stats = close_stats(page)
@@ -1846,44 +2313,18 @@ elif selected_page == "Delivery performance":
         styled_table(trend)
         downloads(trend, "days_to_close", f)
 
-    add_section("What happened to every RCA a customer asked for?",
-                "The funnel behind the Open items page's owed count. A record closed by a fix counts as "
-                "discharged -- the fix was the answer -- which is the rule open_items() applies; this states "
-                "it so a reader can judge it rather than having to trust it. The records still owed are listed "
-                "on the Open items page.", "#f6c177")
-    funnel, asked = rca_funnel(page)
-    if funnel.empty:
-        st.info("No record in the current filter has RCA Requested set to Yes.")
-    else:
-        owed_n = int(funnel.loc[funnel["Outcome"].isin(["Clarification instead", "Still pending"]), "Records"].sum())
-        kpis([("RCAs requested", asked, "customers who asked for one", "#8ab4f8"),
-              ("Promise kept", int(funnel.loc[funnel["Outcome"] == "RCA shared", "Records"].iloc[0]),
-               "an RCA was shared", "#a8dab5"),
-              ("Discharged by a fix", int(funnel.loc[funnel["Outcome"] == "Closed by a fix", "Records"].iloc[0]),
-               "the fix was the answer", "#80cbc4"),
-              ("Still owed", owed_n, "clarified or pending, no RCA", "#f28b82")])
-        styled_table(funnel)
-        downloads(funnel, "rca_funnel")
 elif selected_page == "Open items":
     page_header(selected_page); page = filtered; filter_note()
-    pending, owed = open_items(page)
+    pending = open_items(page)
     ages = days_open(pending)
     oldest = int(ages.max()) if ages.notna().any() else 0
-    with_rca = int(filled(page.get("RCA Details")).sum())
-    # Split the owed list by whether the record is still open, because 16 of the 20 are
-    # closed and calling all of them "open items" is what made resolved work look unresolved.
-    owed_open = owed[owed.index.isin(pending.index)]
-    owed_closed = owed[~owed.index.isin(pending.index)]
     kpis([
-        ("Open now", len(pending), "Short Term Fix Status is Pending", "#f28b82"),
-        ("Oldest open item", f"{oldest}d", "Days since the record was raised", "#8ab4f8"),
-        ("RCA never delivered", len(owed_closed), "Closed another way; the RCA was still owed", "#f6c177"),
-        ("RCA on file", with_rca, "Records carrying RCA text", "#a8dab5"),
-    ])
-    st.caption(f"**{len(pending)} record(s) are genuinely open.** The {len(owed_closed)} below under "
-               f"*RCA promised but never delivered* are closed — they were answered with a fix or a "
-               f"clarification — but a root cause analysis the customer asked for was never written. "
-               f"They are a commitment backlog, not a work queue.")
+        ("Still open", f"{len(pending)} of {len(page)}", "Short Term Fix Status is Pending", "#f28b82"),
+        ("Oldest open item", f"{oldest}d", "Days since the email was raised", "#8ab4f8"),
+        ("Closed", f"{len(page) - len(pending)} of {len(page)}", "Answered one way or another", "#a8dab5"),
+    ], columns=3)
+    st.caption(f"{len(pending)} customer email(s) in this filter are genuinely open — the fix status "
+               f"still reads Pending. Everything else has been answered.")
 
     # Cycle time is only honest over the records that carry a resolution date. Most of
     # the tracker predates the EAO project and has no ticket to read one from, so the
@@ -1941,20 +2382,6 @@ elif selected_page == "Open items":
         t = pending.assign(**{"Days open": days_open(pending)}).sort_values("Days open", ascending=False)
         cols = [c for c in COLS if c in t.columns] + ["Days open"]
         styled_table(t[cols]); downloads(t[cols], "open_pending")
-
-    # `owed` mixes genuinely open records with ones already closed by a clarification,
-    # so it needs the age column that copes with both rather than "Days open".
-    add_section("RCA promised but never delivered", "These records are CLOSED — answered with a fix or a "
-                "clarification — but the customer asked for a root cause analysis and none was written. "
-                "This is a commitment backlog, not open work: closing a fix status does not discharge a "
-                "promise that was never kept. Oldest first.", "#f6c177")
-    if owed_closed.empty:
-        st.success("Every RCA that was asked for has been written.")
-    else:
-        t = owed_closed.assign(**{"Age (days)": age_days(owed_closed)}).sort_values(
-            "Age (days)", ascending=False)
-        cols = [c for c in COLS if c in t.columns] + ["Age (days)"]
-        styled_table(t[cols]); downloads(t[cols], "rca_never_delivered")
 
     add_section("Root cause analyses on file", "The RCA text for every record that has one, newest first. "
                 "Where the RCA went out only as a PDF attached to the ticket, the entry says so rather than "
@@ -2031,10 +2458,9 @@ elif selected_page == "SOURCE 05 · Top customers":
     styled_table(exact, height=420); downloads(exact, "top_customers_exact")
     add_section("Account scorecard", "One row per account, so \"how is Ford doing\" is answered here rather "
                 "than by holding one name in your head across five pages. Miss rate is the share of that "
-                "account's records that were a confirmed miss; median close carries the number of dated closes "
-                "behind it in brackets; RCA owed uses the same rule as the Open items page. Accounts with a "
-                "single record are left out -- a 100% miss rate over one record outranks a real pattern and "
-                "says nothing.", "#8ab4f8")
+                "account's emails that were a confirmed miss, and median close carries the number of dated "
+                "closes behind it in brackets. Accounts with a single email are left out -- a 100% miss rate "
+                "over one email outranks a real pattern and says nothing.", "#8ab4f8")
     card = account_scorecard(page)
     if card.empty:
         st.info("No account in the current filter has more than one record.")

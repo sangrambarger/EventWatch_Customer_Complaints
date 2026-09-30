@@ -65,16 +65,32 @@ def expectations(df: pd.DataFrame) -> dict[str, dict[str, int]]:
     root = missed["Root Cause"].astype(str).str.strip()
     surfaced = ["Review", "Event Identification", "Prioritization"]
     miss_cats = {
-        "Source Miss": int((sub == "Source Coverage").sum()),
-        "Keyword Miss": int((sub == "Keyword Update").sum()),
-        "Analyst Miss": int((sub.isin(surfaced) & (root == "People")).sum()),
-        "Model Miss": int((sub.isin(surfaced) & (root == "Product")).sum()),
+        "Not in a source we watch": int((sub == "Source Coverage").sum()),
+        "Watched, but terms missed it": int((sub == "Keyword Update").sum()),
+        "An analyst let it through": int((sub.isin(surfaced) & (root == "People")).sum()),
+        "The model did not spot it": int((sub.isin(surfaced) & (root == "Product")).sum()),
     }
-    miss_cats["Other"] = int(len(missed)) - sum(miss_cats.values())
+    miss_cats["Other failures"] = int(len(missed)) - sum(miss_cats.values())
+
+    # "Missed event types" counts the confirmed misses only -- the block it replaced
+    # counted every email under the same heading, and that is exactly the kind of quiet
+    # population swap this audit exists to catch.
+    miss_types = {str(k).strip(): int(v)
+                  for k, v in missed["Event type"].astype(str).str.strip().value_counts().items()}
+
+    # The three-way split of the inbox, as the first ring draws it.
+    flag = df["Missed_Flag"].astype(str).str.strip()
+    issue = df["Issue Type"].astype(str).str.strip()
+    inbox = {
+        "Confirmed misses": int(flag.eq("Yes").sum()),
+        "Complaints, not a miss": int((issue.eq("Complaint") & flag.ne("Yes")).sum()),
+        "Inquiries": int(issue.eq("Inquiry").sum()),
+    }
 
     # Every page counts every record the customer sent in -- complaints and inquiries.
     return {
-        "Executive Summary": {**split_all, **miss_cats},
+        "Executive Summary": {**split_all, **miss_cats, **miss_types, **inbox,
+                              **reason_category_counts(df)},
         "SOURCE 02 · Fix status": counts(df, "Short Term Fix Status"),
         "SOURCE 03 · Severity": counts(df, "Severity"),
         "SOURCE 04 · Root cause": counts(df, "Root Cause"),
