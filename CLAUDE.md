@@ -420,11 +420,35 @@ built from, not the sum of the strings in it.
    and `--amber`.
 
    **Bottom tier**: `root_drivers()` under each card, the top four drivers biggest first,
-   then one `Other` row whose hover names what is in it. All three charts pad their axis
-   to the longest list (`slots`) rather than stretching their bars to fill the panel:
-   equal panel height with three different bar thicknesses compares shapes, not numbers.
-   `takeaway()` states the finding underneath in one computed sentence, and
-   `driver_table()` lists every driver with its meaning and a Total row.
+   then one `Other` row. All three charts pad their axis to the longest list (`slots`)
+   rather than stretching their bars to fill the panel: equal panel height with three
+   different bar thicknesses compares shapes, not numbers. `takeaway()` states the
+   finding underneath in one computed sentence, and `driver_table()` lists every driver
+   with its meaning and a Total row -- it calls `root_drivers(top=99)`, so nothing is
+   folded there and the chart's `Other` can always be looked up in full.
+
+   **`Other` names itself on hover.** An `Other` row on a leadership chart is only honest
+   if the reader can find out what is in it without leaving the chart, so its tooltip
+   lists every driver it swallowed with each one's count -- "2 smaller drivers: Portal
+   Visibility Issue (1), System Limitation (1)". Three things had to be true for that to
+   work, and two of them were not:
+
+   * **`hovermode="y"`**, so the tooltip fires anywhere along the row rather than only on
+     the bar. A one-miss bar is fourteen pixels wide, and `Other` and `Needs Review` are
+     exactly the short ones -- the rows a reader most wants explained were the hardest to
+     hit.
+   * **The text is wrapped with `<br>` at 44 characters before it reaches plotly.**
+     Plotly's hover label does not wrap and is not clipped to the panel: at a third of
+     the page width the meaning ran off both edges and lost its own ends.
+   * `plural()` writes "1 confirmed miss" and "2 confirmed misses". A leadership page does
+     not print "miss(es)".
+
+   **Verifying a tooltip needs plotly's own API, not a synthetic mouse.** Playwright's
+   `mouse.move` fires no hover on any chart on this page -- checked against all eight, not
+   assumed -- so the test drives `Plotly.Fx.hover(gd, [{curveNumber, pointNumber}])` and
+   reads `g.hoverlayer`'s text back. That tests the hovertemplate and its customdata,
+   which is the part that can actually be wrong. The clipping was only visible in a
+   screenshot taken while the label was up.
 4. **Customers impacted** -- `miss_by_customer()`, the eight worst as a stacked bar and
    **every** account in a scrolling table. The row carries **both bases**: `Emails` with
    `Complaints` and `Inquiries` beside it (every email that named the account), then the
