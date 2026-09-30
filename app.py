@@ -36,8 +36,8 @@ DESCRIPTIONS = {
     # No RCA figure appears on this page: the tracker holds 85 emails marked RCA
     # requested, 38 carrying any written RCA and 31 marked RCA Shared -- three numbers
     # for one thing, none agreeing, so any share quoted from them picks one and hopes.
-    "Delivery performance": "How long we take to close a record, how the outcome of that work has shifted, and what happened to every RCA a customer asked for.",
-    "Open items": "Everything still outstanding: records awaiting a fix, and records where the customer asked for an RCA that has not been delivered. Includes the RCA text where one has been shared.",
+    "Delivery performance": "How long we take to close a customer email, over the emails that carry a resolution date.",
+    "Open items": "Customer emails still awaiting a fix, who owns them, how long they have been open, and the root cause text on file where one was written.",
     "SOURCE 01 · Monthly trend": "Month-by-month complaint and inquiry trend, sorted chronologically from January onward, with the missed-event rate that volume alone hides.",
     "SOURCE 02 · Fix status": "Resolution posture across fixed, RCA-shared, and clarification-provided records.",
     "SOURCE 03 · Severity": "Severity distribution for leadership prioritization.",
@@ -1225,33 +1225,8 @@ def close_trend(df):
         ["Month", "Median days", "Closed records"]]
 
 
-def rca_funnel(df):
-    """How the RCAs customers asked for were discharged.
-
-    `open_items()` already decides what counts as owed -- RCA Requested with a fix
-    status that is neither `RCA Shared` nor `Fixed`, because a fix can be the answer.
-    This states the whole funnel behind that one number, so a reader can see the rule
-    rather than having to trust it.
-    """
-    rca = df.get("RCA Requested", pd.Series(dtype=str)).astype(str).str.strip()
-    fix = df.get("Short Term Fix Status", pd.Series(dtype=str)).astype(str).str.strip()
-    asked = df[rca == "Yes"]
-    if asked.empty:
-        return pd.DataFrame(columns=["Outcome", "Records", "% of asks"]), 0
-    status = fix[asked.index]
-    rows = [("RCA shared", int((status == "RCA Shared").sum()), "the promise was kept directly"),
-            ("Closed by a fix", int((status == "Fixed").sum()), "treated as discharged: the fix was the answer"),
-            ("Clarification instead", int((status == "Clarification Provided").sum()), "an explanation went out, no RCA"),
-            ("Still pending", int((status == "Pending").sum()), "open in Jira, nothing issued yet")]
-    total = max(len(asked), 1)
-    table = pd.DataFrame([{"Outcome": name, "Records": n,
-                           "% of asks": f"{n / total * 100:.1f}%", "Meaning": why}
-                          for name, n, why in rows])
-    return table, len(asked)
-
-
 def account_scorecard(df, minimum=2):
-    """One row per account, answering "how is this customer doing" in five numbers.
+    """One row per account, answering "how is this customer doing" in one line.
 
     Every other page makes you hold one account in your head across five pages to
     assemble this. Accounts are split on the slash, so a record naming two of them
@@ -1265,7 +1240,6 @@ def account_scorecard(df, minimum=2):
     closed = days_to_close(df)
     missed = df.get("Missed_Flag", pd.Series(dtype=str)).astype(str).str.strip().eq("Yes")
     issue = df.get("Issue Type", pd.Series(dtype=str)).astype(str).str.strip()
-    _, owed = open_items(df)
     rows = []
     for name in customer_names(df["Customer"]):
         hit = names_match(df["Customer"], [name])
@@ -1282,7 +1256,6 @@ def account_scorecard(df, minimum=2):
             "Inquiries": int(issue[hit].eq("Inquiry").sum()),
             "Miss rate": f"{missed[hit].mean() * 100:.0f}%",
             "Median close": f"{days.median():.0f}d ({len(days)})" if not days.empty else "no dated closes",
-            "RCA owed": int(names_match(owed["Customer"], [name]).sum()) if not owed.empty else 0,
             "Last raised": raised[hit].max().strftime("%d-%b-%Y") if raised[hit].notna().any() else "",
             "Most common failure": sub.value_counts().index[0] if not sub.empty else "",
         })
@@ -1304,15 +1277,17 @@ def filled(series):
 
 
 def open_items(df):
-    """Rows that still need something done, and the RCA text where one exists."""
+    """Rows that still need something done: fix status Pending, nothing else.
+
+    It used to return an `owed` frame beside this one -- RCA Requested with a fix status
+    that was neither `RCA Shared` nor `Fixed`. That count is gone from the app, because
+    the three fields behind it do not agree: 85 emails are marked `RCA Requested`, 38
+    carry any text in `RCA Details` and 31 are marked `RCA Shared`. Any figure derived
+    from them picks one of three and hopes, so none is published. The RCA text itself is
+    still shown -- it is what somebody wrote, not a statistic.
+    """
     fix = df.get("Short Term Fix Status", pd.Series(dtype=str)).astype(str).str.strip()
-    rca = df.get("RCA Requested", pd.Series(dtype=str)).astype(str).str.strip()
-    pending = df[fix == "Pending"]
-    # An RCA the customer asked for and never got. Most of these sit on records that are
-    # otherwise CLOSED -- a clarification went out instead -- so this is a commitment
-    # backlog, not open work, and the page must not present the two as one thing.
-    owed = df[(rca == "Yes") & (~fix.isin(["RCA Shared", "Fixed"]))]
-    return pending, owed
+    return df[fix == "Pending"]
 
 
 def resolved_on(df):
@@ -1334,12 +1309,6 @@ def days_to_close(df):
     no ticket to read one from, and counting those as zero would flatter the median."""
     raised = pd.to_datetime(df.get("Email/JIRA Date"), errors="coerce")
     return (resolved_on(df) - raised).dt.days
-
-
-def age_days(df):
-    """One column for a mixed table: time to close where closed, time open where not."""
-    closed = days_to_close(df)
-    return closed.where(closed.notna(), days_open(df))
 
 
 def missed_rate(df):
@@ -2344,44 +2313,18 @@ elif selected_page == "Delivery performance":
         styled_table(trend)
         downloads(trend, "days_to_close", f)
 
-    add_section("What happened to every RCA a customer asked for?",
-                "The funnel behind the Open items page's owed count. A record closed by a fix counts as "
-                "discharged -- the fix was the answer -- which is the rule open_items() applies; this states "
-                "it so a reader can judge it rather than having to trust it. The records still owed are listed "
-                "on the Open items page.", "#f6c177")
-    funnel, asked = rca_funnel(page)
-    if funnel.empty:
-        st.info("No record in the current filter has RCA Requested set to Yes.")
-    else:
-        owed_n = int(funnel.loc[funnel["Outcome"].isin(["Clarification instead", "Still pending"]), "Records"].sum())
-        kpis([("RCAs requested", asked, "customers who asked for one", "#8ab4f8"),
-              ("Promise kept", int(funnel.loc[funnel["Outcome"] == "RCA shared", "Records"].iloc[0]),
-               "an RCA was shared", "#a8dab5"),
-              ("Discharged by a fix", int(funnel.loc[funnel["Outcome"] == "Closed by a fix", "Records"].iloc[0]),
-               "the fix was the answer", "#80cbc4"),
-              ("Still owed", owed_n, "clarified or pending, no RCA", "#f28b82")])
-        styled_table(funnel)
-        downloads(funnel, "rca_funnel")
 elif selected_page == "Open items":
     page_header(selected_page); page = filtered; filter_note()
-    pending, owed = open_items(page)
+    pending = open_items(page)
     ages = days_open(pending)
     oldest = int(ages.max()) if ages.notna().any() else 0
-    with_rca = int(filled(page.get("RCA Details")).sum())
-    # Split the owed list by whether the record is still open, because 16 of the 20 are
-    # closed and calling all of them "open items" is what made resolved work look unresolved.
-    owed_open = owed[owed.index.isin(pending.index)]
-    owed_closed = owed[~owed.index.isin(pending.index)]
     kpis([
-        ("Open now", len(pending), "Short Term Fix Status is Pending", "#f28b82"),
-        ("Oldest open item", f"{oldest}d", "Days since the record was raised", "#8ab4f8"),
-        ("RCA never delivered", len(owed_closed), "Closed another way; the RCA was still owed", "#f6c177"),
-        ("RCA on file", with_rca, "Records carrying RCA text", "#a8dab5"),
-    ])
-    st.caption(f"**{len(pending)} record(s) are genuinely open.** The {len(owed_closed)} below under "
-               f"*RCA promised but never delivered* are closed — they were answered with a fix or a "
-               f"clarification — but a root cause analysis the customer asked for was never written. "
-               f"They are a commitment backlog, not a work queue.")
+        ("Still open", f"{len(pending)} of {len(page)}", "Short Term Fix Status is Pending", "#f28b82"),
+        ("Oldest open item", f"{oldest}d", "Days since the email was raised", "#8ab4f8"),
+        ("Closed", f"{len(page) - len(pending)} of {len(page)}", "Answered one way or another", "#a8dab5"),
+    ], columns=3)
+    st.caption(f"{len(pending)} customer email(s) in this filter are genuinely open — the fix status "
+               f"still reads Pending. Everything else has been answered.")
 
     # Cycle time is only honest over the records that carry a resolution date. Most of
     # the tracker predates the EAO project and has no ticket to read one from, so the
@@ -2439,20 +2382,6 @@ elif selected_page == "Open items":
         t = pending.assign(**{"Days open": days_open(pending)}).sort_values("Days open", ascending=False)
         cols = [c for c in COLS if c in t.columns] + ["Days open"]
         styled_table(t[cols]); downloads(t[cols], "open_pending")
-
-    # `owed` mixes genuinely open records with ones already closed by a clarification,
-    # so it needs the age column that copes with both rather than "Days open".
-    add_section("RCA promised but never delivered", "These records are CLOSED — answered with a fix or a "
-                "clarification — but the customer asked for a root cause analysis and none was written. "
-                "This is a commitment backlog, not open work: closing a fix status does not discharge a "
-                "promise that was never kept. Oldest first.", "#f6c177")
-    if owed_closed.empty:
-        st.success("Every RCA that was asked for has been written.")
-    else:
-        t = owed_closed.assign(**{"Age (days)": age_days(owed_closed)}).sort_values(
-            "Age (days)", ascending=False)
-        cols = [c for c in COLS if c in t.columns] + ["Age (days)"]
-        styled_table(t[cols]); downloads(t[cols], "rca_never_delivered")
 
     add_section("Root cause analyses on file", "The RCA text for every record that has one, newest first. "
                 "Where the RCA went out only as a PDF attached to the ticket, the entry says so rather than "
@@ -2529,10 +2458,9 @@ elif selected_page == "SOURCE 05 · Top customers":
     styled_table(exact, height=420); downloads(exact, "top_customers_exact")
     add_section("Account scorecard", "One row per account, so \"how is Ford doing\" is answered here rather "
                 "than by holding one name in your head across five pages. Miss rate is the share of that "
-                "account's records that were a confirmed miss; median close carries the number of dated closes "
-                "behind it in brackets; RCA owed uses the same rule as the Open items page. Accounts with a "
-                "single record are left out -- a 100% miss rate over one record outranks a real pattern and "
-                "says nothing.", "#8ab4f8")
+                "account's emails that were a confirmed miss, and median close carries the number of dated "
+                "closes behind it in brackets. Accounts with a single email are left out -- a 100% miss rate "
+                "over one email outranks a real pattern and says nothing.", "#8ab4f8")
     card = account_scorecard(page)
     if card.empty:
         st.info("No account in the current filter has more than one record.")

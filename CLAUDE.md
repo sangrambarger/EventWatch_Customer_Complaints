@@ -179,12 +179,10 @@ unreported for months.
 The Delivery performance page answers "how well are we responding", which no page did.
 **Time to close** (`close_stats`, `close_trend`) is median, p90, worst and the share
 closed inside 14 days -- and every one of them prints its denominator, because only 28 of
-111 records carry a `Resolution Date` and a median quoted bare invites a reader to apply
+115 emails carry a `Resolution Date` and a median quoted bare invites a reader to apply
 it to the whole book. A month whose median rests on fewer than three closes is named as
-thin rather than drawn like the rest. **The RCA funnel** (`rca_funnel`) states the rule
-`open_items()` already applies: of the asks, some got an RCA, some closed by a fix
-(counted as discharged -- the fix was the answer), and the rest are owed. The page shows
-the funnel, not the records; Open items keeps the list, so neither duplicates the other.
+thin rather than drawn like the rest. That is now the whole page: the RCA funnel that sat
+under it is gone, with `rca_funnel()` itself.
 
 The page briefly carried a third block charting `Fixed` against `RCA Shared` as a share
 of each month, and it was removed because it was an artifact, not a finding. `Fixed` ran
@@ -197,21 +195,43 @@ and records with no Jira key split 36 `Fixed` to 4 `RCA Shared` while ticketed o
 recording practice changed then, so a shift in what the fields say is not evidence that
 the work changed. Test the June hypothesis before publishing a trend line.
 
-`account_scorecard()` on SOURCE 05 is one row per account -- records, complaint/inquiry
-split, miss rate, median close with its own count in brackets, RCAs owed, last contact,
-most common failure. It exists because answering "how is Ford doing" previously meant
+`account_scorecard()` on SOURCE 05 is one row per account -- emails, complaint/inquiry
+split, miss rate, median close with its own count in brackets, last contact, most common
+failure. It exists because answering "how is Ford doing" previously meant
 holding one name in your head across five pages. Accounts are split on the slash like
 everywhere else, so the totals agree with `customer_exposure()`, and single-record
 accounts are folded out: a 100% miss rate over one record outranks a real pattern and
-says nothing. Ford reads 43 records, 79% miss rate, 8 RCAs owed and `Event
-Identification` as its most common failure, all in one line.
+says nothing. Ford reads 44 emails, 77% miss rate and `Source Coverage` as its most common failure,
+all in one line.
 
-The Open items page separates two things that are not the same. `open_items()` returns
-`pending` (genuinely open) and `owed` (an RCA the customer asked for and never got), and
-the page splits `owed` by whether the record is still open: 16 of 20 are CLOSED, answered
-with a fix or a clarification, so presenting them as open work made resolved records look
-unresolved. Closing a fix status does not discharge a promise that was never kept, so
-they stay visible -- under "RCA promised but never delivered", not under open items.
+## No RCA figure is published anywhere
+
+**`RCA Requested`, `RCA Details` and `Short Term Fix Status` do not agree about whether an
+RCA was delivered**: 85 emails are marked `RCA Requested`, 38 carry any text in
+`RCA Details`, and 31 are marked `RCA Shared`. Three numbers for one thing, none of them
+matching, so every share quoted from them picked one of three and hoped. **No count,
+share, funnel or "owed" figure derived from those fields appears on any page.** Removed
+together, not one page at a time: hiding a wrong number on one page while two others
+still show it leaves the pages disagreeing, which is worse than showing it everywhere.
+
+What went: the Executive Summary's RCA card, Delivery performance's RCA funnel
+(`rca_funnel()`, deleted), Open items' `RCA never delivered` and `RCA on file` cards and
+its "RCA promised but never delivered" table, `open_items()`'s second return value
+(`owed`), `age_days()` (it existed only for that mixed open/closed table), and
+`account_scorecard()`'s `RCA owed` column on SOURCE 05.
+
+What stayed, and why: **the RCA text itself**, on Open items' "Root cause analyses on
+file" table and on the record card -- that is what somebody wrote, not a statistic. And
+`urgency_table()` still scores `RCA Requested` on the Automation urgency page, because
+the defect is on the *discharge* side: whether the customer asked is one field with no
+contradicting sibling, and it is the three delivery fields that disagree.
+
+Before any RCA figure comes back, the three fields have to be reconciled on the records
+themselves. Publishing one again without that is republishing the same guess.
+
+The Open items page is now open work only. `open_items()` returns the `Pending` frame,
+the cards are Still open / Oldest open item / Closed, and the page carries the per-owner
+queue, the pending list and the RCA text on file.
 
 `insights()` states what the data shows, as KPI cards, at the **foot** of the Executive
 Summary -- it used to sit at the top, where it competed with the eight cards that open
@@ -405,12 +425,9 @@ term added tomorrow appears as itself rather than vanishing. `Review` reads "Rev
 and not raised" rather than naming the analyst, because it sits under **both** People and
 Product and a label naming the analyst is wrong on the Product rows.
 
-**No RCA figure appears on this page, by decision.** The tracker holds 85 emails marked
-`RCA Requested`, 38 carrying any text in `RCA Details` and 31 marked `RCA Shared` --
-three numbers for one thing, none agreeing -- so any share quoted from them picks one and
-hopes. Open items and Delivery performance still compute from those fields; that is the
-remaining inconsistency, and hiding a wrong number on one page while two others show it
-is worse than showing it everywhere.
+**No RCA figure appears on this page**, for the reason set out under "No RCA figure is
+published anywhere" above -- and it is gone from every other page too, so the dashboard
+does not contradict itself.
 
 **The sidebar is `--bg`, and the nav accent is per group.** The sidebar was `#171b22`
 against a `#0f1115` page -- two greys four points apart, which reads as a mistake rather
