@@ -585,13 +585,26 @@ built from, not the sum of the strings in it.
    **The general rule: a total row is a reconciliation, not a sum.** Where the rows
    double-count on purpose, the foot has to carry the figure the rest of the dashboard
    uses, and the caption has to say why they differ.
-5. **Event types** -- two charts and one table. `all_event_types()` is every email by
-   the kind of event it was about; `missed_event_types()` is the confirmed misses only.
-   Neither is readable alone: nine misses is a different fact depending on whether ten
-   emails named that event type or forty, and the block used to show only the misses.
-   `event_type_pairs()` puts both bases on one row underneath with a miss rate that
-   **prints its own denominator inside it** ("81% of 16"), because a bare percentage
-   over one email is not a finding.
+5. **Complaints by event type** -- two charts and one table. `all_event_types()` is
+   every email by the kind of event it was about; `missed_event_types()` is the confirmed
+   misses only. Neither is readable alone: nine misses is a different fact depending on
+   whether ten emails named that event type or forty.
+
+   **One split per table.** `event_type_pairs()` briefly carried `Reported timely` and a
+   `Miss rate` as well, which put **two different partitions of the same 16 emails on one
+   row** -- 14 complaints + 2 inquiries, and 13 misses + 3 reported timely. A reader lands
+   on 14 against 13, tries to reconcile them, and cannot, because they are not the same
+   cut. The page's owner read that as broken arithmetic, which is the correct reading of
+   two partitions printed as one table. The columns are now
+   **Emails = Complaints + Inquiries**, and the caption names the misses column as a
+   **subset of the complaints** rather than a third part of the split, with the Factory
+   Fire row spelled out: 14 complaints of which 13 were misses, the fourteenth reported
+   and complained about for some other reason.
+
+   **The general rule: a table carries one partition.** A second one that happens to sum
+   to the same total is not extra information, it is an invitation to subtract two
+   numbers that do not belong to each other. Put it in its own table or name it as a
+   subset.
 6. **Nature of complaints** -- the eight `REASON_CATEGORIES`, the same vocabulary the
    All customer emails tab defines and lists the wordings behind. **The bar is stacked
    on the miss split**, darker for the emails in that category that were a confirmed
@@ -602,7 +615,14 @@ built from, not the sum of the strings in it.
    and it is not one -- the category is what the customer wrote about, the flag is
    whether the event reached them in time. Showing the split on the bar, and printing
    `63 + 15 = 78` under the table, is what stops it being asked a third time.
-7. **Is it getting better?** -- `trend_chart()` is **one bar per month**, its percentage
+7. **How much came in each month** -- `render_monthly_volume()`, the grouped
+   complaint-against-inquiry bars and the source table, shared with Monthly trend so the
+   two pages cannot draw the same months differently. It is volume only: how many emails
+   arrived, not how many we got wrong.
+
+   **"Is it getting better?" was removed from this page on the owner's call** and lives
+   on Monthly trend alone. What it does is described here because the function is
+   unchanged: `trend_chart()` is **one bar per month**, its percentage
    printed on it, the last three months blue and the three before grey, months outside
    both windows dark so they cannot be mistaken for part of the comparison. It was a line
    with two flat shelves drawn over it and a signed delta on the plot, and a reader had

@@ -2446,8 +2446,14 @@ def event_type_pairs(df):
     says which event types we are actually bad at, as against the ones we merely get a
     lot of. The rate carries its own base, because 100% of one email is not a finding.
     """
-    cols = ["Event type", "Emails", "Complaints", "Inquiries", "Misses", "Reported timely",
-            "Miss rate", "% of Total"]
+    # ONE split per table. This carried `Reported timely` and a `Miss rate` as well, so
+    # a reader met two different partitions of the same 16 emails -- 14 complaints + 2
+    # inquiries, and 13 misses + 3 reported timely -- and tried to reconcile 14 against
+    # 13, which do not reconcile because they are not the same cut. The page owner read
+    # it as broken arithmetic, which is the correct reading of two partitions printed as
+    # one table. Emails = Complaints + Inquiries, and the misses column is named in the
+    # caption as a SUBSET of the complaints rather than a third part of the split.
+    cols = ["Event type", "Complaints", "Inquiries", "Emails", "Misses", "% of Total"]
     if df.empty or not {"Event type", "Missed_Flag"} <= set(df.columns):
         return pd.DataFrame(columns=cols)
     frame = df.copy()
@@ -2460,8 +2466,7 @@ def event_type_pairs(df):
         rows.append({"Event type": value, "Emails": len(group),
                      "Complaints": int(issue.loc[group.index].eq("Complaint").sum()),
                      "Inquiries": int(issue.loc[group.index].eq("Inquiry").sum()),
-                     "Misses": misses, "Reported timely": len(group) - misses,
-                     "Miss rate": f"{misses / max(len(group), 1) * 100:.0f}% of {len(group)}"})
+                     "Misses": misses})
     out = pd.DataFrame(rows).sort_values(["Misses", "Emails"], ascending=False).reset_index(drop=True)
     total = max(int(out["Misses"].sum()), 1)
     out["% of Total"] = (out["Misses"] / total * 100).round(1).astype(str) + "%"
@@ -2698,6 +2703,38 @@ def grouped_bar(frame, label_col, series, colours, title="", x_title="Customer e
     return fig
 
 
+def render_monthly_volume(page):
+    """Complaint and inquiry volume by month: the source table and the grouped bars.
+
+    On the Executive Summary and on Monthly trend, from one function, for the same
+    reason every other shared block is: two pages drawing the same months from two
+    copies is how they end up disagreeing. It carries no miss rate -- that is
+    `render_trend()`, which lives on Monthly trend alone.
+    """
+    if "Month Label" not in page.columns or "Issue Type" not in page.columns:
+        st.info("Monthly volume requires Month/Reporting Month and Issue Type fields.")
+        return
+    monthly = page.groupby("Month Label", dropna=False)["Issue Type"].value_counts().unstack(fill_value=0).reset_index()
+    monthly["Month Date"] = pd.to_datetime(monthly["Month Label"], format="%b %Y", errors="coerce")
+    monthly = monthly.sort_values("Month Date")
+    monthly["Total"] = monthly.drop(columns=["Month Label", "Month Date"]).sum(axis=1)
+    display_monthly = monthly.drop(columns=["Month Date"], errors="ignore")
+    add_section("How much came in each month", "Complaint and inquiry counts by reporting "
+                "month, in calendar order. This is volume only — how many emails arrived, "
+                "not how many of them we got wrong.", "#80cbc4")
+    fig = px.bar(monthly, x="Month Label", y=[c for c in ["Complaint", "Inquiry"] if c in monthly.columns],
+                 barmode="group", text_auto=True, color_discrete_sequence=["#8ab4f8", "#80cbc4"])
+    fig.update_layout(template="plotly_dark", plot_bgcolor="#1b1f26", paper_bgcolor="#1b1f26",
+                      font=dict(color="#f3f4f6", size=13), margin=dict(l=20, r=30, t=30, b=40),
+                      height=430, legend_title_text="")
+    fig.update_xaxes(categoryorder="array", categoryarray=monthly["Month Label"].tolist(),
+                     tickfont=dict(color="#f3f4f6"), gridcolor="#303846", title="")
+    fig.update_yaxes(tickfont=dict(color="#f3f4f6"), gridcolor="#303846", title="Customer emails")
+    st.plotly_chart(fig, width="stretch")
+    styled_table(display_monthly, total_row=True)
+    downloads(display_monthly, "monthly_volume", fig)
+
+
 def render_root_cause(page):
     """Why the events were missed: the three owner cards and their failure drivers.
 
@@ -2819,12 +2856,11 @@ def render_customers(page):
 
 def render_event_types(page):
     """Event types: every email, the confirmed misses, and one table carrying both."""
-    add_section("Event types", "Two charts over the same filter, then one table carrying both. "
-                "The left chart is every email a customer sent, by the kind of event it was "
-                "about; the right one is only the confirmed misses. Neither is readable alone — "
-                "nine misses is a different fact depending on whether ten emails named that "
-                "event type or forty — so the table under them puts both bases on one row and "
-                "prints the miss rate with its own denominator inside it.", "#f28b82")
+    add_section("Complaints by event type", "What kind of event customers write to us about. "
+                "The left chart is every email they sent; the right one is only the confirmed "
+                "misses, because nine misses is a different fact depending on whether ten "
+                "emails named that event type or forty. The table underneath carries one "
+                "split and one subset, and says which is which.", "#f28b82")
     types, everything = missed_event_types(page), all_event_types(page)
     if types.empty and everything.empty:
         st.info("No email in the current filter carries an event type.")
@@ -2841,13 +2877,16 @@ def render_event_types(page):
         pairs = event_type_pairs(page)
         if not pairs.empty:
             excel_bar_table(pairs, "Event type", value_col="Misses",
-                            extras=["Emails", "Complaints", "Inquiries", "Reported timely",
-                                    "Miss rate"],
+                            extras=["Complaints", "Inquiries", "Emails"],
                             label_head="Event type", value_head="Confirmed misses",
-                            variant="wide roomy",
-                            caption="Every row adds up: **Emails = Confirmed misses + "
-                                    "Reported timely.** The rate prints its own denominator, "
-                                    "because 100% of one email is not a finding.")
+                            variant="roomy",
+                            caption="**Emails = Complaints + Inquiries** on every row. "
+                                    "**Confirmed misses is a subset of the complaints**, not a "
+                                    "third part of that split: it counts the ones where the "
+                                    "event did not reach the customer in time. Factory Fire "
+                                    "reads 14 complaints of which 13 were misses — the "
+                                    "fourteenth was reported, and the customer wrote in about "
+                                    "something else on it.")
             downloads(pairs, "event_types", f_types or f_all)
 
 
@@ -3045,25 +3084,16 @@ if selected_page == "Executive Summary":
     render_nature(page)
 
     add_rule()
-    render_trend(page)
+    # "Is it getting better?" (`render_trend`) was removed from THIS page on the owner's
+    # call and stays on Monthly trend, which is the page for it. What sits here instead
+    # is the volume block from that page -- the same function, so the two cannot drift.
+    render_monthly_volume(page)
 
     add_rule()
     render_deeper_root_cause(page)
 elif selected_page == "Monthly trend":
     page_header(selected_page); page = filtered; filter_note()
-    if "Month Label" in page.columns and "Issue Type" in page.columns:
-        monthly = page.groupby("Month Label", dropna=False)["Issue Type"].value_counts().unstack(fill_value=0).reset_index()
-        monthly["Month Date"] = pd.to_datetime(monthly["Month Label"], format="%b %Y", errors="coerce")
-        monthly = monthly.sort_values("Month Date"); monthly["Total"] = monthly.drop(columns=["Month Label", "Month Date"]).sum(axis=1)
-        display_monthly = monthly.drop(columns=["Month Date"], errors="ignore")
-        add_section("Monthly trend source table", "Complaint and inquiry counts by reporting month, sorted chronologically from January onward."); styled_table(display_monthly); downloads(display_monthly, "monthly_trend")
-        y_cols = [c for c in ["Complaint", "Inquiry"] if c in monthly.columns]
-        add_section("Monthly complaint vs inquiry chart", "Compares complaint and inquiry volume month by month in calendar order.", "#80cbc4")
-        fig = px.bar(monthly, x="Month Label", y=y_cols, barmode="group", text_auto=True, color_discrete_sequence=["#8ab4f8", "#80cbc4"])
-        fig.update_layout(template="plotly_dark", plot_bgcolor="#1b1f26", paper_bgcolor="#1b1f26", font=dict(color="#f3f4f6", size=13), margin=dict(l=20, r=30, t=30, b=40), height=430)
-        fig.update_xaxes(categoryorder="array", categoryarray=monthly["Month Label"].tolist(), tickfont=dict(color="#f3f4f6"), gridcolor="#303846"); fig.update_yaxes(tickfont=dict(color="#f3f4f6"), gridcolor="#303846")
-        st.plotly_chart(fig, width="stretch"); downloads(display_monthly, "monthly_trend_chart_data", fig)
-    else: st.info("Monthly trend requires Month/Reporting Month and Issue Type fields.")
+    render_monthly_volume(page)
     add_rule()
     # The same block the Executive Summary carries, from the same function. This page
     # used to draw its own miss-rate line from `missed_rate()` while the summary drew
