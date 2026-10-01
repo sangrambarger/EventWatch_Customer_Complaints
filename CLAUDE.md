@@ -439,6 +439,16 @@ The page is a story in eight parts, separated by `add_rule()` -- a full-width ha
 because the heading card alone was not enough and two adjacent sections read as one.
 Every section is chart-then-table, in that order, so the eye learns the shape once.
 
+**The order is granularity, coarsest first**, on the owner's rule: the further you
+scroll, the finer the detail. Eight cards (8 numbers), two rings (6 slices), twelve
+months, seven reason categories, twenty-four event types, three root causes and their
+drivers, every failure in the taxonomy, then every account against every bucket -- which
+is the widest table on the page and therefore last. **Nothing is summarised below
+something finer than itself**, so a reader can stop at any hairline and have a complete
+answer at that depth. Customers impacted was fourth and is now eighth for exactly this
+reason: 33 rows by 17 columns is the most granular thing here, whatever order the story
+would otherwise want.
+
 **Every table on the page carries a Total row** (`excel_bar_table(..., total_row=True)`,
 which is the default). It is summed inside the table function rather than by a generic
 helper, because the share column is a formatted string: "29.5%" cannot be added up after
@@ -479,7 +489,62 @@ built from, not the sum of the strings in it.
    `Fx.hover` silently does nothing for a pie trace -- it returned empty text for all six
    slices. Dispatching `mouseover` then `mousemove` on the slice's own `g.slice` element
    works, and is how the six tooltips above were read back.
-3. **Why the events were missed** -- two tiers, and the page's headline above both:
+3. **Monthly breakdown of all customer emails** -- `render_monthly_volume()`, the grouped
+   complaint-against-inquiry bars and the source table, shared with Monthly trend so the
+   two pages cannot draw the same months differently. It is volume only: how many emails
+   arrived, not how many we got wrong.
+
+   **"Is it getting better?" was removed from this page on the owner's call** and lives
+   on Monthly trend alone. What it does is described here because the function is
+   unchanged: `trend_chart()` is **one bar per month**, its percentage
+   printed on it, the last three months blue and the three before grey, months outside
+   both windows dark so they cannot be mistaken for part of the comparison. It was a line
+   with two flat shelves drawn over it and a signed delta on the plot, and a reader had
+   to be told what the shelves meant before the chart said anything. The comparison is
+   stated in words by `missed_verdict()` above the chart instead of drawn into it, and
+   `trend_table()` puts the months underneath with a total whose rate is **pooled, not
+   averaged**.
+4. **Nature of complaints** -- the eight `REASON_CATEGORIES`, the same vocabulary the
+   All customer emails tab defines and lists the wordings behind. **The bar is stacked
+   on the miss split**, darker for the emails in that category that were a confirmed
+   miss and grey for the ones where the event did reach the customer, and a computed
+   caption states the arithmetic: `Event missed` carries 63 misses against 78 on the
+   cards, and the other 15 sit in categories where the event *was* reported and
+   something else went wrong. That gap reads as an error every time somebody meets it,
+   and it is not one -- the category is what the customer wrote about, the flag is
+   whether the event reached them in time. Showing the split on the bar, and printing
+   `63 + 15 = 78` under the table, is what stops it being asked a third time.
+5. **Complaints by event type** -- two charts and one table. `all_event_types()` is
+   every email by the kind of event it was about; `missed_event_types()` is the confirmed
+   misses only. Neither is readable alone: nine misses is a different fact depending on
+   whether ten emails named that event type or forty.
+
+   **One split per table.** `event_type_pairs()` briefly carried `Reported timely` and a
+   `Miss rate` as well, which put **two different partitions of the same 16 emails on one
+   row** -- 14 complaints + 2 inquiries, and 13 misses + 3 reported timely. A reader lands
+   on 14 against 13, tries to reconcile them, and cannot, because they are not the same
+   cut. The page's owner read that as broken arithmetic, which is the correct reading of
+   two partitions printed as one table. The columns are now
+   **Emails = Complaints + Inquiries**, and the caption names the misses column as a
+   **subset of the complaints** rather than a third part of the split, with the Factory
+   Fire row spelled out: 14 complaints of which 13 were misses, the fourteenth reported
+   and complained about for some other reason.
+
+   **The general rule: a table carries one partition.** A second one that happens to sum
+   to the same total is not extra information, it is an invitation to subtract two
+   numbers that do not belong to each other. Put it in its own table or name it as a
+   subset.
+
+   **`event_type_note()` works the biggest event type through, and every figure in it is
+   computed.** The caption used to end "the fourteenth was reported, and the customer
+   wrote in about something else on it", and the owner asked the obvious question: what
+   else. A caption that waves at a category without naming it is the fault it was written
+   to prevent. It now names the customer's **own `Reason` wording**, not the folded
+   category -- "Classified wrongly" is still a bucket name, where *Incorrect Industry
+   selection* says we reported the fire and the Automotive tag was missing, which is a
+   different complaint from not reporting it. Three wordings at most, then "and N other
+   reasons", and it follows the filter so it cannot go stale.
+6. **Why the events were missed** -- two tiers, and the page's headline above both:
    *N of 78 misses never entered our system*, computed from the source and keyword
    buckets so it cannot go stale. That sentence is the number Product sizes the
    source-and-keyword problem with; what to buy against it is deliberately not on the
@@ -556,7 +621,20 @@ built from, not the sum of the strings in it.
    reads `g.hoverlayer`'s text back. That tests the hovertemplate and its customdata,
    which is the part that can actually be wrong. The clipping was only visible in a
    screenshot taken while the label was up.
-4. **Customers impacted** -- `miss_by_customer()`, the eight worst as a stacked bar and
+7. **The deeper root cause** -- `root_frame()` and `grouped_bar()`: every failure in the
+   taxonomy on its own row, two bars each -- how many emails named it, and how many of
+   those were confirmed misses. Both numbers together is the point: `Review` is 22 emails
+   of which 19 were misses, `Process Clarification` is 13 of which 2 were, and a chart of
+   misses alone cannot say which failures we mostly get away with. It replaced two
+   sunbursts whose outer rings were unequal wedges where past the biggest four no label
+   would fit. Keyed on the failure, **not** on failure-and-owner: the same sub-type sits
+   under two owners on several rows and a y axis that repeats a label silently merges
+   them, so the owners are a column naming them with their counts -- as pills now, not
+   as a run of text. It groups on the **label**, not the tracker value, so the two
+   clubbed pairs are one row each and both their tracker values are listed on it.
+   **Nothing is folded into an `Other`**, however few emails carry it.
+
+8. **Customers impacted** -- `miss_by_customer()`, the eight worst as a stacked bar and
    **every** account in a scrolling table. The row carries **both bases**: `Emails` with
    `Complaints` and `Inquiries` beside it (every email that named the account), then the
    failure columns and `Misses` (confirmed misses only, a smaller number from a different
@@ -585,64 +663,6 @@ built from, not the sum of the strings in it.
    **The general rule: a total row is a reconciliation, not a sum.** Where the rows
    double-count on purpose, the foot has to carry the figure the rest of the dashboard
    uses, and the caption has to say why they differ.
-5. **Complaints by event type** -- two charts and one table. `all_event_types()` is
-   every email by the kind of event it was about; `missed_event_types()` is the confirmed
-   misses only. Neither is readable alone: nine misses is a different fact depending on
-   whether ten emails named that event type or forty.
-
-   **One split per table.** `event_type_pairs()` briefly carried `Reported timely` and a
-   `Miss rate` as well, which put **two different partitions of the same 16 emails on one
-   row** -- 14 complaints + 2 inquiries, and 13 misses + 3 reported timely. A reader lands
-   on 14 against 13, tries to reconcile them, and cannot, because they are not the same
-   cut. The page's owner read that as broken arithmetic, which is the correct reading of
-   two partitions printed as one table. The columns are now
-   **Emails = Complaints + Inquiries**, and the caption names the misses column as a
-   **subset of the complaints** rather than a third part of the split, with the Factory
-   Fire row spelled out: 14 complaints of which 13 were misses, the fourteenth reported
-   and complained about for some other reason.
-
-   **The general rule: a table carries one partition.** A second one that happens to sum
-   to the same total is not extra information, it is an invitation to subtract two
-   numbers that do not belong to each other. Put it in its own table or name it as a
-   subset.
-6. **Nature of complaints** -- the eight `REASON_CATEGORIES`, the same vocabulary the
-   All customer emails tab defines and lists the wordings behind. **The bar is stacked
-   on the miss split**, darker for the emails in that category that were a confirmed
-   miss and grey for the ones where the event did reach the customer, and a computed
-   caption states the arithmetic: `Event missed` carries 63 misses against 78 on the
-   cards, and the other 15 sit in categories where the event *was* reported and
-   something else went wrong. That gap reads as an error every time somebody meets it,
-   and it is not one -- the category is what the customer wrote about, the flag is
-   whether the event reached them in time. Showing the split on the bar, and printing
-   `63 + 15 = 78` under the table, is what stops it being asked a third time.
-7. **How much came in each month** -- `render_monthly_volume()`, the grouped
-   complaint-against-inquiry bars and the source table, shared with Monthly trend so the
-   two pages cannot draw the same months differently. It is volume only: how many emails
-   arrived, not how many we got wrong.
-
-   **"Is it getting better?" was removed from this page on the owner's call** and lives
-   on Monthly trend alone. What it does is described here because the function is
-   unchanged: `trend_chart()` is **one bar per month**, its percentage
-   printed on it, the last three months blue and the three before grey, months outside
-   both windows dark so they cannot be mistaken for part of the comparison. It was a line
-   with two flat shelves drawn over it and a signed delta on the plot, and a reader had
-   to be told what the shelves meant before the chart said anything. The comparison is
-   stated in words by `missed_verdict()` above the chart instead of drawn into it, and
-   `trend_table()` puts the months underneath with a total whose rate is **pooled, not
-   averaged**.
-8. **The deeper root cause** -- `root_frame()` and `grouped_bar()`: every failure in the
-   taxonomy on its own row, two bars each -- how many emails named it, and how many of
-   those were confirmed misses. Both numbers together is the point: `Review` is 22 emails
-   of which 19 were misses, `Process Clarification` is 13 of which 2 were, and a chart of
-   misses alone cannot say which failures we mostly get away with. It replaced two
-   sunbursts whose outer rings were unequal wedges where past the biggest four no label
-   would fit. Keyed on the failure, **not** on failure-and-owner: the same sub-type sits
-   under two owners on several rows and a y axis that repeats a label silently merges
-   them, so the owners are a column naming them with their counts -- as pills now, not
-   as a run of text. It groups on the **label**, not the tracker value, so the two
-   clubbed pairs are one row each and both their tracker values are listed on it.
-   **Nothing is folded into an `Other`**, however few emails carry it.
-
 **`DRIVERS` is keyed on `(Root Cause, Sub-type)` -- never on the display wording.**
 It gives each pair EventWatch's own name for the failure and the same thing in plain
 English: the term is what the chart prints, the plain English rides on the hover and
