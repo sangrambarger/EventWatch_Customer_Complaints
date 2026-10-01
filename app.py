@@ -349,7 +349,7 @@ def filter_values(frame, kind, col):
     if kind == "reason":
         keys = reason_category(frame)
     elif kind == "subtype":
-        keys = frame[col].fillna("Blank").astype(str).str.strip().map(lambda v: plain(v, PLAIN_SUBTYPE))
+        keys = labels_for(frame, col)
     else:
         keys = frame[col].fillna("").astype(str).str.strip()
     return sorted(v for v in keys.unique() if v and v != "nan"), keys
@@ -759,8 +759,7 @@ def with_failure_label(df):
     if df.empty or "Sub-type" not in df.columns:
         return df
     out = df.copy()
-    out["What went wrong"] = out["Sub-type"].fillna("Blank").astype(str).str.strip().map(
-        lambda v: plain(v, PLAIN_SUBTYPE))
+    out["What went wrong"] = labels_for(out)
     return out
 
 
@@ -991,7 +990,7 @@ def miss_bucket_series(df):
     # `plain()` falls back to the raw value, so a sub-type added to the tracker tomorrow
     # appears under its own name rather than disappearing into a bucket.
     rest = ~claimed
-    out[rest] = sub[rest].map(lambda v: plain(v, PLAIN_SUBTYPE))
+    out[rest] = [failure_label(r, s) for r, s in zip(root[rest], sub[rest])]
     return out
 
 
@@ -1172,8 +1171,7 @@ def subtype_matrix(df):
     sub-types are a pure People failure and a pure Product failure was invisible."""
     if not {"Sub-type", "Root Cause"} <= set(df.columns) or df.empty:
         return pd.DataFrame()
-    grid = pd.crosstab(df["Sub-type"].astype(str).str.strip().map(lambda v: plain(v, PLAIN_SUBTYPE)),
-                       df["Root Cause"].astype(str).str.strip())
+    grid = pd.crosstab(labels_for(df), df["Root Cause"].astype(str).str.strip())
     grid.index.name = "Sub-type"
     if grid.empty:
         return grid
@@ -1363,8 +1361,11 @@ def owner_accounts(root_df, page):
         if here.empty:
             continue
         theirs = page[names_match(page["Customer"], [name])]
-        sub = here["Sub-type"].fillna("").astype(str).str.strip()
-        sub = sub[sub.ne("") & sub.ne("nan")]
+        # The label, not the raw sub-type, and read off each row's own owner rather
+        # than a parameter this function does not take: `Mapping` means a different
+        # failure under each owner, so the mode has to be taken over labels.
+        sub = labels_for(here)
+        sub = sub[sub.ne("") & sub.ne("nan") & sub.ne("Blank")]
         cat = reason_category(here)
         cat = cat[cat.ne("")]
         rows.append({
@@ -1373,7 +1374,7 @@ def owner_accounts(root_df, page):
             "Misses": int(here.get("Missed_Flag", pd.Series(dtype=str)).astype(str).str.strip().eq("Yes").sum()),
             "Their total": len(theirs),
             "Share of theirs": f"{len(here) / max(len(theirs), 1) * 100:.0f}%",
-            "What went wrong most": plain(sub.value_counts().index[0], PLAIN_SUBTYPE) if not sub.empty else "",
+            "What went wrong most": sub.value_counts().index[0] if not sub.empty else "",
             "What they wrote about most": cat.value_counts().index[0] if not cat.empty else "",
         })
     if not rows:
@@ -1394,7 +1395,7 @@ def owner_insight(root, root_df, page):
     if not sub.empty:
         top = sub.value_counts()
         first += (f", and {int(top.iloc[0])} of those emails are "
-                  f"<b>{esc(plain(top.index[0], PLAIN_SUBTYPE))}</b>")
+                  f"<b>{esc(failure_label(root, top.index[0]))}</b>")
     out = [first]
     accounts = owner_accounts(root_df, page)
     if not accounts.empty:
@@ -1431,7 +1432,7 @@ def render_owner_drilldown(root, root_df, page):
 
     if "Sub-type" in root_df.columns:
         st.markdown(f"**What failed, under {root}**")
-        failures = name_subtypes(count_table(root_df, "Sub-type"))
+        failures = name_subtypes(count_table(root_df, "Sub-type"), root=root)
         excel_bar_table(failures, "Sub-type", label_head="Tracker value", value_head="Emails",
                         extras=["What it means", "Complaints", "Inquiries", "Misses",
                                 "Reported timely"],
@@ -1491,8 +1492,7 @@ def account_failures(frame):
     if frame.empty or not {"Root Cause", "Sub-type"} <= set(frame.columns):
         return pd.DataFrame(columns=cols)
     work = pd.DataFrame({
-        "What went wrong": frame["Sub-type"].fillna("Blank").astype(str).str.strip().map(
-            lambda v: plain(v, PLAIN_SUBTYPE)),
+        "What went wrong": labels_for(frame),
         "_owner": frame["Root Cause"].fillna("Blank").astype(str).str.strip(),
         "_miss": frame.get("Missed_Flag", pd.Series(dtype=str)).astype(str).str.strip().eq("Yes"),
     })
@@ -1909,6 +1909,57 @@ PLAIN_SUBTYPE = {
     "Strategy": "How we group events",
 }
 
+# `Mapping` is the one sub-type whose meaning CHANGES WITH ITS OWNER, and the two
+# meanings are not variants of each other -- they are different failures, with different
+# owners and different fixes:
+#
+#   Product   the supplier is not in the customer's mapped supply chain at all. They
+#             never shared the company with Resilinc, so there was nothing for the event
+#             to match against. Not our failure. (Ford, CSV 17: "company not mapped as
+#             Ford supplier".)
+#   People    the supplier WAS mapped, and an analyst left it off the WarRoom or its
+#             geofence when the WarRoom was built. Entirely ours. (Caterpillar EAO-6,
+#             "Dana Holding Corporation was not included in impacted supplier selection";
+#             META EAO-49, the Delta Electronics site added only by a later update.)
+#   Process   neither: the customer asked why the mapping behaved as it did, and a
+#             clarification went back.
+#
+# `PLAIN_SUBTYPE` is keyed on the sub-type alone and cannot tell them apart, so one
+# label -- "Supplier was not mapped by the customer" -- was printed over all three, and
+# it is a **false statement** on the People rows: it blames the customer for a supplier
+# they had mapped. This is the same rule the file already states for `Review`: no label
+# names an actor where the tracker puts that sub-type under more than one owner. The
+# fix is not to find a wording that covers both; it is to stop pretending they are one
+# failure. `DRIVERS` already had this right (`Supplier Impact / Mapping` against
+# `Supplier Selection`), and only the sub-type label lagged.
+OWNED_SUBTYPE = {
+    ("People", "Mapping"): "Supplier mapped, but left off the WarRoom",
+    ("Process", "Mapping"): "Supplier mapping queried by the customer",
+}
+
+
+def failure_label(root, subtype):
+    """The plain label for a failure, owner-aware wherever the owner changes the meaning.
+
+    Every block that knows the owner of a row goes through this rather than `plain()`.
+    The handful that genuinely cannot -- a table already grouped on the sub-type alone --
+    keep `plain()`, and they are the ones where the owner is a column beside the label.
+    """
+    key = (str(root).strip(), str(subtype).strip())
+    if key in OWNED_SUBTYPE:
+        return OWNED_SUBTYPE[key]
+    return plain(subtype, PLAIN_SUBTYPE)
+
+
+def labels_for(frame, subtype_col="Sub-type", root_col="Root Cause"):
+    """`failure_label` across a frame, row by row, so each row gets its own owner."""
+    if frame.empty or subtype_col not in frame.columns:
+        return pd.Series(dtype=object, index=frame.index)
+    roots = (frame[root_col] if root_col in frame.columns
+             else pd.Series("", index=frame.index)).fillna("").astype(str)
+    subs = frame[subtype_col].fillna("Blank").astype(str)
+    return pd.Series([failure_label(r, s) for r, s in zip(roots, subs)], index=frame.index)
+
 # Who owns the fix, in the same three colours everywhere they appear on the page.
 
 
@@ -2031,7 +2082,7 @@ ROOT_OWNERSHIP = {
 ROOT_COLOURS = {"Product": "#8ab4f8", "People": "#f28b82", "Process": "#f6c177"}
 
 
-def name_subtypes(frame, col="Sub-type", head="What it means"):
+def name_subtypes(frame, col="Sub-type", head="What it means", root=None):
     """Put the plain-English label beside a tracker Sub-type, on any tab.
 
     The Executive Summary translates the taxonomy and the source pages did not, so the
@@ -2039,12 +2090,17 @@ def name_subtypes(frame, col="Sub-type", head="What it means"):
     monitoring network" on another -- two vocabularies for one thing, which is the fault
     `PLAIN_SUBTYPE` exists to fix. The tracker value stays in its own column because it
     is the record; the label is inserted next to it, never over it.
+
+    `root` is the owner of every row in the frame, where the caller knows it -- the
+    per-owner drill-downs do. Without it `Mapping` would print the Product wording on
+    the People drill-down, which is the exact false statement `failure_label` exists to
+    stop.
     """
     if frame is None or frame.empty or col not in frame.columns:
         return frame
     out = frame.copy()
     out.insert(list(out.columns).index(col) + 1, head,
-               out[col].map(lambda v: plain(v, PLAIN_SUBTYPE)))
+               out[col].map(lambda v: failure_label(root, v) if root else plain(v, PLAIN_SUBTYPE)))
     return out
 
 
@@ -2559,7 +2615,7 @@ def root_frame(df):
     # grouping on the value would draw two bars carrying the same name -- which a y axis
     # silently merges, and which gives `audit_pages.py` two counts for one label. Both
     # tracker values ride in the `Tracker value` column, so nothing is hidden by the fold.
-    frame["What went wrong"] = frame["_value"].map(lambda v: plain(v, PLAIN_SUBTYPE))
+    frame["What went wrong"] = labels_for(df)
     rows = []
     misses_total = max(int(frame["_miss"].sum()), 1)
     for label, group in frame.groupby("What went wrong"):

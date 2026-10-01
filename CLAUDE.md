@@ -305,7 +305,7 @@ their rows rather than a property of the sub-type.
 Every other missed email takes a bucket **named after its own sub-type**, generated in
 `miss_bucket_series()` from `PLAIN_SUBTYPE`. Eleven buckets on the current data: an
 analyst let it through 27, source not in our network 24, keyword miss 12, the model did
-not spot it 6, then supplier not mapped 2, published but not visible 2, reporting
+not spot it 6, then supplier not mapped by the customer 2, published but not visible 2, reporting
 guidelines clarified 1, incorrect industry selection 1, captured but notified late 1,
 scoring or rules 1, WarRoom missed 1.
 
@@ -686,7 +686,7 @@ vocabulary has no word for lateness, so a future row on that pair would land in
 because "Seen at review, and not raised" never said what review *is*, and the sub-type
 sits under both People (an analyst) and Product (the model). Describing the **decision**
 is the one thing true of both. `Event Identification` is **Classified as
-not impactful, wrongly**, `Mapping` is **Supplier was not mapped by the customer**,
+not impactful, wrongly**, `Mapping` is owner-aware and explained below,
 `Visibility` is **Published, but not visible to the customer**, `Process Clarification`
 is **We had to clarify the reporting guidelines**, `WarRoom Creation` is **WarRoom
 Missed**, `Relevancy` is **Judged not relevant to this customer**.
@@ -705,6 +705,34 @@ or the second value of a pair silently overwrites the first. Three places do thi
 three were changed together: `root_frame()` groups on the label, `account_failures()`
 groups on the label, and `audit_pages.miss_buckets()` uses `+=`. Written the obvious
 way, `Incorrect industry selection` read 1 where the tracker holds 2.
+
+**`Mapping` is the one sub-type whose meaning changes with its owner, and the three
+meanings are different failures rather than variants.** The owner settled this:
+
+| Owner | What actually happened | Label |
+| --- | --- | --- |
+| Product (6) | the supplier is not in the customer's mapped supply chain at all -- they never shared the company with Resilinc, so there was nothing for the event to match against | Supplier was not mapped by the customer |
+| People (2) | the supplier **was** mapped, and an analyst left it off the WarRoom or its geofence when the WarRoom was built | Supplier mapped, but left off the WarRoom |
+| Process (2) | neither: the customer asked why the mapping behaved as it did, and a clarification went back | Supplier mapping queried by the customer |
+
+`PLAIN_SUBTYPE` is keyed on the sub-type alone and printed the Product wording over all
+three, which **blamed the customer for a supplier they had mapped** on Caterpillar EAO-6
+and META EAO-49. `OWNED_SUBTYPE` overrides it where the owner is known and
+`failure_label(root, subtype)` is the one accessor; `labels_for(frame)` applies it row by
+row. Every block that knows the owner goes through it -- the sidebar filter, the record
+grid, the miss-bucket tail, the heatmap, `owner_accounts`, `owner_insight`,
+`account_failures`, `root_frame` and `name_subtypes(..., root=)`. `DRIVERS` already had
+this right (`Supplier Impact / Mapping` against `Supplier Selection`); only the sub-type
+label lagged.
+
+**`audit_pages.miss_buckets()` keys on the pair too**, not the sub-type alone. No missed
+record carries People/Mapping today, which is exactly why an owner-blind lookup there
+would have filed the first one that did under the Product wording and disagreed with the
+app silently.
+
+**Do not look for a single wording that covers two owners.** Where the owner changes what
+happened, the answer is two rows, not a vaguer label -- the same argument that keeps
+`Review` split across two `MISS_BUCKETS`.
 
 **No label names an actor where the tracker puts that sub-type under more than one
 owner.** `Event Identification` is 5 People and 4 Product, `Review` is 21 People and 2
@@ -912,7 +940,15 @@ tabs explain a category the same way.
 
 Two changes were made on the owner's instruction. `Supplier not linked` is now
 **`Supplier not included`** -- the supplier was left off the WarRoom, which is a thing
-somebody did, where "not linked" reads like a data-model state. And **`Hidden by the
+somebody did, where "not linked" reads like a data-model state.
+
+**`Supplier not included` (a `Reason` category) and `Supplier was not mapped by the
+customer` (a `Sub-type` label) are different fields saying different things, and
+confusing them is a mistake that has already been made here.** The category is what the
+customer wrote about; the sub-type label is what the investigation found. An email can be
+`Supplier not included` and turn out to be a customer mapping gap, or an analyst
+omission -- the Root Cause is what separates them, which is why `Mapping` carries three
+owner-aware labels above. And **`Hidden by the
 customer's own filter` was folded into `Published but not visible`**, reversing the
 call recorded below. The owner's framing is that the bucket means "we reported it
 correctly and it never reached their portal", and on that definition it does not matter
