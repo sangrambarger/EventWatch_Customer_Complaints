@@ -685,6 +685,22 @@ this existed** -- `git show a497a0d:customer_tracker.csv` (cp1252, not utf-8). T
 the authority, not the taxonomy derived here afterwards, and the owner said so in terms.
 It settles the three cases that keep recurring:
 
+**"Analyst overlooked" has a precise meaning, and it is the test for `People` / `Review`.**
+The owner's definition: *the news came on the portal, but the analyst did not look at it
+carefully and moved it to Not Impactful.* Three things have to be true, and each one
+rules out a neighbouring sub-type:
+
+| | and so it is not |
+| --- | --- |
+| the story **was ingested** -- a monitored source carried it | `Source Coverage` |
+| it **reached the analyst portal**, so it was retrievable and visible | `Keyword Update`, `Visibility` |
+| **a human had it in front of them** and closed it as Not Impactful | `Product` / `Review`, which is the model making that call |
+
+The failure is the quality of the look, not the reach of the system. That is why
+"the customer says we missed it" never settles the file on its own: a miss whose story
+never arrived and a miss whose story arrived and was waved through are the same event to
+the customer and two different problems to us, with two different owners.
+
 **`People` / `Review` -- we had the story, a human reviewed it, and the human did not
 raise it.** The original rows say it outright: *"analyst classified event as Not
 Impactful"* (Eaton, row 57), *"Event was captured successfully but incorrectly assessed
@@ -725,9 +741,10 @@ Applied on the owner's instruction:
 * **EAO-50** (Ford, planned strike at AGC Display Glass, Taiwan) is the clearest case of
   the pattern: monitoring picked up the 30-Sep report and editorial review classified it
   `Not Impactful`, so no alert and no WarRoom were published. `People` / `Review`,
-  `Missed_Flag = Yes`. **The ticket itself still asks EventWatch to confirm whether an
-  analyst or automated logic made that call** -- if it turns out to be automated, the row
-  is `Product` / `Review` and the owner changes with it.
+  `Missed_Flag = Yes`. The ticket asked EventWatch to confirm whether an analyst or
+  automated logic made that call, and **the owner confirmed an analyst**: the story
+  reached the portal and was moved to Not Impactful without a careful assessment. The
+  row stands; had it been automated logic it would be `Product` / `Review`.
 
 ## The vocabulary, and the two rules that hold it together
 
