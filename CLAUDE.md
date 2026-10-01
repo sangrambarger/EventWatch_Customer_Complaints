@@ -304,7 +304,7 @@ their rows rather than a property of the sub-type.
 
 Every other missed email takes a bucket **named after its own sub-type**, generated in
 `miss_bucket_series()` from `PLAIN_SUBTYPE`. Eleven buckets on the current data: an
-analyst let it through 27, source not in our network 24, keyword miss 12, the model did
+analyst let it through 29, source not in our network 23, keyword miss 12, the model did
 not spot it 6, then supplier not mapped by the customer 2, published but not visible 2, reporting
 guidelines clarified 1, incorrect industry selection 1, captured but notified late 1,
 scoring or rules 1, WarRoom missed 1.
@@ -678,6 +678,57 @@ what `Needs Review` is for, and these three are why it earns its place.
 vocabulary has no word for lateness, so a future row on that pair would land in
 `Needs Review` for want of a label rather than for want of a decision.
 
+## The definitions, settled against the original tracker
+
+**When a classification is in doubt, read the 80 rows the humans filed before any of
+this existed** -- `git show a497a0d:customer_tracker.csv` (cp1252, not utf-8). That is
+the authority, not the taxonomy derived here afterwards, and the owner said so in terms.
+It settles the three cases that keep recurring:
+
+**`People` / `Review` -- we had the story, a human reviewed it, and the human did not
+raise it.** The original rows say it outright: *"analyst classified event as Not
+Impactful"* (Eaton, row 57), *"Event was captured successfully but incorrectly assessed
+as Not Impactful"* (Western Digital, 63), *"Human-in-the-loop review did not escalate the
+event"* (Ford/EAO-23, 70), *"human review incorrectly marked"* (Merck, 80 and 81). Of the
+fifteen original `People`/`Review` rows, thirteen carry `Missed_Flag = Yes` -- because
+nothing reached the customer. **This is the analyst miss, and it is not a source gap.**
+An event we captured and then declined to publish has nothing to do with coverage, so
+`Product`/`Source Coverage` is the wrong file for it however the customer worded the
+complaint.
+
+**`People` / `Mapping` -- the event WAS published; the supplier was left off the
+WarRoom.** One original row, and it is the template: Caterpillar, *"Dana Holding
+Corporation was not included in impacted supplier selection during initial WarRoom"*,
+`Missed_Flag = No`. The humans' own call was **No**, because the customer did receive the
+event -- what they did not receive was their own supplier on it. EAO-49 is the same
+shape and carries the same flag.
+
+**`Product` / `Source Coverage` -- the story never arrived.** Nothing to review, nothing
+to publish, because no monitored source carried it.
+
+**So `Missed_Flag` tracks delivery of the event, not the quality of what was delivered.**
+Yes when the event did not reach the customer at all or in time; No when it reached them
+and something about its scope, tagging or supplier list was wrong. That is why two
+records both rooted in an analyst error -- EAO-48 and EAO-49 -- carry different flags.
+
+Applied on the owner's instruction:
+
+* **EAO-48** (Ford, South Africa port and corridor congestion) was `Product` /
+  `Source Coverage` with a regional-monitoring remedy. It is an **analyst miss**: we had
+  it and overlooked it. Now `People` / `Review`, routed to EventWatch Ops, focus
+  `WarRoom & Decision Validation`, remedy rewritten to a Not-Impactful decision check.
+  `Missed_Flag` stays `Yes` -- nothing reached Ford.
+* **EAO-49** (META, Delta Electronics site missing from the initial WarRoom) needed no
+  change. `People` / `Mapping`, `Missed_Flag = No`, matching the Caterpillar precedent
+  exactly. **It is not a missed event**: the WarRoom was published, the supplier was not
+  on it.
+* **EAO-50** (Ford, planned strike at AGC Display Glass, Taiwan) is the clearest case of
+  the pattern: monitoring picked up the 30-Sep report and editorial review classified it
+  `Not Impactful`, so no alert and no WarRoom were published. `People` / `Review`,
+  `Missed_Flag = Yes`. **The ticket itself still asks EventWatch to confirm whether an
+  analyst or automated logic made that call** -- if it turns out to be automated, the row
+  is `Product` / `Review` and the owner changes with it.
+
 ## The vocabulary, and the two rules that hold it together
 
 `PLAIN_SUBTYPE` was rewritten wholesale on the owner's wording. `Source Coverage` is
@@ -799,10 +850,12 @@ nobody was reading one out of it: the last three months' pooled miss rate agains
 three before, on **counts, not the mean of monthly percentages** -- a month with 4 emails
 must not weigh the same as one with 18. A move under 5 points reads as "Not improving"
 rather than being dressed up as a trend, and a thin latest month is flagged so nobody
-leans on a point that will move. At 116 emails over nine months the current answer is
-63% against 72%, down 9.0 points -- which clears the threshold, and the caption under the
-chart still names both denominators (46 and 43 emails) so nobody reads nine points off
-eighty-nine emails as a result. It no longer opens the page: the eight cards do, and the
+leans on a point that will move, and `plural()` writes that flag -- the first email of a
+new month made it read "has only 1 emails so far" on the Executive Summary, which is
+exactly when a reader is most likely to see it. At 117 emails over ten months the answer
+is 64% against 68%, a 4.4-point move the rule calls noise rather than dressing up as a
+trend; the windows moved to Aug-Oct the moment October opened with one record, which is
+the flag earning its place. It no longer opens the page: the eight cards do, and the
 comparison sits seventh, where it reads as the end of the story rather than the start.
 
 **The per-owner drill-downs are three tables stacked full width, not two squeezed into
@@ -1102,10 +1155,10 @@ touched on every visit, and Streamlit's own sidebar collapse (the arrow at its t
 what widens the page for reading a table.
 
 **A complaint is not automatically a miss**, and that gap is the first thing a reader
-asks about: 18 of the 96 complaints are ones where the event *was* reported and the
+asks about: 18 of the 97 complaints are ones where the event *was* reported and the
 failure, if any, was something else -- wrong classification, published twice, not
 visible, the supplier left off the WarRoom, late. The KPI
-row states it (`Complaints, not a miss  18 of 96`) and a table below breaks it down,
+row states it (`Complaints, not a miss  18 of 97`) and a table below breaks it down,
 rather than leaving a reader to subtract. All 78 confirmed misses are now complaints and
 no inquiry is one, which `validate.py`'s `issue_type` keeps true.
 

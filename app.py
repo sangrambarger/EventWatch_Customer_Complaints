@@ -1292,7 +1292,10 @@ def missed_verdict(rate, window=3, noise=5.0):
               f"{int(recent['Missed'].sum())} of {int(recent['Records'].sum())} emails.")
     thin = rate.iloc[-1]
     if thin["Records"] < 8:
-        detail += f" {label(thin['Month'])} has only {int(thin['Records'])} emails so far."
+        # `plural()`, because the first email of a new month makes this read "has only
+        # 1 emails so far" on the Executive Summary -- which is exactly when a reader is
+        # most likely to be looking at it.
+        detail += f" {label(thin['Month'])} has only {plural(int(thin['Records']), 'email')} so far."
     return verdict, detail, colour, now
 
 
