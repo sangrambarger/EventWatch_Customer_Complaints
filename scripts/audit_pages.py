@@ -50,7 +50,7 @@ def miss_buckets(df: pd.DataFrame) -> dict[str, int]:
     a second copy of a wording would drift, and it is the numbers this audit checks.
     """
     sys.path.insert(0, str(REPO))
-    from app import PLAIN_SUBTYPE
+    from app import PLAIN_SUBTYPE, failure_label
     missed = df[df["Missed_Flag"].astype(str).str.strip() == "Yes"]
     sub = missed["Sub-type"].astype(str).str.strip()
     root = missed["Root Cause"].astype(str).str.strip()
@@ -66,8 +66,16 @@ def miss_buckets(df: pd.DataFrame) -> dict[str, int]:
     # `+=`, not `=`. Two pairs of sub-types deliberately share a label, and an assignment
     # here made the second value overwrite the first -- the audit would then have read a
     # bucket of 2 as a bucket of 1 and called the app wrong.
-    for value, n in rest["Sub-type"].astype(str).str.strip().value_counts().items():
-        label = PLAIN_SUBTYPE.get(value, value)
+    #
+    # Keyed on (owner, sub-type), not the sub-type alone: `Mapping` means a different
+    # failure under each owner and carries a different label, so an owner-blind lookup
+    # here would file a People/Mapping miss under the Product wording and disagree with
+    # the app. No missed record carries that pair today, which is exactly why it would
+    # have gone unnoticed until one did.
+    for (owner, value), n in rest.groupby(
+            [rest["Root Cause"].astype(str).str.strip(),
+             rest["Sub-type"].astype(str).str.strip()]).size().items():
+        label = failure_label(owner, value)
         out[label] = out.get(label, 0) + int(n)
     return out
 
