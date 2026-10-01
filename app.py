@@ -2719,9 +2719,9 @@ def render_monthly_volume(page):
     monthly = monthly.sort_values("Month Date")
     monthly["Total"] = monthly.drop(columns=["Month Label", "Month Date"]).sum(axis=1)
     display_monthly = monthly.drop(columns=["Month Date"], errors="ignore")
-    add_section("How much came in each month", "Complaint and inquiry counts by reporting "
-                "month, in calendar order. This is volume only — how many emails arrived, "
-                "not how many of them we got wrong.", "#80cbc4")
+    add_section("Monthly breakdown of all customer emails", "Complaint and inquiry counts "
+                "by reporting month, in calendar order. This is volume only — how many "
+                "emails arrived, not how many of them we got wrong.", "#80cbc4")
     fig = px.bar(monthly, x="Month Label", y=[c for c in ["Complaint", "Inquiry"] if c in monthly.columns],
                  barmode="group", text_auto=True, color_discrete_sequence=["#8ab4f8", "#80cbc4"])
     fig.update_layout(template="plotly_dark", plot_bgcolor="#1b1f26", paper_bgcolor="#1b1f26",
@@ -2854,6 +2854,50 @@ def render_customers(page):
         downloads(accounts, "customers_impacted", f_cust)
 
 
+def event_type_note(df):
+    """One worked example under the event-type table, every figure computed.
+
+    "The fourteenth was reported, and the customer wrote in about something else on it"
+    was the wording before, and the page's owner asked the obvious question: what else?
+    A caption that waves at a category without naming it is the thing it was written to
+    prevent. This takes the biggest event type, splits its complaints into the ones that
+    were confirmed misses and the ones that were not, and **names what the rest were
+    actually about** -- the reason category the customer's own wording folds onto.
+    Computed, so it follows the filter and cannot go stale.
+    """
+    if df.empty or not {"Event type", "Issue Type", "Missed_Flag"} <= set(df.columns):
+        return ""
+    pairs = event_type_pairs(df)
+    if pairs.empty:
+        return ""
+    top = pairs.sort_values("Emails", ascending=False).iloc[0]
+    name = top["Event type"]
+    block = df[df["Event type"].fillna("Blank").astype(str).str.strip().eq(name)]
+    complaints = int(top["Complaints"]); misses = int(top["Misses"])
+    rest = complaints - misses
+    line = (f"**{esc(name)}** reads {plural(int(top['Emails']), 'email')} — "
+            f"{plural(complaints, 'complaint')} and {plural(int(top['Inquiries']), 'inquiry', 'inquiries')}. "
+            f"{misses} of those complaints were confirmed misses")
+    if rest <= 0:
+        return line + ", and there were no others."
+    others = block[block["Issue Type"].astype(str).str.strip().eq("Complaint")
+                   & block["Missed_Flag"].astype(str).str.strip().ne("Yes")]
+    # The customer's OWN wording, not the folded category: "Classified wrongly" is still
+    # a bucket name, and the question asked of the old caption was what, specifically.
+    # Here that is "Incorrect Industry selection" -- we reported the fire and the
+    # Automotive tag was missing, which is a different complaint from not reporting it.
+    reasons = others["Reason"].fillna("").astype(str).str.strip()
+    reasons = reasons[reasons.ne("")].value_counts()
+    were = "is not a miss" if rest == 1 else "are not misses"
+    if reasons.empty:
+        return f"{line}, and the other {plural(rest, 'complaint')} we did report."
+    shown = [r if n == 1 else f"{r} ({n})" for r, n in list(reasons.items())[:3]]
+    more = len(reasons) - len(shown)
+    named = ", ".join(shown) + (f", and {plural(more, 'other reason')}" if more else "")
+    return (f"{line}. The other {plural(rest, 'complaint')} {were} — "
+            f"**we did report the event**, and what the customer raised was: {named}.")
+
+
 def render_event_types(page):
     """Event types: every email, the confirmed misses, and one table carrying both."""
     add_section("Complaints by event type", "What kind of event customers write to us about. "
@@ -2881,12 +2925,10 @@ def render_event_types(page):
                             label_head="Event type", value_head="Confirmed misses",
                             variant="roomy",
                             caption="**Emails = Complaints + Inquiries** on every row. "
-                                    "**Confirmed misses is a subset of the complaints**, not a "
-                                    "third part of that split: it counts the ones where the "
-                                    "event did not reach the customer in time. Factory Fire "
-                                    "reads 14 complaints of which 13 were misses — the "
-                                    "fourteenth was reported, and the customer wrote in about "
-                                    "something else on it.")
+                                    "**Confirmed misses counts only the complaints where the "
+                                    "event never reached the customer in time** — it is a "
+                                    "subset of the complaints column, not a third part of the "
+                                    "split. " + event_type_note(page))
             downloads(pairs, "event_types", f_types or f_all)
 
 
@@ -3071,18 +3113,13 @@ if selected_page == "Executive Summary":
         excel_bar_table(owners, "Category", label_head="Who fixes the miss", value_head="Misses")
         downloads(owners, "miss_owner_split", f_owner)
 
-    add_rule()
-    render_root_cause(page)
-
-    add_rule()
-    render_customers(page)
-
-    add_rule()
-    render_event_types(page)
-
-    add_rule()
-    render_nature(page)
-
+    # The order is the owner's rule: the further you scroll, the more granular it gets.
+    # Eight cards (8 numbers), two rings (6 slices), twelve months, seven reason
+    # categories, twenty-four event types, three root causes and their drivers, every
+    # failure in the taxonomy, then every account against every bucket -- which is the
+    # widest table on the page and therefore last. Nothing is summarised below something
+    # finer than itself, so a reader can stop at any rule and have a complete answer at
+    # that depth.
     add_rule()
     # "Is it getting better?" (`render_trend`) was removed from THIS page on the owner's
     # call and stays on Monthly trend, which is the page for it. What sits here instead
@@ -3090,7 +3127,19 @@ if selected_page == "Executive Summary":
     render_monthly_volume(page)
 
     add_rule()
+    render_nature(page)
+
+    add_rule()
+    render_event_types(page)
+
+    add_rule()
+    render_root_cause(page)
+
+    add_rule()
     render_deeper_root_cause(page)
+
+    add_rule()
+    render_customers(page)
 elif selected_page == "Monthly trend":
     page_header(selected_page); page = filtered; filter_note()
     render_monthly_volume(page)
