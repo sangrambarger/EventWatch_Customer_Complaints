@@ -3113,13 +3113,23 @@ if selected_page == "Executive Summary":
         excel_bar_table(owners, "Category", label_head="Who fixes the miss", value_head="Misses")
         downloads(owners, "miss_owner_split", f_owner)
 
-    # The order is the owner's rule: the further you scroll, the more granular it gets.
-    # Eight cards (8 numbers), two rings (6 slices), twelve months, seven reason
-    # categories, twenty-four event types, three root causes and their drivers, every
-    # failure in the taxonomy, then every account against every bucket -- which is the
-    # widest table on the page and therefore last. Nothing is summarised below something
-    # finer than itself, so a reader can stop at any rule and have a complete answer at
-    # that depth.
+    # The order is the owner's, and it is a reading order rather than a granularity one:
+    # why we missed, who it hit, what kind of event, when it arrived, and last what the
+    # customer themselves called it. A pure coarse-to-fine sort was tried and put
+    # Customers impacted at the foot of the page on the width of its table; the owner's
+    # call is that it is the section a reader comes here for, so it sits fourth, directly
+    # under the failure analysis it belongs to. `render_deeper_root_cause` is NOT on this page --
+    # it is the taxonomy at full depth and lives on Root cause, which already renders
+    # the same function beneath this page's own root-cause block.
+    add_rule()
+    render_root_cause(page)
+
+    add_rule()
+    render_customers(page)
+
+    add_rule()
+    render_event_types(page)
+
     add_rule()
     # "Is it getting better?" (`render_trend`) was removed from THIS page on the owner's
     # call and stays on Monthly trend, which is the page for it. What sits here instead
@@ -3128,18 +3138,6 @@ if selected_page == "Executive Summary":
 
     add_rule()
     render_nature(page)
-
-    add_rule()
-    render_event_types(page)
-
-    add_rule()
-    render_root_cause(page)
-
-    add_rule()
-    render_deeper_root_cause(page)
-
-    add_rule()
-    render_customers(page)
 elif selected_page == "Monthly trend":
     page_header(selected_page); page = filtered; filter_note()
     render_monthly_volume(page)
@@ -3152,10 +3150,12 @@ elif selected_page == "Monthly trend":
     render_trend(page)
 
 elif selected_page == "Root cause":
-    # The Executive Summary's two root-cause sections, then the cuts that do not fit on
-    # a summary: the sub-type heatmap, what is growing, and the per-owner drill-downs.
-    # It is the same code, so the two tabs cannot disagree about a driver's count or
-    # call the same failure two things.
+    # The Executive Summary's root-cause section, then the deeper one the summary no
+    # longer carries -- the owner moved `render_deeper_root_cause` here, where it was
+    # already running, because the full taxonomy is a drill-down and not a summary --
+    # then the cuts that never fitted on a summary at all: the sub-type heatmap and the
+    # per-owner drill-downs. The first block is the same code the summary runs, so the
+    # two tabs cannot disagree about a driver's count or call one failure two things.
     render_root_cause(filtered)
     add_rule()
     render_deeper_root_cause(filtered)
