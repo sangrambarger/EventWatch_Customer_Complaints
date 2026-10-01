@@ -212,7 +212,7 @@ cycle time:
 The Delivery performance page answered "how well are we responding", which no page did.
 **Time to close** (`close_stats`, `close_trend`) is median, p90, worst and the share
 closed inside 14 days -- and every one of them prints its denominator, because only 28 of
-115 emails carry a `Resolution Date` and a median quoted bare invites a reader to apply
+116 emails carry a `Resolution Date` and a median quoted bare invites a reader to apply
 it to the whole book. A month whose median rests on fewer than three closes is named as
 thin rather than drawn like the rest. That is now the whole page: the RCA funnel that sat
 under it is gone, with `rca_funnel()` itself.
@@ -771,10 +771,10 @@ nobody was reading one out of it: the last three months' pooled miss rate agains
 three before, on **counts, not the mean of monthly percentages** -- a month with 4 emails
 must not weigh the same as one with 18. A move under 5 points reads as "Not improving"
 rather than being dressed up as a trend, and a thin latest month is flagged so nobody
-leans on a point that will move. At 115 emails over nine months the current answer is
-64% against 72%, down 7.6 points -- which clears the threshold, and the caption under the
-chart still names both denominators (45 and 43 emails) so nobody reads eight points off
-ninety emails as a result. It no longer opens the page: the eight cards do, and the
+leans on a point that will move. At 116 emails over nine months the current answer is
+63% against 72%, down 9.0 points -- which clears the threshold, and the caption under the
+chart still names both denominators (46 and 43 emails) so nobody reads nine points off
+eighty-nine emails as a result. It no longer opens the page: the eight cards do, and the
 comparison sits seventh, where it reads as the end of the story rather than the start.
 
 **The per-owner drill-downs are three tables stacked full width, not two squeezed into
@@ -904,7 +904,7 @@ used to inherit that: "Missed Event", "Missed insolvency alert" and "WarRoom sho
 been created but was not" are one category written three ways, so no chart of `Reason`
 could rank anything. `REASON_CATEGORIES` / `reason_category()` / `with_reason_category()`
 fold them onto **seven** reusable categories -- Event missed 63, Classified wrongly 14,
-Question about coverage 14, Reported late 12, Supplier not included 6, Published but not
+Question about coverage 14, Reported late 12, Supplier not included 7, Published but not
 visible 4, Duplicate published 2 -- and that wording is what every tab shows, with
 `CATEGORY_MEANING` giving each one a sentence that says what happened rather than
 naming a field. The Executive Summary's table carries that sentence too, so the two
@@ -1066,10 +1066,10 @@ touched on every visit, and Streamlit's own sidebar collapse (the arrow at its t
 what widens the page for reading a table.
 
 **A complaint is not automatically a miss**, and that gap is the first thing a reader
-asks about: 17 of the 95 complaints are ones where the event *was* reported and the
-failure, if any, was something else -- wrong classification 9, published twice 2, not
-visible 2, supplier not linked 2, hidden by the customer's own filter 1, late 1. The KPI
-row states it (`Complaints, not a miss  17 of 95`) and a table below breaks it down,
+asks about: 18 of the 96 complaints are ones where the event *was* reported and the
+failure, if any, was something else -- wrong classification, published twice, not
+visible, the supplier left off the WarRoom, late. The KPI
+row states it (`Complaints, not a miss  18 of 96`) and a table below breaks it down,
 rather than leaving a reader to subtract. All 78 confirmed misses are now complaints and
 no inquiry is one, which `validate.py`'s `issue_type` keeps true.
 
@@ -1078,7 +1078,7 @@ was built from -- all 115 in one place, the 17 non-miss complaints in the other 
 "% of emails" reads as a share of the whole tracker in both.
 
 **Vocabulary: a row is a "customer email", not a "record".** `filter_note()` and the
-count tables say so, and every KPI card prints the base inside the number (`78 of 115`,
+count tables say so, and every KPI card prints the base inside the number (`78 of 116`,
 not a bare `68%`), because a bare percentage beside a bare count is what made two
 different denominators on one screen unreadable. `Inquiry` is the value in `Issue Type`,
 so the app says "inquiries" -- not "questions", which invents a second word for one value.
