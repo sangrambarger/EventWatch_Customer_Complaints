@@ -1426,9 +1426,20 @@ If a resave already happened, restore the four `cm="1"` attributes and
 - `Jira Key` links to the `EAO` project (EventWatch_AI_Ops); older strays live in
   DATA/TS/BI/TENAR. **A record with no key is not necessarily pre-EAO**: the ADM /
   General Mills miss of 16-Sep-2026 has none because the CSM raised it by email to the
-  team instead of opening a ticket, so `jira_sync.py` will never see it and the daily
-  Routine cannot find it. A row like that is added by hand with `append_row.py`, then
-  `sort_tracker.py <month>`, since it appends out of date order.
+  team instead of opening a ticket, and the Eberhard AG / Infineon miss of 14-Aug-2026
+  the same -- raised at a weekly sync and answered by Product Management, with no ticket
+  ever opened. `jira_sync.py` will never see either, so the daily Routine cannot find
+  them; a row like that is added by hand with `append_row.py`, since it appends out of
+  date order.
+- **Re-sort a back-dated append with `sort_tracker.py --all`, never with the month's own
+  name.** `sort_tracker.py` sorts the chosen records **among the positions they already
+  occupy**, which is what makes naming two months safe -- and is exactly what breaks
+  here: the appended row's position is the end of the file, so `sort_tracker.py Aug`
+  sorted the eighteen August records across positions 83-99 **and 119**, and put
+  31-Aug at 119, after every September and October row. `validate.py`'s `row_order`
+  caught it (`row 119: 2026-10-01 followed by 2026-08-31`) and `--all` fixed it in one
+  run. Naming the month is right only when that month is the last one in the file,
+  which is why the General Mills row never showed this.
 - `Short Term Fix Status` is `Fixed` / `RCA Shared` / `Clarification Provided`, plus
   `Pending` for tickets still open in Jira. Adding a new value means adding it to the
   Dashboard's Fix Status table too.
