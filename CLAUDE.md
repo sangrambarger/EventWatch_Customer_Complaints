@@ -1479,20 +1479,36 @@ If a resave already happened, restore the four `cm="1"` attributes and
   caught it (`row 119: 2026-10-01 followed by 2026-08-31`) and `--all` fixed it in one
   run. Naming the month is right only when that month is the last one in the file,
   which is why the General Mills row never showed this.
-- **`Utility Disruption` is the non-electrical utility event type** -- municipal water,
-  gas or steam, including a do-not-use order that halts operations -- added for EAO-52
-  (General Mills, Carlisle, Iowa). **Both sides of that boundary are written down.**
-  `Power Outage` read "use for grid and utility failures", which is exactly what a water
-  outage is, so a reader picking a type for the next one would have read that row and
-  chosen wrong; it now reads "use for electrical supply failures only - a water, gas or
-  steam outage is Utility Disruption". Narrowed in place as an inline string on sheet3,
-  the same edit shape as the `Legal Action` rename, which leaves the row, its styles,
-  `DefinitionsTable`'s ref and the sheet `dimension` untouched. **A new value that
-  overlaps an old one is two edits, not one** -- carving the boundary only from the new
-  row's side leaves the dictionary contradicting itself. An `Event type` needs no
-  Dashboard edit -- that block is a dynamic array -- but it does need its Definitions row
-  before the value may appear on a record, and `export_definitions.py` **after** the row
-  exists: run before, and the term is pruned as unused and `definitions_export` fails.
+- **NEVER invent an `Event type`. The twenty-four in the tracker are the portal's own
+  selection list**, and customers and the ELT already read those names. `Event type` is
+  not a taxonomy derived here, unlike `Sub-type` and the plain labels: it mirrors a
+  fixed dropdown, so a value added to the tracker is a word nobody outside this file
+  recognises and a category no portal selection can ever produce again.
+  **`Power Outage` covers every grid and utility cut -- power, water, internet** -- and
+  that is why its definition reads "grid and utility failures" rather than naming
+  electricity.
+
+  This is written as a rule because it was broken. A municipal water disruption at
+  General Mills' Carlisle mill (EAO-52) was filed under a newly invented
+  `Utility Disruption`, and `Power Outage` was then *narrowed to electricity* to make
+  room for it -- which inverted the one row that already said where water cuts go. The
+  owner's correction: water and internet cuts are notified under `Power Outage`, there is
+  no `Utility Disruption`, and the portal offers no such option. The row was moved back,
+  the invented Definitions row removed, and `Power Outage` restored and widened to name
+  water and internet outright so the next reader cannot repeat it.
+
+  The reasoning that produced it is the trap: no existing value looked like an exact fit,
+  so a new one felt tidier than a slightly loose one. **A slightly loose fit inside a
+  vocabulary everyone shares beats an exact fit nobody else uses.** When no `Event type`
+  seems right, ask -- do not add one.
+- Removing a Definitions row is `add_definition.py` in reverse and has no script: drop
+  the `<row>` from sheet3, then shrink **both** `DefinitionsTable`'s `ref` and the sheet
+  `dimension`, or the workbook opens with the table claiming a row that is not there.
+  A row appended at the bottom is the easy case, since nothing below it needs
+  renumbering. Patch the Power Outage text **before** deleting, not after: its note
+  named the invented type, so a "nothing mentions it any more" assertion fires on the
+  surviving row and refuses the write -- which is the assertion doing its job.
+  `export_definitions.py` after, then `validate.py`.
 - `Short Term Fix Status` is `Fixed` / `RCA Shared` / `Clarification Provided`, plus
   `Pending` for tickets still open in Jira. Adding a new value means adding it to the
   Dashboard's Fix Status table too.
