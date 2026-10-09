@@ -134,11 +134,32 @@ need their hand-listed Dashboard row as well.
 
 ## The Jira scheduler
 
-A Routine (scheduled Claude session) runs daily with the Atlassian connector attached.
-It searches the EAO project, diffs the keys against the tracker, classifies each new
-ticket, appends it with `append_row.py` (and carries established causes back onto
-earlier rows with `update_row.py`), refreshes the caches, runs the full gate and
-pushes. **No API credentials exist anywhere in this repo or in Streamlit** -- the
+A Routine (scheduled Claude session) runs daily with the Atlassian connector attached,
+and it has **two** jobs. The first is the key diff: search the EAO project, diff the
+keys against the tracker, classify each new ticket, append it with `append_row.py`,
+refresh the caches, run the full gate and push.
+
+**The second is a silent re-check of every row still marked `Pending`.** A row staged
+from an open ticket is a placeholder, and nothing used to go back and finish it -- the
+diff is keyed on tickets the tracker has never seen, so a ticket already recorded is
+invisible to it forever after. The re-check pulls each `Pending` row's ticket and acts
+on what moved.
+
+**Silent means the dashboard gains nothing from it.** No marker, badge, highlight,
+banner or "last re-checked" note, and **no change to `app.py`** -- the dashboard's job
+is to show corrected data, not to advertise that a correction happened. (The
+`Under investigation` card and section on All customer emails predate this and stay:
+they are a view of the tracker's own column, which the owner confirmed, not an artifact
+of the re-check.)
+
+**What the re-check may apply on its own is bounded, and the boundary is judgement.**
+Mechanical where the ticket settles it in terms -- moving `Short Term Fix Status` off
+`Pending` once an outcome is stated, taking `Resolution Date` from the ticket's own
+`resolutiondate` (never a guessed one), putting a comment's RCA text into `RCA Details`
+close to its wording. It **holds and proposes** anything touching `Root Cause`,
+`Sub-type`, `Missed_Flag`, `Issue Type` or `Standard Automation Focus`: the owner has
+reversed classifications here more than once, and the record's own fields usually do not
+settle them. `update_row.py` carries established causes back either way. **No API credentials exist anywhere in this repo or in Streamlit** -- the
 connector belongs to the scheduled session, not to the app, which is why `app.py` still
 makes no network calls. Appended rows follow the house convention for pre-triage
 records: `Comments` opens with `Staged from Jira EAO-NN (<status>).` so a row a human
@@ -1460,10 +1481,15 @@ If a resave already happened, restore the four `cm="1"` attributes and
   which is why the General Mills row never showed this.
 - **`Utility Disruption` is the non-electrical utility event type** -- municipal water,
   gas or steam, including a do-not-use order that halts operations -- added for EAO-52
-  (General Mills, Carlisle, Iowa). `Power Outage`'s own Definitions row still reads "use
-  for grid and utility failures", which now overlaps it; the new row carves the boundary
-  from its side ("use Power Outage where the utility lost is electricity") but the two
-  rows disagree until `Power Outage` is narrowed to electricity. An `Event type` needs no
+  (General Mills, Carlisle, Iowa). **Both sides of that boundary are written down.**
+  `Power Outage` read "use for grid and utility failures", which is exactly what a water
+  outage is, so a reader picking a type for the next one would have read that row and
+  chosen wrong; it now reads "use for electrical supply failures only - a water, gas or
+  steam outage is Utility Disruption". Narrowed in place as an inline string on sheet3,
+  the same edit shape as the `Legal Action` rename, which leaves the row, its styles,
+  `DefinitionsTable`'s ref and the sheet `dimension` untouched. **A new value that
+  overlaps an old one is two edits, not one** -- carving the boundary only from the new
+  row's side leaves the dictionary contradicting itself. An `Event type` needs no
   Dashboard edit -- that block is a dynamic array -- but it does need its Definitions row
   before the value may appear on a record, and `export_definitions.py` **after** the row
   exists: run before, and the term is pruned as unused and `definitions_export` fails.
