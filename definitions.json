@@ -267,7 +267,7 @@
         [
           "Power Outage",
           "Loss or failure of electrical power supply affecting a facility, region, or grid.",
-          "Standard event category. Use for grid and utility failures; use Extreme Weather where the outage is incidental to a storm already being reported."
+          "Standard event category. Use for electrical supply failures only - a water, gas or steam outage is Utility Disruption; use Extreme Weather where the outage is incidental to a storm already being reported."
         ],
         [
           "Tornado",
