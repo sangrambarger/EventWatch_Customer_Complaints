@@ -113,13 +113,33 @@ def run_checks(url: str) -> int:
             except Exception as exc:
                 problems.append(f"{name}: nav item not found ({type(exc).__name__})")
                 continue
+            # Poll until the page has drawn what it owes, rather than sleeping a fixed
+            # 1800ms and counting whatever happened to exist. That fixed wait was a
+            # measurement bug waiting to fire, and it fired: at 119 rows Root cause
+            # reported 11 tables of 12 on every run, reproducibly, and a 9-second wait
+            # showed all twelve present. A gate that fails because the data grew is a
+            # gate that gets ignored. Polling also keeps the fast pages fast -- it
+            # returns the moment the counts are met, so only a page that genuinely
+            # falls short pays the full deadline.
+            # The settle wait stays: Streamlit swaps the page body a beat after the
+            # click, and polling straight away reads the PREVIOUS page's DOM. Dropping
+            # it made every page pass against its predecessor's counts -- Monthly trend
+            # reporting the Executive Summary's 10 charts and 7 tables -- which is a
+            # gate that passes on stale content, strictly worse than the short wait it
+            # replaced. Settle first, then poll for the render to finish.
             page.wait_for_timeout(1800)
+            charts = tables = 0
+            deadline = time.time() + 12
+            while True:
+                charts = page.locator(".js-plotly-plot").count()
+                tables = page.locator("table.excel-table").count()
+                if (charts >= min_charts and tables >= min_tables) or time.time() > deadline:
+                    break
+                page.wait_for_timeout(300)
 
             exceptions = page.locator('[data-testid="stException"]').count()
             body = page.inner_text("body")
             hits = sorted({t for t in ERROR_TEXT if t in body})
-            charts = page.locator(".js-plotly-plot").count()
-            tables = page.locator("table.excel-table").count()
 
             issues = []
             if exceptions:

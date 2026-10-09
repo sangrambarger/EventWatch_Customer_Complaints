@@ -1314,8 +1314,20 @@ staged entries" button is the path to making it permanent. Durable in-app writes
 need a GitHub token or a database, and neither exists here.
 
 `smoke_app.py` covers what `validate.py` cannot: the app itself. It starts Streamlit
-against the local CSV, clicks every page (12 of them), and fails on Streamlit exceptions, in-app
-error text, or a page rendering fewer charts/tables than it should. Run against the
+against the local CSV, clicks every page, and fails on Streamlit exceptions, in-app
+error text, or a page rendering fewer charts/tables than it should.
+
+**It settles, then polls -- and both halves are load-bearing.** It used to sleep a fixed
+1800ms after each click and count whatever existed. At 119 rows that window stopped being
+enough for the heaviest page: Root cause reported 11 tables of 12 on every run,
+reproducibly, while a 9-second wait showed all twelve present. A gate that fails because
+the data grew is a gate that gets ignored, so the count is now polled to a 12s deadline
+and returns the moment the page owes nothing -- the whole run still takes about 16s.
+**Removing the settle wait in favour of polling alone was worse and shipped for one run:**
+Streamlit swaps the page body a beat after the click, so an immediate poll reads the
+*previous* page's DOM and exits satisfied. Every page then passed against its
+predecessor's counts -- Monthly trend printed the Executive Summary's 10 charts and 7
+tables -- which is a green gate measuring the wrong page. Settle first, then poll. Run against the
 commit before the `chart()` argument fix it flags 8 pages with "required fields are
 missing" and zero charts — the bug that previously only a screenshot caught. Prefer
 it over screenshots; it costs a fraction of the tokens.
@@ -1424,13 +1436,19 @@ If a resave already happened, restore the four `cm="1"` attributes and
   so the two reconcile. Making Excel agree means rewriting `Dashboard!A64`, `B64` and the
   `B74` "Other customers" formula to be token-aware -- not done.
 - `Jira Key` links to the `EAO` project (EventWatch_AI_Ops); older strays live in
-  DATA/TS/BI/TENAR. **A record with no key is not necessarily pre-EAO**: the ADM /
-  General Mills miss of 16-Sep-2026 has none because the CSM raised it by email to the
-  team instead of opening a ticket, and the Eberhard AG / Infineon miss of 14-Aug-2026
-  the same -- raised at a weekly sync and answered by Product Management, with no ticket
-  ever opened. `jira_sync.py` will never see either, so the daily Routine cannot find
-  them; a row like that is added by hand with `append_row.py`, since it appends out of
-  date order.
+  DATA/TS/BI/TENAR. **A record with no key is not necessarily pre-EAO**: the Eberhard AG
+  / Infineon miss of 14-Aug-2026 has none because it was raised at a weekly sync and
+  answered by Product Management with no ticket ever opened. `jira_sync.py` will never
+  see it, so the daily Routine cannot find it; a row like that is added by hand with
+  `append_row.py`, since it appends out of date order.
+- **A key can arrive weeks after the row, and the answer is `update_row.py`, never a
+  second row.** The ADM / General Mills miss of 16-Sep-2026 was the other no-key example
+  here until **EAO-51** was opened for it on 08-Oct, three weeks after the CSM raised it
+  by email. One incident is one row: the key went onto the existing row and the sentence
+  claiming no ticket existed was corrected on it. The daily Routine diffs keys against
+  the tracker, so a ticket opened late for an incident already recorded **looks exactly
+  like a new one** -- before appending anything, check whether the tracker already holds
+  that incident under a blank key.
 - **Re-sort a back-dated append with `sort_tracker.py --all`, never with the month's own
   name.** `sort_tracker.py` sorts the chosen records **among the positions they already
   occupy**, which is what makes naming two months safe -- and is exactly what breaks
@@ -1440,6 +1458,15 @@ If a resave already happened, restore the four `cm="1"` attributes and
   caught it (`row 119: 2026-10-01 followed by 2026-08-31`) and `--all` fixed it in one
   run. Naming the month is right only when that month is the last one in the file,
   which is why the General Mills row never showed this.
+- **`Utility Disruption` is the non-electrical utility event type** -- municipal water,
+  gas or steam, including a do-not-use order that halts operations -- added for EAO-52
+  (General Mills, Carlisle, Iowa). `Power Outage`'s own Definitions row still reads "use
+  for grid and utility failures", which now overlaps it; the new row carves the boundary
+  from its side ("use Power Outage where the utility lost is electricity") but the two
+  rows disagree until `Power Outage` is narrowed to electricity. An `Event type` needs no
+  Dashboard edit -- that block is a dynamic array -- but it does need its Definitions row
+  before the value may appear on a record, and `export_definitions.py` **after** the row
+  exists: run before, and the term is pruned as unused and `definitions_export` fails.
 - `Short Term Fix Status` is `Fixed` / `RCA Shared` / `Clarification Provided`, plus
   `Pending` for tickets still open in Jira. Adding a new value means adding it to the
   Dashboard's Fix Status table too.
