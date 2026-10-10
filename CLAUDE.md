@@ -1159,8 +1159,10 @@ two of the columns are formatted strings and `"62 (100%)"` cannot be summed afte
 fact, only before.
 
 **`Pending` means the investigation is open, not that the paperwork is.** Four records
-sat on the under-investigation list with finished RCAs in their own `RCA Details`; only
-EAO-48 has no RCA, and it is the one genuinely still open. When an investigation closes,
+sat on the under-investigation list with finished RCAs in their own `RCA Details`. That
+example has since turned over -- EAO-48's RCA went to the customer on 05-Oct-2026 and the
+ticket closed on the 7th, so it is `RCA Shared` now and the daily re-check is what moved
+it. When an investigation closes,
 move `Short Term Fix Status` off `Pending` -- `RCA Shared` where an RCA went out, `Fixed`
 where a corrective action was taken -- and leave `Resolution Date` blank unless a real
 date exists, since a guessed one is worse than none.
