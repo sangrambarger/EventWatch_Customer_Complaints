@@ -1636,16 +1636,21 @@ If a resave already happened, restore the four `cm="1"` attributes and
   `Pending` for tickets still open in Jira. Adding a new value means adding it to the
   Dashboard's Fix Status table too.
 
-  **`Pending` requires a Jira key, and the invariant is worth keeping.** The daily
-  re-check finds its work by scanning `Pending` rows and pulling each one's ticket, so a
-  `Pending` row with a blank key is a row nothing can ever clear: it sits on the
-  `Under investigation` list until a human happens to notice it. The NVR row of
-  09-Oct-2026 was briefly that row -- raised by email, no ticket, `Pending` because an
-  internal source check was still outstanding. The owner moved it to
-  `Clarification Provided`, which is what actually went back to the customer, and the
-  outstanding check is named in `Comments` where a human reads it. All five `Pending`
-  rows carry a key today. **An email-only record closes on what went back; its loose ends
-  live in `Comments`, not in the status field.**
+  **`Pending` is about whether an answer has gone back, not about whether a ticket
+  exists.** This was written here one commit earlier as "`Pending` requires a Jira key",
+  generalised from a single row, and **the next record disproved it**: Suntory Spirits of
+  09-Oct-2026 is email-only, has no ticket, is genuinely under investigation and is
+  `Pending` on the owner's instruction. The corrected rule:
+
+  * **Do not leave a row `Pending` once the customer-facing answer has gone back.** The
+    NVR row of 09-Oct-2026 was `Pending` while a clarification had already been sent on
+    its first ask and only an internal source check remained. It is
+    `Clarification Provided`, and the loose end is named in `Comments`, where a human
+    reads it.
+  * **A `Pending` row with no key still needs a human to carry it.** The daily re-check
+    finds its work by scanning `Pending` rows and pulling each one's ticket, so a blank
+    key means nothing automatic will ever move it. Say so in the row's own `Comments`
+    rather than relying on somebody noticing.
 - The app has **no live Jira or Outlook lookup**. Both pages were removed: the tracker's
   earlier months predate the EAO project, so a per-row lookup was empty for most records
   and the credential-gated "not configured" placeholder was all most viewers ever saw.
