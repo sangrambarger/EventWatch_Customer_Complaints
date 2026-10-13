@@ -166,7 +166,19 @@ one: a row appended to sheet3, `DefinitionsTable`'s `ref` extended and the sheet
 row outside it. It reads the style ids off the sheet's own last row rather than
 hardcoding them, so a row it adds cannot be the one in the wrong font that `styling`
 blocks, and it refuses a term the sheet already carries. Run `export_definitions.py`
-after it. An `Event type` needs nothing on the Dashboard -- the Event Type block is a
+after it.
+
+**Pass `source`, not just `allowed`.** The entry is
+`{"section", "term", "definition", "allowed", "source"}` and the docstring says the last
+two may be omitted -- true only for an operational term. For a *value* taxonomy, `source`
+is the tracker column the value belongs to (`"Event type"`, `"Root Cause"`, ...), and
+`enum_definitions` keys on exactly that: it groups documented terms by their Source
+column, so a row written without one defines a term the rule can never match. Adding
+`Price Fluctuation` without `source` wrote a complete-looking row -- section, term,
+definition, notes, `DefinitionsTable` ref and sheet `dimension` all correct -- and
+`validate.py` still failed with "used in the tracker but have no row in the Definitions
+sheet". There is no script to edit a Definitions row, so the fix was a direct zip-member
+patch of the one empty `<c r="E153">`, then `export_definitions.py` again. An `Event type` needs nothing on the Dashboard -- the Event Type block is a
 dynamic array -- but `Root Cause`, `Fix Status`, `Severity` and `Automation Focus` still
 need their hand-listed Dashboard row as well.
 
@@ -1541,6 +1553,16 @@ If a resave already happened, restore the four `cm="1"` attributes and
   so a new one felt tidier than a slightly loose one. **A slightly loose fit inside a
   vocabulary everyone shares beats an exact fit nobody else uses.** When no `Event type`
   seems right, ask -- do not add one.
+
+  **`Price Fluctuation` is the case where asking got a yes**, and it is the shape the
+  rule is actually for. A META inquiry of 09-Oct-2026 (Rick Freeman, Expert Services)
+  carried an NVIDIA Shield TV Pro price increase that the *portal itself* had classified
+  `Price Fluctuation` -- so the evidence was not "no existing value fits", it was the
+  bulletin's own category. It was put to the owner, confirmed as a real portal selection,
+  and added as the twenty-fifth value. The distinction from `Utility Disruption` is the
+  whole rule: there the portal offered no such option, here it does. **The test is
+  whether the portal has it, never whether the tracker has it** -- the tracker only ever
+  shows the values that have happened to come up.
 - Removing a Definitions row is `add_definition.py` in reverse and has no script: drop
   the `<row>` from sheet3, then shrink **both** `DefinitionsTable`'s `ref` and the sheet
   `dimension`, or the workbook opens with the table claiming a row that is not there.
