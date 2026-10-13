@@ -910,7 +910,29 @@ meanings are different failures rather than variants.** The owner settled this:
 | --- | --- | --- |
 | Product (6) | the supplier is not in the customer's mapped supply chain at all -- they never shared the company with Resilinc, so there was nothing for the event to match against | Supplier was not mapped by the customer |
 | People (2) | the supplier **was** mapped, and an analyst left it off the WarRoom or its geofence when the WarRoom was built | Supplier mapped, but left off the WarRoom |
-| Process (2) | neither: the customer asked why the mapping behaved as it did, and a clarification went back | Supplier mapping queried by the customer |
+| Process (3) | neither: the customer asked why the mapping behaved as it did, and a clarification went back | Supplier mapping queried by the customer |
+
+**A customer-side data gap is not automatically `Product`, and the NVR row is why.**
+NVR, 09-Oct-2026: their MasterBrand Kinston site was never shared with Resilinc, so the
+Kinston layoff bulletin published with no WarRoom for them. The Product wording -- "the
+supplier is not in the customer's mapped supply chain at all" -- describes that exactly,
+and it was filed `Product` / `Mapping` as a Complaint. **The owner reversed both.** It is
+`Process` / `Mapping` and an **Inquiry**: nothing in the platform and nothing an analyst
+did failed, the customer is only asking why no WarRoom appeared, and the remedy the owner
+named is **our process for gathering site data from the customer**, not a platform change.
+
+So the discriminator between the Product and Process rows of this table is **not** whose
+data was missing -- it can be the customer's in both. It is whether the customer asserted
+a failure or asked a question, and whether the fix lands on the platform or on how we
+collect their data. Where it is a question and the fix is a process, `Routed To` follows
+`Root Cause` to EventWatch Ops and `Severity` goes `Low`, matching the two
+`Process` / `Mapping` inquiries already on file.
+
+**And a source-coverage question asked alongside is not an allegation of a miss.** NVR
+also asked whether four named outlets are in the monitoring network. EventWatch had
+already published a bulletin on the event, so monitoring plainly carried it -- the ask is
+coverage *validation*, and reading it as evidence of a gap would have manufactured a
+second failure out of a customer's reasonable question.
 
 `PLAIN_SUBTYPE` is keyed on the sub-type alone and printed the Product wording over all
 three, which **blamed the customer for a supplier they had mapped** on Caterpillar EAO-6
