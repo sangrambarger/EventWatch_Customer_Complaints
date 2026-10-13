@@ -101,6 +101,18 @@ writes both files or neither. It deliberately does not refresh caches: run
 from an open ticket before anyone knows why the event was missed, and the answer lands
 days later in a comment: EAO-41 and EAO-42 were both staged as `Source Coverage` misses
 and both turned out to be keyword gaps in the same bankruptcy algorithm, a week apart.
+
+**The staging default is `Keyword Update`, not `Source Coverage`, on a bankruptcy,
+insolvency or utility miss** -- changed on the owner's call after the old default went
+0 for 3. EAO-41, EAO-42 and EAO-52 were every case where a staged `Source Coverage`
+guess was later tested against an investigation, and all three came back a keyword gap
+in the algorithm. EAO-51 is the fourth, and it had already been staged, corrected to
+`People` / `Review` on one engineer's comment, and corrected again to `Keyword Update`
+inside two days. **`Source Coverage` means the story never arrived at all**, so reach
+for it only where the ticket says the feed was not received -- the Bombardier / STELIA
+thread ("the feed associated with that URL has not been received by our application")
+is what that evidence looks like. Either way the Comments say the `Sub-type` is a
+staging guess, because it is one.
 That is four fields on a row that already exists in two files, with the same failure
 modes as appending by hand. It takes `{"match": {...}, "set": {...}}`, refuses a match
 that selects anything other than exactly one row, re-serialises every CSV line and
