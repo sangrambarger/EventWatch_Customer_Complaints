@@ -106,13 +106,39 @@ and both turned out to be keyword gaps in the same bankruptcy algorithm, a week 
 insolvency or utility miss** -- changed on the owner's call after the old default went
 0 for 3. EAO-41, EAO-42 and EAO-52 were every case where a staged `Source Coverage`
 guess was later tested against an investigation, and all three came back a keyword gap
-in the algorithm. EAO-51 is the fourth, and it had already been staged, corrected to
-`People` / `Review` on one engineer's comment, and corrected again to `Keyword Update`
-inside two days. **`Source Coverage` means the story never arrived at all**, so reach
+in the algorithm. **`Source Coverage` means the story never arrived at all**, so reach
 for it only where the ticket says the feed was not received -- the Bombardier / STELIA
 thread ("the feed associated with that URL has not been received by our application")
 is what that evidence looks like. Either way the Comments say the `Sub-type` is a
 staging guess, because it is one.
+
+**EAO-51 is the case that shows how far a staged guess can travel, and that the owner
+ends it.** It was staged `Product` / `Source Coverage`, corrected to `People` / `Review`
+on one engineer's comment, corrected again to `Product` / `Keyword Update` on the owner's
+reading of the overall miss, and settled by the owner as a **People issue**: `People` /
+`Review`, routed to EventWatch Ops, focus `WarRoom & Decision Validation`. Four rounds on
+one row. None of the intermediate guesses was evidence; the investigation never concluded
+and still has not -- EAO-51 is `Sent to PM` with no resolution, and three of the four
+articles are unaccounted for.
+
+What settled it is the analyst-overlooked test, not the count of failures. Engineering
+traced the one article that *was* captured (undercodenews) to a cluster later marked
+`Not Impactful`, and the owner confirms a person made that call. The story was ingested,
+it reached the portal, and a human closed it -- all three conditions, so `People` /
+`Review`. The keyword gap on the other three is real and still open with PM, but it is
+not what the row is filed under: **a record carries the failure that stopped delivery,
+not every failure in the incident.**
+
+**An incident with two causes still gets one row.** The tracker holds one `Root Cause`,
+and the Murata pair (CSV rows 27 and 28) looks like a precedent for splitting and is not:
+those are two customer emails a day apart, and **a row is a customer email**. EAO-51 is
+one email, so a second row would invent one -- taking the tracker to 121 emails and the
+headline miss count to 83 for an event that was missed once -- and it would need a
+different title to get past `validate.py`'s `duplicates` rule, which is gaming the gate
+rather than passing it. Showing two owners on one record would need a second owner
+column, a rewritten Data sheet, a wider `ComplaintTracker` ref and three scripts changed;
+it has not been asked for.
+
 That is four fields on a row that already exists in two files, with the same failure
 modes as appending by hand. It takes `{"match": {...}, "set": {...}}`, refuses a match
 that selects anything other than exactly one row, re-serialises every CSV line and
