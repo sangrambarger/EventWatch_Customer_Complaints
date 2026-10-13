@@ -1635,6 +1635,17 @@ If a resave already happened, restore the four `cm="1"` attributes and
 - `Short Term Fix Status` is `Fixed` / `RCA Shared` / `Clarification Provided`, plus
   `Pending` for tickets still open in Jira. Adding a new value means adding it to the
   Dashboard's Fix Status table too.
+
+  **`Pending` requires a Jira key, and the invariant is worth keeping.** The daily
+  re-check finds its work by scanning `Pending` rows and pulling each one's ticket, so a
+  `Pending` row with a blank key is a row nothing can ever clear: it sits on the
+  `Under investigation` list until a human happens to notice it. The NVR row of
+  09-Oct-2026 was briefly that row -- raised by email, no ticket, `Pending` because an
+  internal source check was still outstanding. The owner moved it to
+  `Clarification Provided`, which is what actually went back to the customer, and the
+  outstanding check is named in `Comments` where a human reads it. All five `Pending`
+  rows carry a key today. **An email-only record closes on what went back; its loose ends
+  live in `Comments`, not in the status field.**
 - The app has **no live Jira or Outlook lookup**. Both pages were removed: the tracker's
   earlier months predate the EAO project, so a per-row lookup was empty for most records
   and the credential-gated "not configured" placeholder was all most viewers ever saw.
