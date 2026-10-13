@@ -1201,6 +1201,28 @@ complaint and a miss, and `Event missed` rather than `Classified wrongly`: the c
 never received it, which is what that category means. People / `Review` carries the
 cause -- the event was seen and judged, not missed by coverage.
 
+**"An admitted fault" means a defect against our own stated guidance -- not agreeing
+that a better treatment exists.** The two rules above and below looked contradictory
+(one says an admitted fault makes it a complaint, the other says the customer's framing
+decides), and the owner's answer dissolves it: **where the guidance was silent, agreeing
+to a better treatment is a process enhancement, not a fault.**
+
+META / NVIDIA Shield TV Pro (09-Oct-2026) is the case. Rick Freeman asked why a WarRoom
+was raised when META does not buy Shield TV, EventWatch agreed a bulletin fits that
+scenario, and the first draft of the row wrote that up as an admitted fault -- which
+would have made it a complaint. It is not. **The WarRoom met the threshold the guidance
+actually set**: NVIDIA is a mapped partner, and the Price Fluctuation guidance calls for
+a WarRoom when a mapped supplier is directly involved. What the scenario exposed is that
+the threshold tested supplier mapping and never tested whether the affected product is
+one the customer buys. Nobody broke a rule; the rule had a gap. So the row stays an
+**Inquiry**, `Improvement` rather than `Bug`, `Process` / `Process Clarification`,
+`Missed_Flag` No -- and the remedy is the new threshold, carried in
+`Automation Opportunity`.
+
+**The test, before writing "we agreed we were wrong" into an `RCA Details`: which rule
+was broken?** If you cannot name one, it is an enhancement, and saying otherwise
+manufactures a fault out of a team improving its own guidance.
+
 `inquiry_table()` gives inquiries their own table, because a column that counts
 complaints and inquiries side by side hides what was actually asked and what went back.
 Every table that footers a calculation carries a **Total row** (`styled_table(...,
