@@ -1345,6 +1345,23 @@ so the app says "inquiries" -- not "questions", which invents a second word for 
 **`add_section()` writes raw HTML, so backticks in its text render as literal backticks.**
 Write the prose without them.
 
+**And write tracker prose without question marks.** `validate.py`'s `mojibake` rule
+**fails** on `[A-Za-z0-9]\?[ ,"]` -- a `?` at the end of a word, which is what a decayed
+accent leaves behind (`caf?` plus a space). A real question mark ending a sentence is the
+same shape, so the NVR row's two quoted customer asks failed the gate
+(`'reated for the Kinston facility? NVR receiv'`). The rule's own docstring claims "a
+genuine question mark attaches to the word before it, so neither shape is ordinary
+punctuation", and **that claim is false** -- it held only because no prose in the tracker
+had carried a question until then.
+
+**The prose was rewritten, not the rule.** `caf? ` and `facility? ` cannot be told apart
+by regex, so narrowing the pattern would weaken a failure-level corruption detector to
+admit one row, which is the same move as skipping a test to get green. Phrase a customer's
+question as a statement -- "ASK 1, why no WarRoom was created for the Kinston facility" --
+and nothing is lost. If quoted questions ever need to survive verbatim, that is a
+deliberate change to the rule with a `selftest.py` case proving the real shapes still
+fire, not a quiet loosening.
+
 The All customer emails table serves two readers without a second page. Someone reading
 the tracker wants a grid they can scan; someone exporting a slice wants every field.
 A `Show all fields` checkbox switches between the eighteen reading columns
