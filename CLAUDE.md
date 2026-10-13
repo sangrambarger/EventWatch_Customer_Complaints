@@ -113,6 +113,24 @@ for it only where the ticket says the feed was not received -- the Bombardier / 
 thread ("the feed associated with that URL has not been received by our application")
 is what that evidence looks like. Either way the Comments say the `Sub-type` is a
 staging guess, because it is one.
+
+**An incident with two causes still gets one row, and the row carries the owner whose
+half is still open.** EAO-51 is the case: the owner classified it `Product` plus human,
+and the tracker holds one `Root Cause` per row. Three of the four articles were never
+captured -- a keyword gap, Product, and the half still open with PM -- while the fourth
+*was* captured, clustered, and marked `Not Impactful` by a person, which is `People` /
+`Review` by the owner's own definition. The row stays `Product` / `Keyword Update`
+because that is the half the ticket is open on and the half that sets `Routed To`, and
+the human half is written into `RCA Details`.
+
+**Do not split it into two rows.** The Murata pair (CSV rows 27 and 28) looks like the
+precedent and is not: those are two customer emails a day apart, and **a row is a
+customer email**. EAO-51 is one email, so a second row would invent one -- inflating the
+tracker to 121 emails and the headline miss count to 83 for an event that was missed
+once -- and it would have to be given a different title to get past `validate.py`'s
+`duplicates` rule, which is gaming the gate rather than passing it. Showing two owners
+on one record would need a second owner column, a rewritten Data sheet, a wider
+`ComplaintTracker` ref and three scripts changed; it has not been asked for.
 That is four fields on a row that already exists in two files, with the same failure
 modes as appending by hand. It takes `{"match": {...}, "set": {...}}`, refuses a match
 that selects anything other than exactly one row, re-serialises every CSV line and
