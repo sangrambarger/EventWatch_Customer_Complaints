@@ -830,9 +830,13 @@ fails.** `Analyst Review Miss` joined the analyst and model rules in both, in on
 The audit recomputes the buckets from the CSV independently, so a sub-type added to one
 list and not the other does not drift quietly -- it fails, which is the point.
 
-**One pair is still unmapped on purpose.** `("Process", "Mapping")` -- the Ford Sandy Fire
-mapping clarification -- predates this taxonomy and renders as `Needs Review`. It carries
-an `OWNED_SUBTYPE` label already, so mapping it is one line; it has not been asked for.
+**Every pair in the tracker is mapped, and that was the last fix.**
+`("Process", "Mapping")` -- the Ford Sandy Fire mapping clarification -- predates this
+taxonomy and rendered as `Needs Review` for want of a label rather than for want of a
+decision, which is the one thing `Needs Review` must never mean. It took a display
+mapping (`Mapping Clarification`) and no change to the row. **Check this after any
+migration**: a correctly classified row sitting in `Needs Review` turns a data-quality
+signal into noise, and a reader who learns to ignore it will ignore the real one.
 
 **`DRIVERS` is keyed on `(Root Cause, Sub-type)` -- never on the display wording.**
 It gives each pair EventWatch's own name for the failure and the same thing in plain

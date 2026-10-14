@@ -2094,6 +2094,12 @@ DRIVERS = {
     ("Process", "Strategy"): ("Severity / Consolidation Handling", "How events are grouped, or the severity set on them"),
     ("Process", "Policy/Logic"): ("Severity / Consolidation Handling", "How events are grouped, or the severity set on them"),
     ("Process", "Review"): ("Peer Review Missing", "No second pair of eyes before it went out"),
+    # Display mapping only. This pair predates the V1 taxonomy and the row behind it --
+    # the Ford Sandy Fire mapping clarification -- is correctly classified; it rendered
+    # as `Needs Review` for want of a label, not for want of a decision, which is the
+    # one thing `Needs Review` must never mean.
+    ("Process", "Mapping"): ("Mapping Clarification",
+     "Customer asked how supplier-impact mapping or geofencing logic was applied"),
     # -- The V1 cause taxonomy -----------------------------------------------------
     # Every pair migrated in Commit 2, so no migrated row renders as `Needs Review`.
     # Terms are reused where the failure is the same one under a new sub-type --
