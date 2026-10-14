@@ -1901,6 +1901,7 @@ PLAIN_SUBTYPE = {
     "Prioritization": "Captured, but notified late",
     "Captured Late": "Captured, but notified late",
     "Mapping": "Supplier was not mapped by the customer",
+    "Alerting Gap": "Captured, but never reached the analyst portal",
     "Visibility": "Published, but not visible to the customer",
     "Policy/Logic": "Our scoring or rules got it wrong",
     "Process Clarification": "We had to clarify the reporting guidelines",
@@ -2045,7 +2046,14 @@ DRIVERS = {
     ("Product", "Policy/Logic"): ("System Limitation", "A platform rule or scoring threshold held it back"),
     ("Product", "Industry selection"): ("Industry Tagging", "Incorrect industry selection, or the industry was missed"),
     ("Product", "Tagging"): ("Industry Tagging", "Incorrect industry selection, or the industry was missed"),
-    ("Product", "Captured Late"): ("Alerting Gap", "Captured, but no alert went out in time"),
+    ("Product", "Alerting Gap"): ("Alerting Gap",
+     "Captured by us, but it never reached the analyst portal in time"),
+    # `Captured Late` is a DIFFERENT failure from `Alerting Gap` and must not share its
+    # label: Alerting Gap is "we had it, the analyst never saw it", Captured Late is "our
+    # first usable capture came late". They briefly both printed "Alerting Gap" here, which
+    # would have folded the Suntory row into the Alerting Gap count on Root cause.
+    ("Product", "Captured Late"): ("Product Captured Late",
+     "Our first usable capture of the story came late"),
     # -- People: analyst assessment and review ------------------------------------
     ("People", "Review"): ("People / Analyst Miss", "An analyst read it and decided not to report it"),
     ("People", "Event Identification"): ("Event Identification", "Seen by an analyst and classified as not impactful"),
