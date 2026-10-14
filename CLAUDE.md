@@ -68,6 +68,21 @@ After it, both were identical byte for byte. **Any further structural change her
 clear the same bar**: snapshot the pages first, refactor, diff. A green gate alone does
 not prove a layout or a wording survived.
 
+**The tracker read is cached; the sidebar lines around it are not.**
+`read_tracker(src, fingerprint)` carries `@st.cache_data` and is deliberately free of
+Streamlit calls -- a cached function replays the elements written inside it, so caching
+`load_data()` whole would have made the cache responsible for the four sidebar lines as
+well as the data. Streamlit reruns the whole script on every click, so before this every
+interaction re-read and re-parsed the file: ~10ms against a local checkout, and a full
+HTTP round trip on a deploy whose source is a URL, paid on every filter change, every
+page click and every keystroke in the search box. Measured after: 1.6ms.
+
+**`source_fingerprint()` is `(mtime, size)`, and it is why the cache is safe to keep.**
+The source path alone never changes, so without it a tracker edited on disk would go on
+serving whatever the process first read -- and `audit_pages.py` and `smoke_app.py` would
+check a stale frame. A URL has nothing cheap to fingerprint and caches for the life of
+the process, which is what a Cloud deploy wants: a redeploy restarts it.
+
 ## Run these before exploring by hand
 
 ```bash
@@ -1474,6 +1489,27 @@ explain their own numbers. `Routed To` is derived from `Root Cause` on every row
 was one filter twice under two names. `Standard Automation Focus` is how the Dynamic
 Source Discovery page selects itself, not a cut a reader makes. And the raw `Reason`
 dropdown offered forty wordings for seven real things, so nobody could use it.
+
+**A filter's options come from the WHOLE frame, never from the frame the filters above
+it have already narrowed.** Reading them off the running `out` made the lists cascade,
+and a cascading list throws away a selection the reader has already made: choose
+`Event type = Factory Fire`, then choose a Customer with no fire, and Factory Fire is no
+longer among the options, so Streamlit drops it from the widget without a word. The chip
+vanishes, the narrowing stops applying, and the click reads as "nothing happened" -- which
+is the whole of the "filters and tabs were not working with a click, I had to constantly
+refresh the tab" symptom. It was not subtle: choosing one account took the Event type list
+from **26 options to 1**, so 25 of 26 possible prior picks would have been discarded.
+
+The cost of a stable list is real and is accepted: a reader can now choose a combination
+that matches nothing. `filter_note()` already prints the surviving count at the top of
+every page, so an empty page reads as a filter choice rather than a broken dashboard --
+which is exactly the job that line was written for. **Do not re-cascade the options to
+avoid empty results.**
+
+The expander's `(N active)` label is counted off session state before the widgets render,
+and that is only accurate because the options are stable. While they cascaded, a selection
+could be dropped during the render while session state still held it, so the label read
+"1 active" over a filter that was no longer filtering anything.
 
 What replaced them: the two **derived** vocabularies the pages are written in --
 `What they wrote about` (the reason category) and `What went wrong` (the plain
