@@ -172,6 +172,10 @@ def sidebar_filters(df):
     # out of sight below them and reaching a tab meant scrolling past ten dropdowns
     # nobody was using. The date range stays out here because it is the one control
     # that gets touched on every visit.
+    # Counted off session state before the widgets render, which is accurate only
+    # because the options above are stable: when a list cascaded, a selection could be
+    # dropped during the render while session state still held it, so the label read
+    # "1 active" over a filter that was no longer filtering anything.
     active = sum(1 for k in FILTER_KEYS if st.session_state.get(k))
     label = f"Filters ({active} active)" if active else "Filters"
     with st.sidebar.expander(label, expanded=bool(active)):
@@ -180,14 +184,28 @@ def sidebar_filters(df):
                 continue
             if kind == "customer":
                 # Customer is the one column whose cells can name more than one account.
-                vals = customer_names(out[col])
+                vals = customer_names(df[col])
                 chosen = st.multiselect(name, vals, key=f"filter_{name}")
                 if chosen:
                     out = out[names_match(out[col], chosen)]
                 continue
-            vals, keys = filter_values(out, kind, col)
+            # Options come from `df`, the WHOLE frame, and never from `out`, which the
+            # filters above have already narrowed. Reading them off `out` made the list
+            # cascade, and a cascading list silently throws away a selection the reader
+            # has already made: pick Event type = Factory Fire, then change Customer to
+            # an account with no fire, and Factory Fire is no longer among the options,
+            # so Streamlit drops it from the widget without a word. The chip vanishes,
+            # the narrowing stops applying, and the click reads as "nothing happened".
+            # That is the whole of the "I had to keep refreshing" symptom.
+            #
+            # The cost of a stable list is that a reader can now choose a combination
+            # that matches nothing. `filter_note()` already prints the surviving count
+            # at the top of every page, so an empty page reads as a filter choice rather
+            # than a broken dashboard -- which is exactly why that line exists.
+            vals, _ = filter_values(df, kind, col)
             chosen = st.multiselect(name, vals, key=f"filter_{name}")
             if chosen:
+                _, keys = filter_values(out, kind, col)
                 out = out[keys.isin(chosen)]
         q = st.text_input("Search all fields")
         if q:

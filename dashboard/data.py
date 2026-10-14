@@ -69,7 +69,53 @@ def data_sources():
     return sources
 
 
+def source_fingerprint(src):
+    """(mtime, size) for a local file, empty for a URL -- the cache key's second half.
+
+    Without it a tracker edited on disk would go on serving the version the process
+    first read, because the source path alone never changes. With it, saving the CSV
+    invalidates the entry and the next rerun picks up the new rows. A URL has nothing
+    cheap to fingerprint, so it caches for the life of the process -- which is what a
+    Streamlit Cloud deploy wants anyway, since a redeploy restarts the process.
+    """
+    try:
+        stat = Path(src).stat()
+    except (OSError, ValueError):
+        return ()
+    return (stat.st_mtime_ns, stat.st_size)
+
+
+@st.cache_data(show_spinner=False)
+def read_tracker(src, fingerprint):
+    """Fetch one source and normalise it. Cached, and deliberately free of Streamlit calls.
+
+    `load_data()` writes four lines into the sidebar, and a cached function replays the
+    elements written inside it rather than re-running them -- which works, but makes the
+    cache responsible for the chrome as well as the data. Keeping the read pure means the
+    cache holds a frame and nothing else, and the sidebar is drawn fresh on every run.
+
+    `fingerprint` is never read in the body; it is in the signature so that a changed
+    file produces a different cache key.
+    """
+    df, label = read_csv_or_excel(src)
+    if not df.empty and str(df.columns[0]).startswith("Unnamed"):
+        df = df.drop(columns=df.columns[0])
+    for c in ["Month", "Email/JIRA Date", "Reporting Month", "Resolution Date"]:
+        if c in df.columns: df[c] = pd.to_datetime(df[c], errors="coerce")
+    source = next((c for c in ["Reporting Month", "Month", "Email/JIRA Date"] if c in df.columns), None)
+    if source and "Month Label" not in df.columns:
+        df["Month Label"] = df[source].dt.strftime("%b %Y")
+    return df, label
+
+
 def load_data():
+    """The tracker, plus the four sidebar lines that say where it came from.
+
+    Streamlit reruns this whole script on every click, so before the cache every
+    interaction re-read and re-parsed the file: ~10ms against a local checkout, and a
+    full HTTP round trip on a deploy whose source is a URL, paid on every filter change,
+    every page click and every keystroke in the search box.
+    """
     sources = data_sources()
     if not sources:
         st.error(f"No data source found. Put {CSV_NAME} (or the workbook) next to app.py, "
@@ -78,7 +124,7 @@ def load_data():
     errors = []
     for src, origin in sources:
         try:
-            df, label = read_csv_or_excel(src)
+            df, label = read_tracker(src, source_fingerprint(src))
             st.sidebar.success(f"{label} loaded from {origin}")
             # Say what was loaded, not just that something was. Without this there is no way
             # to tell a stale deploy from a chart that legitimately excludes a small customer.
@@ -94,11 +140,4 @@ def load_data():
                  "Uploading a workbook in the dashboard is intentionally disabled.")
         for err in errors: st.caption(err)
         return pd.DataFrame()
-    if not df.empty and str(df.columns[0]).startswith("Unnamed"):
-        df = df.drop(columns=df.columns[0])
-    for c in ["Month", "Email/JIRA Date", "Reporting Month", "Resolution Date"]:
-        if c in df.columns: df[c] = pd.to_datetime(df[c], errors="coerce")
-    source = next((c for c in ["Reporting Month", "Month", "Email/JIRA Date"] if c in df.columns), None)
-    if source and "Month Label" not in df.columns:
-        df["Month Label"] = df[source].dt.strftime("%b %Y")
     return df
