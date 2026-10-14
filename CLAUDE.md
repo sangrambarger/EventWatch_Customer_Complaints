@@ -752,6 +752,22 @@ as a run of text. It groups on the **label**, not the tracker value, so the two
 clubbed pairs are one row each and both their tracker values are listed on it.
 **Nothing is folded into an `Other`**, however few emails carry it.
 
+**`Alerting Gap` is a `Sub-type`, and it is not `Captured Late`.** The owner's definition:
+a relevant article or feed *was* captured by the Product-controlled harvesting flow, but an
+ingestion, database, portal, UI or workflow failure stopped it reaching analysts as a usable
+item in time. It explicitly excludes a source or vendor that never captured it, a keyword
+miss, wrong clustering, an analyst marking it Not Impactful, and a published item the
+customer could not see. Four rows carry it: Bain Fire and Thales (Collins Aerospace), EAO-12
+(Ford) and EAO-39 (Belden), all `Notification Visibility Monitoring`.
+
+**`("Product", "Captured Late")` must not share the `Alerting Gap` label**, and it briefly
+did -- the label was invented here before the owner defined the category, so the Suntory row
+would have been counted as an Alerting Gap on Root cause. `Captured Late` is "our first
+usable capture came late"; `Alerting Gap` is "we had it and the analyst never saw it". The
+elapsed hours do not decide it -- **the failure stage does**: Bain Fire and Sandy Fire are
+hours apart and sit under different owners, because Bain never reached the portal and Sandy
+reached an analyst who deprioritised it.
+
 **`DRIVERS` is keyed on `(Root Cause, Sub-type)` -- never on the display wording.**
 It gives each pair EventWatch's own name for the failure and the same thing in plain
 English: the term is what the chart prints, the plain English rides on the hover and
