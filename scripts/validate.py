@@ -757,7 +757,7 @@ def check_reason_categories(df: pd.DataFrame, rep: Report) -> None:
     is why no chart of it could rank anything. `REASON_CATEGORIES` folds them, and the
     app reads the category, not the raw value.
 
-    The map is imported from app.py rather than restated here on purpose: a second copy
+    The map is imported from dashboard/taxonomy.py rather than restated here: a second copy
     would drift, and the whole point is that one wording maps one way everywhere. A value
     missing from it would fall into `Uncategorised` and quietly under-count a category --
     the same silence that let forty values accumulate. The fix is one line in that dict.
@@ -766,9 +766,9 @@ def check_reason_categories(df: pd.DataFrame, rep: Report) -> None:
         return
     sys.path.insert(0, str(REPO))
     try:
-        from app import REASON_CATEGORIES
+        from dashboard.taxonomy import REASON_CATEGORIES
     except Exception as exc:                       # pragma: no cover - import guard
-        rep.fail("reason_categories", f"could not read REASON_CATEGORIES from app.py: {exc}")
+        rep.fail("reason_categories", f"could not read REASON_CATEGORIES from dashboard/taxonomy.py: {exc}")
         return
     used = {str(v).strip() for v in df["Reason"].dropna() if str(v).strip()}
     missing = sorted(used - set(REASON_CATEGORIES))

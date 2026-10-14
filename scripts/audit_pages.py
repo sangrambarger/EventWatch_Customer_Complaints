@@ -34,7 +34,7 @@ CHROMIUM = "/opt/pw-browsers/chromium"
 def reason_category_counts(df: pd.DataFrame) -> dict[str, int]:
     """{category: emails}, folded with app.py's own map so the two cannot disagree."""
     sys.path.insert(0, str(REPO))
-    from app import REASON_CATEGORIES
+    from dashboard.taxonomy import REASON_CATEGORIES
     counts: dict[str, int] = collections.Counter()
     for value in df["Reason"].astype(str).str.strip():
         counts[REASON_CATEGORIES.get(value, "Uncategorised")] += 1
@@ -50,7 +50,7 @@ def miss_buckets(df: pd.DataFrame) -> dict[str, int]:
     a second copy of a wording would drift, and it is the numbers this audit checks.
     """
     sys.path.insert(0, str(REPO))
-    from app import PLAIN_SUBTYPE, failure_label
+    from dashboard.taxonomy import PLAIN_SUBTYPE, failure_label
     missed = df[df["Missed_Flag"].astype(str).str.strip() == "Yes"]
     sub = missed["Sub-type"].astype(str).str.strip()
     root = missed["Root Cause"].astype(str).str.strip()
@@ -109,7 +109,7 @@ def expectations(df: pd.DataFrame) -> dict[str, dict[str, int]]:
     # keyed on the (Root Cause, Sub-type) pair the record actually carries. Counted here
     # from the CSV; only the label map is imported, as with the buckets above.
     sys.path.insert(0, str(REPO))
-    from app import DRIVERS, NEEDS_REVIEW
+    from dashboard.taxonomy import DRIVERS, NEEDS_REVIEW
     drivers: collections.Counter = collections.Counter()
     for _, row in missed.iterrows():
         pair = (str(row["Root Cause"]).strip(), str(row["Sub-type"]).strip())
