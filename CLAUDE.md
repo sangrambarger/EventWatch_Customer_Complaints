@@ -768,6 +768,76 @@ elapsed hours do not decide it -- **the failure stage does**: Bain Fire and Sand
 hours apart and sit under different owners, because Bain never reached the portal and Sandy
 reached an analyst who deprioritised it.
 
+## The V1 cause taxonomy
+
+Ten `Sub-type` values were added on the owner's call and seventeen rows migrated onto
+them, in three commits on one branch: Definitions, then rows, then the app's maps. **That
+order is not a style preference.** `validate.py`'s `enum_definitions` refuses a value in
+use with no row on the Definitions sheet, so rows before definitions cannot be pushed;
+and a row whose `(Root Cause, Sub-type)` pair is not in `DRIVERS` renders as
+`Needs Review` on Root cause, so the middle state is visibly wrong by design and the
+branch is not merged until the third commit closes it.
+
+| Sub-type | What it means | Owner it sits under today |
+| --- | --- | --- |
+| `Published Late` | available to analysts in time, published or escalated materially late | People |
+| `Methodology Weakness` | the workflow ran as designed and the guidance itself was deficient | Process |
+| `Deliberate Rule` | the published rule applied, and the customer queried the rule | Process |
+| `Platform Bug` | a confirmed defect that is none of the four specific Product ones | Product |
+| `Mapping / Routing Defect` | wrong data, coordinates, tenant or entity linkage selected the wrong target | Product |
+| `Supplier / Site Not Shared` | the site was never in the customer-provided data | Process |
+| `Analyst Review Miss` | a person had it and closed, deprioritised or under-researched it | People |
+| `Supplier Selection Miss` | the supplier was on file and left off the initial selection | People |
+| `Clustering / Duplication Defect` | stories grouped, split or duplicated wrongly | Product |
+| `Model Classification Defect` | an automated model assigned the wrong event, relevance or impact | Product |
+
+**A documented root cause is not a delivered RCA, and the two fields say different
+things.** EAO-49's cause is established -- the analyst did not research beyond Bangkok --
+and the ticket is still Open with no RCA attached, so it is `Clarification Provided`, not
+`RCA Shared`. The row left `Pending` only because the sub-type it needed did not exist;
+the status followed the evidence, not the migration.
+
+**`Methodology Weakness` is `Process`, not `Product`.** A deficient methodology is a
+Process failure by definition however the model behaved under it, so EAO-13 moved owner
+and routing with its sub-type. The same row carries the file's one worked example of
+**superseding** an explanation rather than deleting it: its RCA had named the company's
+absence from the supplier database as a ground for the Not Impactful call, that wording
+had already gone to the customer, and supplier mapping was not in fact a dominant input
+to the classification. Both `RCA Details` and `Comments` were rewritten together and both
+end with an explicit supersession sentence. **Correcting one and leaving the other is the
+failure mode here** -- the row then contradicts itself, and the stale half is the one a
+reader meets first on the record card.
+
+**New values do not retire old ones.** `Policy/Logic`, `Mapping` and `Prioritization` each
+still carry a row that was deliberately not migrated for want of evidence, and
+`Captured Late` now carries none yet stays defined: `DRIVERS` holds
+`("People", "Captured Late")` against a future row, and the `Alerting Gap` definition
+names `Captured Late` as the category it is not. A value with no rows costs nothing; a
+value removed from under a definition that cites it costs a gate failure.
+
+**The Executive Summary's "Seen, but overlooked" card selects on the OWNER, not on a
+bucket index.** It read `bucket(MISS_BUCKETS[2][0])`, which counted only the sub-types
+that one rule happens to name, so a People miss whose sub-type moved out of that rule --
+`Prioritization` becoming `Published Late`, `Review` becoming `Analyst Review Miss` --
+silently left the summary while still counting as a miss on every other page. The card's
+own words, "captured, but an analyst did not raise it", are true of every People-rooted
+miss by definition, so `int((flag.eq("Yes") & root.eq("People")).sum())` is both the
+honest reading and the one a sub-type added tomorrow cannot go stale against. **Do not
+put this back on a bucket index.**
+
+**`MISS_BUCKETS` and `audit_pages.miss_buckets()` name the same sub-types or the audit
+fails.** `Analyst Review Miss` joined the analyst and model rules in both, in one commit.
+The audit recomputes the buckets from the CSV independently, so a sub-type added to one
+list and not the other does not drift quietly -- it fails, which is the point.
+
+**Every pair in the tracker is mapped, and that was the last fix.**
+`("Process", "Mapping")` -- the Ford Sandy Fire mapping clarification -- predates this
+taxonomy and rendered as `Needs Review` for want of a label rather than for want of a
+decision, which is the one thing `Needs Review` must never mean. It took a display
+mapping (`Mapping Clarification`) and no change to the row. **Check this after any
+migration**: a correctly classified row sitting in `Needs Review` turns a data-quality
+signal into noise, and a reader who learns to ignore it will ignore the real one.
+
 **`DRIVERS` is keyed on `(Root Cause, Sub-type)` -- never on the display wording.**
 It gives each pair EventWatch's own name for the failure and the same thing in plain
 English: the term is what the chart prints, the plain English rides on the hover and

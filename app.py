@@ -954,9 +954,9 @@ MISS_BUCKETS = (
     # These two are the only labels on the page that may name an actor, because the
     # owner is part of the rule that selects the rows rather than a property of the
     # sub-type: People on one, Product on the other.
-    ("An analyst let it through", ("Review", "Event Identification", "Prioritization"), ("People",), "#f28b82",
+    ("An analyst let it through", ("Review", "Event Identification", "Prioritization", "Analyst Review Miss"), ("People",), "#f28b82",
      "An analyst saw this event and chose not to report it · EventWatch Ops"),
-    ("The model did not spot it", ("Review", "Event Identification", "Prioritization"), ("Product",), "#f6c177",
+    ("The model did not spot it", ("Review", "Event Identification", "Prioritization", "Analyst Review Miss"), ("Product",), "#f6c177",
      "The model had this event and did not flag it as reportable · Product"),
 )
 MISS_COLOURS = [c for _, _, _, c, _ in MISS_BUCKETS]
@@ -1911,6 +1911,21 @@ PLAIN_SUBTYPE = {
     "Relevancy": "Judged not relevant to this customer",
     "WarRoom Creation": "WarRoom Missed",
     "Strategy": "How we group events",
+    # The V1 cause taxonomy. No label names an actor on a sub-type the tracker puts
+    # under more than one owner; these ten each sit under exactly one today, and the
+    # two that do name one (the model, the look we took) are single-owner for that
+    # reason. `plain()` still falls back to the raw value, so an eleventh added
+    # tomorrow appears as itself rather than vanishing.
+    "Published Late": "Captured and reviewed, but published late",
+    "Methodology Weakness": "Our reporting criteria were not strong enough",
+    "Deliberate Rule": "Worked as our published rule intends",
+    "Platform Bug": "A confirmed platform defect",
+    "Mapping / Routing Defect": "Wrong data sent it to the wrong place",
+    "Supplier / Site Not Shared": "The site was never shared with us",
+    "Analyst Review Miss": "We saw it and closed it without a careful look",
+    "Supplier Selection Miss": "Supplier left off the WarRoom at creation",
+    "Clustering / Duplication Defect": "Stories grouped or duplicated wrongly",
+    "Model Classification Defect": "The model classified it wrongly",
 }
 
 # `Mapping` is the one sub-type whose meaning CHANGES WITH ITS OWNER, and the two
@@ -2079,6 +2094,28 @@ DRIVERS = {
     ("Process", "Strategy"): ("Severity / Consolidation Handling", "How events are grouped, or the severity set on them"),
     ("Process", "Policy/Logic"): ("Severity / Consolidation Handling", "How events are grouped, or the severity set on them"),
     ("Process", "Review"): ("Peer Review Missing", "No second pair of eyes before it went out"),
+    # Display mapping only. This pair predates the V1 taxonomy and the row behind it --
+    # the Ford Sandy Fire mapping clarification -- is correctly classified; it rendered
+    # as `Needs Review` for want of a label, not for want of a decision, which is the
+    # one thing `Needs Review` must never mean.
+    ("Process", "Mapping"): ("Mapping Clarification",
+     "Customer asked how supplier-impact mapping or geofencing logic was applied"),
+    # -- The V1 cause taxonomy -----------------------------------------------------
+    # Every pair migrated in Commit 2, so no migrated row renders as `Needs Review`.
+    # Terms are reused where the failure is the same one under a new sub-type --
+    # `People / Analyst Miss`, `Supplier Selection` and `Model Miss` each already
+    # existed -- because `root_frame()` groups on the TERM, so a new term splits a bar
+    # that should stay whole.
+    ("People", "Published Late"): ("Published Late", "Captured and reviewed, but published too late"),
+    ("People", "Analyst Review Miss"): ("People / Analyst Miss", "A person had it and closed it without a careful look"),
+    ("People", "Supplier Selection Miss"): ("Supplier Selection", "An impacted supplier was left off the WarRoom"),
+    ("Process", "Methodology Weakness"): ("Methodology Weakness", "Our reporting criteria were not strong enough"),
+    ("Process", "Deliberate Rule"): ("Worked as Designed", "Our published rule applied, and the customer queried it"),
+    ("Process", "Supplier / Site Not Shared"): ("Customer Data Gap", "The site was never shared with us, so nothing matched"),
+    ("Product", "Platform Bug"): ("Platform Bug", "A confirmed platform or data-processing defect"),
+    ("Product", "Mapping / Routing Defect"): ("Mapping / Routing Defect", "Wrong data routed it to the wrong customer or site"),
+    ("Product", "Clustering / Duplication Defect"): ("Clustering / Duplication Defect", "Stories grouped, split or duplicated wrongly"),
+    ("Product", "Model Classification Defect"): ("Model Miss", "The model classified the story wrongly"),
 }
 
 NEEDS_REVIEW = "Needs Review"
@@ -3070,7 +3107,15 @@ if selected_page == "Executive Summary":
     cats = miss_categories(page)
     bucket = lambda name: int(cats.loc[cats["Category"] == name, "Records"].iloc[0]) if name in set(cats["Category"]) else 0
     never = bucket(MISS_BUCKETS[0][0]) + bucket(MISS_BUCKETS[1][0])
-    overlooked = bucket(MISS_BUCKETS[2][0])
+    # Owner-based, NOT `bucket(MISS_BUCKETS[2][0])`. Reading one bucket meant the card
+    # counted only the sub-types that rule happens to name, so a People miss whose
+    # sub-type moved out of it -- `Prioritization` becoming `Published Late`, `Review`
+    # becoming `Analyst Review Miss` -- silently left the summary while still being a
+    # miss on every other page. "Captured, but an analyst did not raise it" is true of
+    # every People-rooted miss by definition, so selecting on the owner is both the
+    # honest reading of the card and the one a new sub-type cannot go stale against.
+    overlooked = int((flag.eq("Yes") & page.get("Root Cause", pd.Series(dtype=str))
+                      .astype(str).str.strip().eq("People")).sum())
     rate, band = trend_windows(page)
     accounts = miss_by_customer(page)
     biggest = accounts.sort_values("Emails", ascending=False).head(1)
