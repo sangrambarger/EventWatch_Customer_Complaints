@@ -966,6 +966,53 @@ what `Needs Review` is for, and these three are why it earns its place.
 vocabulary has no word for lateness, so a future row on that pair would land in
 `Needs Review` for want of a label rather than for want of a decision.
 
+## The October rulings: what counts as a miss
+
+Six cases were settled by the owner against one test, and the test is worth more than the
+six rows: **did a bulletin reach the customer.** If it did, the record is a
+publishing-quality complaint and `Missed_Flag` is **No**, however wrong the bulletin was.
+If it did not, it is a miss, and the sub-type names where delivery stopped.
+
+| Case | Now | `Missed_Flag` | Why |
+| --- | --- | --- | --- |
+| Spain railway strike (Caterpillar, 20-Feb) | `People` / `Event Identification` | **No** | bulletin already published; the analyst picked the wrong event type and review did not correct it |
+| LPG/LNG shortage (Caterpillar, 18-Mar) | `Product` / `Model Classification Defect` | Yes | the model classified the captured event Not Impactful; review did not correct it |
+| HPE SEC notification (25-Mar) | `Process` / `Process Clarification`, **Inquiry** | **No** | the news was not in the public domain, so there was nothing to report |
+| EAO-13 FXI foam fire (Ford) | `Product` / `Model Classification Defect` | Yes | captured, then classified Not Impactful by the model |
+| EAO-15 Samsung DRAM (META) | `Product` / `Mapping / Routing Defect` | Yes | bulletin existed; the customer WarRoom was never created because normalization was not applied |
+| Uber Freight (Red Cross, TS-22695) | `People` / `Industry selection` | **No** | published, but the analyst selected incomplete industries |
+
+**The discriminator that now does the most work is who made the Not Impactful call.**
+A model that misjudges a captured event is `Product` / `Model Classification Defect`; a
+person who does is `People` / `Review`. The tickets answer this where anyone asked.
+EAO-1 is explicit -- *"incorrectly classified as Not Impactful by the analyst"* -- and so
+stays `People` / `Review`. EAO-23 is the opposite: Ankit Gupta states *"the AI initially
+classified the news as not impactful"*, which makes it a model defect by this rule. **It
+was left as `People` / `Review` on the owner's instruction**, along with EAO-33 and
+EAO-25; they are known and not in scope. Do not "fix" them.
+
+**Process now carries zero confirmed misses.** All four moved: two to Product, one to
+People, one off the miss flag entirely. The Executive Summary and Root cause therefore
+draw **two** root-cause cards and one fewer driver chart, and `smoke_app.EXPECTED` was
+lowered to match -- which is only legitimate because the missing chart is a real absence
+in the data. **Check that before lowering a minimum again**; otherwise it is a gate being
+filed down to pass.
+
+`Methodology Weakness` and `WarRoom Creation` now carry no rows. They stay defined, for
+the same reason `Captured Late` does.
+
+**Two things could not be verified and were not guessed.** Jira attachments are not
+readable from here -- the content endpoint returns 403, no credential is available to the
+shell, and the MCP exposes no download tool -- so where an RCA lives only in an attached
+document, the ticket's comments are the whole of the evidence -- EAO-10, EAO-14 and
+EAO-34 are all in that position, and none of them was edited on the strength of a
+document nobody here can open. **And EAO-13 and
+EAO-25 give contradictory accounts of the same FXI Cuautitlan fire**: EAO-13's RCA says
+EventWatch captured the reports and the model misjudged them, while EAO-25's engineering
+comment says *"Not captured by vendor due to source miss"*. The owner's ruling follows
+EAO-13. The contradiction is recorded here because it is unresolved, not because it is
+settled.
+
 ## The definitions, settled against the original tracker
 
 **When a classification is in doubt, read the 80 rows the humans filed before any of

@@ -34,10 +34,16 @@ CHROMIUM = "/opt/pw-browsers/chromium"
 
 # page -> (minimum charts, minimum tables). A page that should draw a chart but
 # renders zero is the exact symptom of the bug this script exists to catch.
+# These counts move with the DATA, not only with the code: the Executive Summary and
+# Root cause each draw one card and one driver chart per root cause that carries at
+# least one confirmed miss. The owner's October rulings moved all four Process misses
+# to Product or People, so Process carries none and both pages draw one chart fewer.
+# Lowering a minimum here is only correct once you have confirmed the missing chart is
+# a real absence in the data -- otherwise it is a gate being filed down to pass.
 EXPECTED: dict[str, tuple[int, int]] = {
-    "Executive Summary": (10, 7),
+    "Executive Summary": (9, 7),
     "Monthly trend": (2, 2),
-    "Root cause": (5, 12),
+    "Root cause": (4, 12),
     "Top customer complaints": (5, 5),
     "DETAIL · Event workload": (2, 1),
     "Dynamic Source Discovery": (3, 7),
