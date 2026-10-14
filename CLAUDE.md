@@ -10,6 +10,64 @@ next to `app.py` (the zero-config path a Streamlit Cloud deploy takes), then a r
 built from `GITHUB_REPO` + `GITHUB_BRANCH`. `scripts/smoke_app.py` deliberately writes
 no secrets so it exercises that middle path.
 
+## The shape of the code
+
+`app.py` is **61 lines** and holds no logic: configuration, the data load, the one shared
+filter call, navigation, and a dict from page name to page module. It was 3,389 lines,
+which is why nobody could find the rule behind a figure without reading the lot.
+
+| Module | What lives there |
+| --- | --- |
+| `dashboard/config.py` | titles, `PAGES`, `DESCRIPTIONS`, `NAV_GROUPS`, where the data sits |
+| `dashboard/styles.py` | `CSS`, `NAV_CSS`, `RED_BLUE`, `BLUE_RAMP`, `ROOT_COLOURS`, `esc()` |
+| `dashboard/taxonomy.py` | `PLAIN_SUBTYPE`, `OWNED_SUBTYPE`, `failure_label`, `DRIVERS`, `REASON_CATEGORIES`, `owner_pills` |
+| `dashboard/data.py` | `data_sources()`, `load_data()` |
+| `dashboard/filters.py` | `sidebar_filters()`, `date_filter()`, `customer_names()` |
+| `dashboard/metrics.py` | every number: miss buckets, exposure, totals, trend windows, reconciliation |
+| `dashboard/components.py` | cards, tables, charts, page furniture -- drawing only, no arithmetic |
+| `dashboard/staging.py` | the All customer emails entry form and its session rows |
+| `dashboard/sections.py` | the `render_*` sections the summary and the internal pages share |
+| `dashboard/pages/` | one module per page, each exposing `render(df, filtered, selected_page)` |
+
+**The import graph is strictly one-way** and there is no cycle:
+
+```
+config -> styles -> taxonomy -> filters -> metrics -> components -> staging
+                         \__________________________________________> sections -> pages
+```
+
+Two placements are load-bearing rather than tidy. `esc()` sits in `styles` because
+`owner_pills()` is the one function that writes HTML into a cell, and it belongs with the
+classification vocabulary in `taxonomy`; putting `esc` in `components` would make
+`taxonomy` import from `components` and close a loop. `source_page()` sits in `sections`,
+not `components`, because it calls the section renderers -- in `components` it dragged
+`sections` back in the other direction. **If a new import makes the graph bidirectional,
+the symbol is in the wrong module; move the symbol, do not add a function-local import.**
+
+**`dashboard/pages/` is inside the package on purpose.** Streamlit auto-discovers a
+`pages/` directory sitting **next to the entry point** and turns every file in it into a
+page of its own, which would draw a second navigation beside the one `PAGES` builds.
+Inside the package it is an ordinary module directory and Streamlit never looks at it.
+Do not move it to the repository root.
+
+**`APP_DIR` is `Path(__file__).resolve().parent.parent`, and the second `.parent` is the
+whole point.** `data_sources()` looks for the tracker beside the *entry point*, which is
+the zero-config path a Streamlit Cloud deploy takes. Written the obvious way inside
+`dashboard/config.py` it points at `dashboard/`, finds nothing, and every page renders
+"No data source found" -- which is exactly what happened on the first run of the
+refactored app, and what `smoke_app.py` caught.
+
+**`validate.py` and `audit_pages.py` import from `dashboard.taxonomy`, not from `app.py`.**
+They used to do `from app import REASON_CATEGORIES`, which executed the entire Streamlit
+application to read a dict. One copy of each map, and a gate that no longer has to boot a
+web app to check a value.
+
+**The refactor was proved, not asserted.** Before it, the rendered text of all seven pages
+and the sidebar was captured from the DOM -- 171 KB -- and all four gates were recorded.
+After it, both were identical byte for byte. **Any further structural change here should
+clear the same bar**: snapshot the pages first, refactor, diff. A green gate alone does
+not prove a layout or a wording survived.
+
 ## Run these before exploring by hand
 
 ```bash
@@ -1089,14 +1147,14 @@ sets -- the hover and selected rules no longer hardcode `--blue`. Verify
 `div[role="radiogroup"]>label:nth-of-type(N)` against the live DOM after a Streamlit
 upgrade, along with the two selectors named further down.
 
-`REASON_ALIASES` / `normalise_reason()` fold the `Reason` wordings that all mean "an
-event we should have reported was not reported" onto one `Missed Event` label for the
-Nature-of-complaints table: forty distinct strings for a handful of complaint kinds put
-a 4-record insolvency variant beside a 43-record general one as if they were different
-failures. Hybrids (`Missed / Delayed Event`, `Delayed / Missing WarRoom`) are left alone
--- they carry a timing signal too. It is a **display** normalisation; the tracker keeps
-the customer's own wording, because that wording is the record of what they said. It is deterministic, so it is regression-testable and needs no API key, which
-is why the no-network rule in `app.py` still holds.
+**`REASON_ALIASES` / `normalise_reason()` are gone, and they were already dead.** They
+folded the `Reason` wordings onto one `Missed Event` label for the Nature-of-complaints
+table -- and that table has been built from `REASON_CATEGORIES` / `reason_category()` for
+some time, so the pair sat in the file as a second, unreachable implementation of the
+same fold. This file documented them as live, which is how a dead code path survives a
+reading: **the prose said it ran, and nobody checked whether anything called it.** A
+repository-wide search found the definition and no call site. Deleted with the refactor.
+`PICKLISTS` went the same way, for the same reason.
 
 `missed_verdict()` answers the miss-rate question in a sentence above the trend chart,
 because a grid of nine monthly percentages does not answer "are we getting better" and
@@ -1520,10 +1578,11 @@ opens any one record as a `variant="record"` card. Filtering
 stays in the sidebar on purpose, so what this page shows is always the same population as
 every other tab.
 
-The Complaint Tracker page's entry form writes into `st.session_state`, and
+The entry form at the foot of **All customer emails** (`dashboard/staging.py`) writes
+into `st.session_state`, and
 `apply_staged()` appends those rows to the frame **before** `sidebar_filters()`. Every
 page derives from that one frame, so an entry added there is counted immediately on all
-eleven -- Executive Summary's total goes 103 to 104, Top customer complaints's Ford tally 37 to 38.
+seven -- Executive Summary's total goes 103 to 104, Top customer complaints's Ford tally 37 to 38.
 The form's pickers are built from the tracker's own distinct values, so a staged row can
 only carry terms the Definitions sheet already defines, and `derive_row()` fills Month,
 Reporting Month, Month_Sort, Number of Customers and Routed To -- a staged row pasted
@@ -1584,8 +1643,11 @@ thematic precedent of comparable rows instead.
   `getVisibleJiraProjects` call returned 316KB and blew the context window. Prefer
   `scripts/jira_sync.py`. If you must use the MCP tools, pass `fields`, use one paged
   JQL search rather than per-issue calls, and never list all projects.
-- **`app.py` is ~480 lines** — grep for the symbol, then read with `offset`/`limit`.
-  Reading it whole costs ~13K tokens and is rarely needed.
+- **Read the module, not the application.** `app.py` is 61 lines and holds no logic;
+  the code is under `dashboard/`, largest first: `metrics.py` ~1000, `sections.py` and
+  `components.py` ~550 each, `taxonomy.py` ~470. Grep for the symbol, then read that
+  one file. This line used to claim `app.py` was ~480 lines when it was 3,389 -- a
+  seven-fold understatement in the one note written to stop a reader loading it whole.
 - **Screenshots cost real tokens.** Run `scripts/smoke_app.py` first — it catches
   exceptions and empty charts from the DOM for ~1K tokens, where screenshotting all
   14 pages costs ~25K. Reserve screenshots for judging *appearance* (layout, colour,
