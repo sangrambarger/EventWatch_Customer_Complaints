@@ -831,7 +831,16 @@ ingestion, database, portal, UI or workflow failure stopped it reaching analysts
 item in time. It explicitly excludes a source or vendor that never captured it, a keyword
 miss, wrong clustering, an analyst marking it Not Impactful, and a published item the
 customer could not see. Four rows carry it: Bain Fire and Thales (Collins Aerospace), EAO-12
-(Ford) and EAO-39 (Belden), all `Notification Visibility Monitoring`.
+(Ford) and EAO-39 (Belden), all `Notification Visibility Monitoring`. **Three of the four
+are misses.** EAO-39's TSMC row keeps the sub-type -- the gap was real, the article was
+captured and never surfaced to analysts -- but Belden confirmed on 22-Sep-2026 that TSMC
+is not mapped in their BOM, having mapped Taiwan Semiconductor Co., Ltd., a different
+company in different commodities with a near-identical name. **No notification was owed
+to Belden, so it is an inquiry and not a miss.** The defect stays recorded as what
+happened; the customer-specific miss claim does not survive their own confirmation.
+**EAO-39 covers two separate events on two rows** -- the TSMC capacity reduction and a
+Murata MLCC product line discontinuation, People / `Review`, still a miss. Match on the
+title, not the key.
 
 **`("Product", "Captured Late")` must not share the `Alerting Gap` label**, and it briefly
 did -- the label was invented here before the owner defined the category, so the Suntory row
@@ -966,12 +975,87 @@ what `Needs Review` is for, and these three are why it earns its place.
 vocabulary has no word for lateness, so a future row on that pair would land in
 `Needs Review` for want of a label rather than for want of a decision.
 
+## The miss definition: delivery and timeliness
+
+**This is the governing test and it supersedes the "did a bulletin reach the customer"
+wording in the October rulings below.** Settled on 15-Oct-2026 after the six October
+cases were re-read against each other and found to disagree.
+
+> **Did an EventWatch notification reach THIS customer, and reach them in time to act?**
+> Reached them in time -> **not a miss**. The complaint is about scope, supplier
+> selection, WarRoom handling, duplication, accuracy or visibility.
+> Reached them late, or not at all -> **miss**.
+
+Three clauses do the work, and each exists because a row broke without it.
+
+**"THIS customer", not "published".** Published to the world and invisible to one
+account is not reached. TS-22695 is the proof: the Uber Freight bulletin went out on
+13-Aug-2026 and incorrect industry selection kept it off the Red Cross portal, so for
+them nothing arrived. The October ruling read "published" as "delivered" and filed it
+`Missed_Flag` No; it is a miss. **Any ruling that turns on "a bulletin was published"
+is resting on an assumption the tracker does not record** -- there is no field holding
+what appeared on a customer portal on a given day, and that gap decides the hard rows.
+
+**"In time to act", not "eventually".** Customer awareness through news, suppliers,
+internal operations or public reports does not remove a miss; the obligation is timely
+EventWatch notification. Without this clause the twelve `Reported late` rows -- 18 hours
+to 25 days, Collins Aerospace carrying four of them -- all stop being misses, and
+`Published Late` becomes a sub-type that can never hold one. In every one of the twelve
+the customer learned of the event from their own channels and then asked us why we had
+not told them. **Reported Late is a valid miss category.**
+
+**A notification has to be owed.** It is owed where the affected supplier or site is
+mapped from customer-provided data, **or where another detection path should have carried
+the event** -- reporting is not driven solely by supplier mapping, which is the Eaton
+Axios npm precedent, where a product connection made a record a miss although the
+supplier mapping did not. Where neither holds, non-delivery is not a miss: Belden
+confirmed TSMC was not in their BOM (EAO-39, below) and NVR had never shared the Kinston
+site, so nothing was owed to either.
+
+**Timing of the correction is not the test and was tried as one.** "We only notified or
+corrected it after the customer emailed" classifies Spain, EAO-6 and EAO-49 as misses,
+and all three are records where the customer already had the bulletin and complained
+about its contents. Do not reach for it.
+
+**Three populations, and they partition the tracker:**
+
+| | |
+| --- | --- |
+| **Miss** | not delivered, or delivered too late |
+| **Process Issue** | delivered in time; supplier selection, impacted entities, geofence, scope, WarRoom decision, duplication or impact assessment was wrong afterwards |
+| **Inquiry** | clarification, configuration, policy explanation or informational request |
+
+`Root Cause` and `Missed_Flag` are **independent axes**. A Product defect that did not
+stop delivery is a Process Issue with a Product root cause -- CAN-3242 is one, where a
+query timeout kept a delivered notification off the supplier portal. "Product Miss" means
+Product root cause **and** `Missed_Flag = Yes`, not Product fault alone.
+
+**Baseline on 15-Oct-2026**, and every figure below reconciles:
+
+```
+124 emails     = 100 complaints + 24 inquiries
+100 complaints = 83 confirmed misses + 17 process issues
+ 83 misses     = 50 Product + 33 Analyst
+Product 50 = source 23 + keyword 14 + model 7 + alerting gap 3
+           + supplier mapping 2 + routing 1
+Analyst 33 = analyst miss 23 + event identification 5
+           + industry selection 2 + published late 2 + prioritization 1
+```
+
+**Counts written into prose elsewhere in this file are historical snapshots.** 78 misses,
+115 emails, 97 complaints and 17 or 20 non-miss complaints all appear below and all
+predate this baseline; they are kept where they explain why a thing was built, and are
+not a second source of truth. The four gates are.
+
 ## The October rulings: what counts as a miss
 
-Six cases were settled by the owner against one test, and the test is worth more than the
-six rows: **did a bulletin reach the customer.** If it did, the record is a
-publishing-quality complaint and `Missed_Flag` is **No**, however wrong the bulletin was.
-If it did not, it is a miss, and the sub-type names where delivery stopped.
+Six cases were settled by the owner against one test: **did a bulletin reach the
+customer.** If it did, the record is a publishing-quality complaint and `Missed_Flag`
+is **No**, however wrong the bulletin was. If it did not, it is a miss, and the
+sub-type names where delivery stopped. **That wording is superseded by the section
+above** -- it says nothing about whether delivery reached *this* customer, and nothing
+about lateness. Five of the six rulings survive the correction unchanged; the sixth
+is marked below.
 
 | Case | Now | `Missed_Flag` | Why |
 | --- | --- | --- | --- |
@@ -980,7 +1064,7 @@ If it did not, it is a miss, and the sub-type names where delivery stopped.
 | HPE SEC notification (25-Mar) | `Process` / `Process Clarification`, **Inquiry** | **No** | the news was not in the public domain, so there was nothing to report |
 | EAO-13 FXI foam fire (Ford) | `Product` / `Model Classification Defect` | Yes | captured, then classified Not Impactful by the model |
 | EAO-15 Samsung DRAM (META) | `Product` / `Mapping / Routing Defect` | Yes | bulletin existed; the customer WarRoom was never created because normalization was not applied |
-| Uber Freight (Red Cross, TS-22695) | `People` / `Industry selection` | **No** | published, but the analyst selected incomplete industries |
+| Uber Freight (Red Cross, TS-22695) | `People` / `Industry selection` | ~~No~~ **Yes** | **superseded 15-Oct.** Published on 13-Aug, but incorrect industry selection kept it off the Red Cross portal and a customer-specific treatment existed only after they chased it. Nothing reached them. The ownership was right; the flag read "published" as "delivered" |
 
 **The discriminator that now does the most work is who made the Not Impactful call.**
 A model that misjudges a captured event is `Product` / `Model Classification Defect`; a
@@ -1429,6 +1513,31 @@ complaint and a miss, and `Event missed` rather than `Classified wrongly`: the c
 never received it, which is what that category means. People / `Review` carries the
 cause -- the event was seen and judged, not missed by coverage.
 
+**Two more went the inquiry way on 15-Oct-2026, and the ground matters as much as the
+answer.**
+
+* **UVM Health Network** (Stryker, 16-Mar) is an **Inquiry**. The WarRoom was published,
+  linked and visible; the customer's own profile preference excluded Resilinc as a
+  source, and what went back was advice to change a setting -- no bulletin, no
+  correction, no fault admitted. **It is settled on the discharge test and the NVR
+  precedent, NOT on "no EventWatch fault existed".** That ground was already rejected
+  for Roche, EAO-24 and EAO-29, three complaints where the finding was explicitly no
+  fault on our side; record it as the reason here and those three have to move too. The
+  row's own `Automation Opportunity` still proposes defaulting Resilinc into the WarRoom
+  view, so an owed product improvement now sits in the inquiry bucket -- it needs a home
+  that does not depend on the classification. **UVM has a second email of the same
+  date** (Intuitive Surgical phishing breach, Product / `Source Coverage`), which is a
+  miss and untouched. Match on the title, not the customer and date.
+* **Trinseo** (Ford, 05-May, SIC not triggered) is an **Inquiry**. A bulletin was
+  published on the missed interest payments and Ford received it; no Supplier Impact
+  Confirmation fired, and Ford asked whether SIC can be enabled for financial-risk
+  events. **Supplier impact requests are deliberately not sent for these events, because
+  the responses have consistently come back No Impact.** That rule was communicated and
+  the customer did not question it. The test is **which rule was broken**, and none was
+  -- the same reasoning that keeps the META NVIDIA Shield TV Pro row an Inquiry and an
+  `Improvement` rather than a `Bug`. The remedy is the SIC trigger logic review carried
+  in `Automation Opportunity`, which is an enhancement, not a defect.
+
 **"An admitted fault" means a defect against our own stated guidance -- not agreeing
 that a better treatment exists.** The two rules above and below looked contradictory
 (one says an admitted fault makes it a complaint, the other says the customer's framing
@@ -1467,13 +1576,22 @@ move `Short Term Fix Status` off `Pending` -- `RCA Shared` where an RCA went out
 where a corrective action was taken -- and leave `Resolution Date` blank unless a real
 date exists, since a guessed one is worse than none.
 
-**"We reported it" beats "they said we missed it".** EAO-47 was logged as a source miss
-because Western Digital said no Nidec event existed. The event had in fact been captured
-and created; the analyst did not check whether Nidec is a mapped partner of theirs and
-classified it `Not Impactful`, so it never reached them, and the customer was told the
-event *was* reported. It is now an inquiry, `Missed_Flag` No, `Wrong Relevancy`, People /
-`Review` -- the failure is the impact classification, not coverage. **A customer asserting
-a miss is not evidence of one**; the investigation is.
+**"We reported it" beats "they said we missed it" -- but only about the CAUSE.** EAO-47
+was logged as a source miss because Western Digital said no Nidec event existed. The
+investigation found otherwise: the event had been captured and created, and the analyst
+classified it `Not Impactful` without checking whether Nidec is a mapped partner of
+theirs, so it never reached them. That settles the cause -- People / `Review`, not
+coverage -- and the principle holds: **a customer asserting a miss is not evidence of
+one**, the investigation is.
+
+**It was then filed as an inquiry with `Missed_Flag` No, and that was wrong.** The
+reasoning recorded here was "the failure is the impact classification, not coverage",
+which answers *what* failed and not *whether anything reached the customer*. Nothing did.
+An analyst making an impact determination about Western Digital presupposes the
+relationship, so a notification was owed; and the ticket title is "No EventWatch Event
+Created", which is an asserted absence rather than a question. Corrected 15-Oct-2026 to
+**Complaint, People / `Review`, `Missed_Flag` Yes**. **The lesson is the one the delivery
+test exists for: establishing the cause does not settle the flag.**
 
 **`Hidden by the customer's own filter` was one email and existed on purpose -- until
 the owner folded it in, above. The original reasoning, for whoever wants to unfold it:**
