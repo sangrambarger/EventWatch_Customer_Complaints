@@ -111,12 +111,48 @@ h1,h2,h3,h4,h5,h6,p,span,div,label{color:var(--ink)!important}.page-hero,.sectio
 .pop-foot{font-size:12px;color:var(--muted)!important;border-top:1px solid var(--line);padding-top:12px}
 /* The trigger strip reads as the card's own footer rather than a control bolted under
    it: panel ground, a hairline above, and the card's bottom corners. */
-.st-key-kpi-more-1 [data-testid="stHorizontalBlock"],.st-key-kpi-more-2 [data-testid="stHorizontalBlock"]{gap:10px}
-.st-key-kpi-more-1,.st-key-kpi-more-2{margin-top:-10px;margin-bottom:14px}
-.st-key-kpi-more-1 button,.st-key-kpi-more-2 button{width:100%;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:5px 13px;min-height:0;color:var(--muted)!important;font-size:11px;font-weight:700;letter-spacing:.04em}
-.st-key-kpi-more-1 button p,.st-key-kpi-more-2 button p{color:var(--muted)!important;font-size:11px;font-weight:700}
-.st-key-kpi-more-1 button:hover,.st-key-kpi-more-2 button:hover{background:#222833;border-color:var(--line2)}
-.st-key-kpi-more-1 button:hover p,.st-key-kpi-more-2 button:hover p{color:var(--ink)!important}
+/* The whole card is the click target. A real `st.button` is laid over the card and
+   made invisible: the click stays inside the session, so the sidebar filters survive
+   it, where an `<a href="?card=...">` would navigate, hand back a fresh session and
+   clear every filter. The label is hidden with a transparent colour and a zero font
+   size rather than removed, so a screen reader still announces the card it opens.
+   Every property carries `!important` because Streamlit's own rule is
+   `.stButton > button` -- specificity (0,2,1) against the (0,1,1) of a `.st-key-...`
+   descendant, which is why the first cut rendered as a default blue pill. */
+.st-key-kpi-row-1 [data-testid="stHorizontalBlock"],.st-key-kpi-row-2 [data-testid="stHorizontalBlock"]{gap:10px!important}
+.st-key-kpi-row-1,.st-key-kpi-row-2{margin:10px 0 14px}
+/* `display:block` and `gap:0` on the hit container, and `height:auto` on the element
+   container Streamlit wraps the card in: the vertical block reserves its 16px row gap
+   and Streamlit sizes the element container itself, and between them the container
+   stayed 16px shorter than the card it holds -- which is exactly how far the click
+   target fell short of the card's bottom edge, twice, before this was measured rather
+   than assumed. */
+/* The card and the container that positions its overlay are pinned to ONE height,
+   `--kpi-h`, instead of letting the overlay inherit whatever Streamlit measured.
+   Three attempts at the latter each landed 16px short: Streamlit lays the markdown
+   out through a flex wrapper with a definite height, the card overflowed it, and
+   every ancestor came back under the card -- so the bottom strip of each card was
+   not clickable. Matching two heights that this stylesheet owns is the version that
+   cannot be broken by a Streamlit release renaming a wrapper. */
+[class*="st-key-kpi-hit-"]{--kpi-h:118px;position:relative;display:block!important;gap:0!important;height:var(--kpi-h)}
+[class*="st-key-kpi-hit-"]>[data-testid="stElementContainer"]{height:var(--kpi-h)!important;min-height:0!important}
+/* `height:100%` here resolved against an auto-height parent, so it was ignored, the
+   card grew to its content and its own container stayed 16px shorter -- which is
+   exactly how far the click target fell short of the card's bottom edge. A min-height
+   instead keeps the row even and lets the container wrap the card exactly. */
+[class*="st-key-kpi-hit-"] .kpi{height:var(--kpi-h);min-height:0;box-sizing:border-box}
+/* The ELEMENT CONTAINER is what gets positioned, not `.stButton` inside it. Streamlit
+   gives `.stElementContainer` its own `position:relative`, so an absolutely placed
+   `.stButton` resolves against that container -- which sits in flow below the card --
+   and the overlay rendered as a 2px sliver underneath instead of covering anything.
+   The container carries the button's own `key` as a class, which is what this targets. */
+[class*="st-key-kpi-open-"]{position:absolute!important;top:0!important;left:0!important;right:0!important;height:var(--kpi-h)!important;margin:0!important;width:auto!important;z-index:3}
+[class*="st-key-kpi-open-"] .stButton{width:100%!important;height:100%!important}
+[class*="st-key-kpi-hit-"] .stButton>button{width:100%!important;height:100%!important;min-height:0!important;background:transparent!important;border:1px solid transparent!important;border-radius:8px!important;box-shadow:none!important;padding:0!important;font-size:0!important;color:transparent!important;cursor:pointer}
+[class*="st-key-kpi-hit-"] .stButton>button p{font-size:0!important;color:transparent!important;line-height:0!important}
+[class*="st-key-kpi-hit-"]:hover .kpi{transform:translateY(-3px);box-shadow:0 10px 22px rgba(0,0,0,.4)}
+[class*="st-key-kpi-hit-"]:hover .kpi:after{content:"Break it down \\2192";position:absolute;right:12px;bottom:9px;font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--accent)}
+[class*="st-key-kpi-hit-"] .stButton>button:focus-visible{border-color:var(--accent,var(--blue))!important;outline:2px solid var(--accent,var(--blue))!important;outline-offset:2px}
 </style>
 """
 NAV_ACCENT = {page: colour for colour, names in NAV_GROUPS.values() for page in names}

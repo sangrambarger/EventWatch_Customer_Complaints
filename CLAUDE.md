@@ -491,11 +491,32 @@ categories. Every pair that actually sits on one panel clears the colourblind fl
 `--amber` is the one weak pair at dE 13.9 and never co-occurs, because Process carries
 no misses; if it ever does, that panel needs a different encoding, not a new hue.
 
-**The triggers are their own four-column row, not part of the card grid.** A Streamlit
-widget cannot live inside the CSS grid `kpis()` draws, so the strip sits directly
-beneath each row of four and is styled to read as part of the cards. The container
-carries a `key`, so the stylesheet matches **`.st-key-kpi-more-N`** -- a documented,
-stable class, unlike the hashed emotion names that are rewritten between releases.
+**The whole card is the click target, and there is no button.** The first cut put a
+quiet strip under each card; the owner's answer was that the card itself should open
+its own breakdown. That leaves two ways to do it and only one that is safe. An
+`<a href="?card=...">` would need no widget at all and is the wrong answer: a real
+anchor navigates, Streamlit hands back a fresh session, and **every sidebar filter
+resets** -- a popup that silently clears the filters is a worse bug than the one it
+fixes. So `clickable_kpis()` draws each card in its own `st.container(key=...)` and
+lays a real `st.button` over it, made invisible with a transparent colour and a zero
+font size rather than removed, so a screen reader still announces which card it opens.
+The click stays in the session and the filters are untouched. `kpi_card()` is the one
+source of the card markup, so the plain grid and the clickable row cannot drift.
+
+**The overlay is pinned to `--kpi-h`, and three attempts to let it inherit a height
+each landed 16px short.** Streamlit lays the markdown out through a flex wrapper with
+a definite height; the card overflowed it, so every ancestor measured under the card
+and the bottom strip of each card was not clickable. The card and the container that
+positions the overlay now share one height this stylesheet owns, which a Streamlit
+release renaming a wrapper cannot break. **Measure the box chain before changing it** --
+the two wrong fixes before this both guessed at the row gap.
+
+**Every button property carries `!important`.** Streamlit's own rule is
+`.stButton > button`, specificity (0,2,1) against the (0,1,1) of a `.st-key-...`
+descendant, so the unqualified version lost every declaration and the first cut
+rendered as a default blue pill. Only a screenshot caught it; the DOM probe had
+confirmed the buttons existed and said nothing about how they looked.
+
 `st.dialog` is applied at call time rather than at module level so each panel's title is
 its own card's eyebrow, and `width="medium"`: at `large` the panel stretches past
 1200px and the gloss under each row becomes a line nobody tracks back to its start.
