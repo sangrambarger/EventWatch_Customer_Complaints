@@ -458,8 +458,9 @@ panel that restates the page in different words is a panel a reader has to recon
 
 ## The card popups
 
-Each of the eight cards carries a **Break it down** strip that opens that card's own
-breakdown in an `st.dialog`. `metrics.card_details()` builds one payload per card and
+Clicking any of the eight cards opens that card's own breakdown in an `st.dialog`;
+a **Break it down** hint appears on the card on hover, and there is no separate strip.
+`metrics.card_details()` builds one payload per card and
 `components.detail_panel()` draws it -- the same split the rest of the package keeps, so
 a panel can be restyled without touching a total and a total cannot move on a styling
 edit.
@@ -467,7 +468,7 @@ edit.
 **Every figure is computed off the frame on screen, and from the functions the cards
 already use.** The eight panels were designed as mockups first, with their numbers
 typed into the markup, and they went stale in three days. `card_details()` reads
-`miss_bucket_series()`, `miss_by_customer()`, `trend_windows()` and `reason_category()`
+`miss_bucket_series()`, `miss_by_customer()` and `trend_windows()`
 rather than recomputing anything: a popup that re-derives a figure its own card prints
 is a second implementation waiting to disagree with the first. The panels follow the
 sidebar filter for the same reason -- they are built from `filtered`, so a popup can
@@ -476,10 +477,28 @@ never describe a different population from the card that opened it.
 **One anatomy on all eight**, because eight panels that each invent their own shape are
 eight things a reader has to learn: a chain line saying where the figure sits in the
 funnel (`127 emails > 103 complaints > 86 misses`), the question, the figure with its
-base, one computed finding, the breakdown with a line of plain English under every row,
-the arithmetic that proves the breakdown sums, and the caveat that stops the obvious
-misreading. **The chain is the anti-confusion device**: the eight cards quote five
-different denominators, and "42 of what" was the question every one of them left open.
+base, **one** short sentence, a rule, a row of **stat cards**, a rule, and one footer
+line carrying the arithmetic on the left and the single caveat on the right. **The chain
+is the anti-confusion device**: the eight cards quote five different denominators, and
+"42 of what" was the question every one of them left open.
+
+**A stat card puts the number first and its label under it**, and that is a correction.
+The first cut ran each breakdown as a line of prose with the figure at the right edge
+and a sentence of gloss beneath -- the owner's reading was that the numbers were
+stranded at the corner, which is exactly what that arrangement does: the words are read
+and the number is not. The cards sit on a **fixed-column grid**, not a flex row, so five
+cards over three columns read as 3 + 2 of equal width; flexed, the trailing two stretch
+to half the panel each and a 1 looks like an 8. The paragraph under every row and the
+stack of note boxes under that are gone with it, on the same instruction -- a panel
+exists to answer the one question the card raises, not to brief the reader.
+
+**The groupings are tables with a fall-through, not a fixed list.** `ANALYST_ACTIONS`
+folds the People-rooted misses onto what the analyst did and `WRONG_GROUPS` folds the
+delivered-but-wrong complaints onto what was wrong with the bulletin; both apply in
+order, each group claims only what the ones before it did not, and a sub-type outside
+every group keeps its own plain label and its own card. Nothing lands in an `Other`
+bucket, for the reason `miss_categories()` has none: a residue row is how a mis-filed
+record stays mis-filed, and it hides a sub-type added tomorrow.
 
 **Colour carries one thing and nothing else: who fixes it.** Product `--blue`,
 EventWatch Ops `--red`, a delivered bulletin that was wrong `--amber`, a row that
@@ -502,6 +521,13 @@ lays a real `st.button` over it, made invisible with a transparent colour and a 
 font size rather than removed, so a screen reader still announces which card it opens.
 The click stays in the session and the filters are untouched. `kpi_card()` is the one
 source of the card markup, so the plain grid and the clickable row cannot drift.
+
+**Both rows of cards are drawn on every rerun, and `opened = opened or clickable_kpis(...)`
+is why they were not.** Python short-circuits `or`: once a card in the top row returned
+its key, the right-hand side was never evaluated, so the second row of four was never
+drawn -- the reader clicked a card, closed the dialog, and the bottom four cards had
+vanished. Call both rows, then combine. **Never fold a call that draws something into
+a boolean expression.**
 
 **The overlay is pinned to `--kpi-h`, and three attempts to let it inherit a height
 each landed 16px short.** Streamlit lays the markdown out through a flex wrapper with
@@ -526,10 +552,10 @@ in the DOM once a reader clicks, so the scrape that reconciles every rendered fi
 never sees them -- which would leave eight panels of numbers outside the only gate that
 says whether a figure is right. The payloads are plain data, so the check is a pure
 call with no browser: the rows a panel prints must match the equation printed under
-them, and that equation must be true. A panel that groups its rows (the account one
-groups by owner) is checked against the **group** totals, and each group against the
-leaves beneath it; checking the equation against the leaves compares an owner subtotal
-with a list of causes and calls a correct panel wrong. **This is the whole reason a
+them, and that equation must be true. Only the blocks marked `partition` are compared against the equation -- the account
+panel's second row is context (that account's share of the capture gap, and two
+other accounts entirely), so matching it against an owner split would call a
+correct panel wrong. **This is the whole reason a
 popup prints a visible `N + M = T` line at all.**
 
 `kpis(items, columns=n)` sizes the grid to the count. Both the auto-fitting variant and

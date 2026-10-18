@@ -584,84 +584,65 @@ def grouped_bar(frame, label_col, series, colours, title="", x_title="Customer e
 def detail_panel(card):
     """Draw one card popup from the payload `metrics.card_details()` built.
 
-    Seven parts, in the same order on every panel, because eight panels that each
-    invent their own shape are eight things a reader has to learn: the chain that says
-    where the figure sits in the funnel, the question, the figure with its base, the
-    computed finding, the breakdown with a line of plain English under every row, the
-    arithmetic that proves the breakdown sums, and the caveat that stops the obvious
-    misreading.
+    One anatomy on all eight, because eight panels that each invent their own shape are
+    eight things a reader has to learn: the chain that says where the figure sits in the
+    funnel, the question, the figure with its base, one short sentence, a rule, the stat
+    cards, a rule, and one footer line carrying the arithmetic and the single caveat.
+
+    The number leads on every card and its label sits under it. The panels this replaced
+    put each figure at the right edge of a line of prose, which is the arrangement where
+    the words are read and the number is not.
 
     Drawing only. Every number arrives formatted; nothing here adds, divides or rounds.
     """
     chain = " <span class='pop-sep'>&rsaquo;</span> ".join(
         f"<span class='{'pop-here' if here else ''}'>{esc(str(t))}</span>" for t, here in card.get("chain", []))
-    out = [f"<div class='pop'><div class='pop-chain'>{chain}</div>"]
-    out.append(f"<div class='pop-q'>{esc(card['question'])}</div>")
-    out.append(f"<div class='pop-hero'><div class='pop-num'>{esc(card['hero'])}</div>"
-               f"<div class='pop-base'>{card.get('base', '')}</div></div>")
-    if card.get("finding"):
-        out.append(f"<div class='pop-find' style='--accent:{card['accent']}'>{card['finding']}</div>")
+    out = [f"<div class='pop'><div class='pop-chain'>{chain}</div>",
+           f"<div class='pop-q'>{esc(card['question'])}</div>",
+           f"<div class='pop-hero'><div class='pop-num'>{esc(card['hero'])}</div>"
+           f"<div class='pop-base'>{card.get('base', '')}</div></div>"]
+    if card.get("lead"):
+        out.append(f"<div class='pop-lead' style='--accent:{card['accent']}'>{card['lead']}</div>")
+    out.append("<div class='pop-rule'></div>")
 
-    # The shape bar. Widths come from the counts the rows print, so the bar and the rows
-    # cannot disagree; a 2px gap in the surface colour separates the segments rather
-    # than a border, which would add ink that is not data.
+    # The shape bar. Widths come from the counts the cards print, so the bar and the
+    # cards cannot disagree; a 2px gap in the surface colour separates the segments
+    # rather than a border, which would add ink that is not data.
     stack = [(n, c) for n, c in card.get("stack", []) if n]
     if stack:
-        whole = sum(n for n, _ in stack) or 1
-        segs = "".join(f"<span style='flex:{n};background:{c}'></span>" for n, c in stack)
-        out.append(f"<div class='pop-stack'>{segs}</div>")
+        out.append("<div class='pop-stack'>"
+                   + "".join(f"<span style='flex:{n};background:{c}'></span>" for n, c in stack)
+                   + "</div>")
     if card.get("legend"):
-        keys = "".join(f"<span class='pop-key'><i style='background:{c}'></i>{esc(t)}</span>"
-                       for t, c in card["legend"])
-        out.append(f"<div class='pop-keys'>{keys}</div>")
+        out.append("<div class='pop-keys'>"
+                   + "".join(f"<span class='pop-key'><i style='background:{c}'></i>{esc(t)}</span>"
+                             for t, c in card["legend"]) + "</div>")
 
-    if card.get("rows_head"):
-        out.append(f"<div class='pop-head'>{esc(card['rows_head'])}</div>")
-    rows = card.get("rows", [])
-    bars = card.get("bars", True)
-    widest = max([float(r.get("width", r["value"])) for r in rows
-                  if not r.get("group") and isinstance(r.get("width", r["value"]), (int, float))] or [1])
-    scale = card.get("scale") or widest or 1
-    out.append("<div class='pop-rows'>")
-    for r in rows:
-        if r.get("group"):
-            out.append(f"<div class='pop-group'><i style='background:{r['colour']}'></i>"
-                       f"<span>{esc(r['name'])}</span><b>{esc(str(r['value']))}</b></div>")
+    for i, block in enumerate(card.get("blocks", [])):
+        if not block["items"]:
             continue
-        value = esc(str(r["value"]))
-        note = f"<span class='pop-note'>{esc(str(r['note']))}</span>" if r.get("note") else ""
-        if bars:
-            raw = r.get("width", r["value"])
-            width = max(float(raw) / scale * 100, 2) if isinstance(raw, (int, float)) else 100
-            out.append(f"<div class='pop-row'><span class='pop-name'>{r['name']}</span>"
+        if i:
+            out.append("<div class='pop-rule'></div>")
+        cells = "".join(
+            f"<div class='pop-stat' style='--c:{s['colour']}'>"
+            f"<div class='pop-sv'>{esc(s['value'])}</div>"
+            f"<div class='pop-sl'>{s['label']}</div>"
+            + (f"<div class='pop-sn'>{s['note']}</div>" if s.get("note") else "")
+            + "</div>" for s in block["items"])
+        out.append(f"<div class='pop-stats' style='--cols:{block['cols']}'>{cells}</div>")
+
+    # The monthly bars, on the one panel about movement. Each carries its own base,
+    # because a rate quoted bare invites a reader to lean on a month that will move.
+    if card.get("bars"):
+        out.append("<div class='pop-rule'></div><div class='pop-bars'>")
+        for b in card["bars"]:
+            out.append(f"<div class='pop-bar'><span class='pop-bname'>{esc(b['name'])}</span>"
                        f"<span class='pop-track'><span class='pop-fill' "
-                       f"style='width:{width:.1f}%;background:{r['colour']}'></span></span>"
-                       f"<b class='pop-val'>{value}</b>{note}</div>")
-        else:
-            out.append(f"<div class='pop-wide'><i style='background:{r['colour']}'></i>"
-                       f"<span class='pop-name'>{r['name']}</span><b class='pop-val'>{value}</b></div>")
-        if r.get("gloss"):
-            out.append(f"<div class='pop-gloss{' indent' if not bars else ''}'>{r['gloss']}</div>")
-    out.append("</div>")
+                       f"style='width:{max(float(b['width']), 2):.1f}%;background:{b['colour']}'></span></span>"
+                       f"<b class='pop-bval'>{esc(str(b['value']))}</b>"
+                       f"<span class='pop-bnote'>{esc(str(b['note']))}</span></div>")
+        out.append("</div>")
 
-    if card.get("grid_head"):
-        out.append(f"<div class='pop-head'>{esc(card['grid_head'])}</div>")
-    if card.get("grid"):
-        cells = "".join(f"<div><span>{esc(str(k))}</span><b>{esc(str(v))}</b></div>" for k, v in card["grid"])
-        out.append(f"<div class='pop-grid'>{cells}</div>")
-
-    if card.get("proof"):
-        eq, clause = card["proof"]
-        out.append(f"<div class='pop-box pop-proof'><b>{esc(eq)}</b><span>{esc(clause)}</span></div>")
-    for note in card.get("notes", []):
-        if note:
-            out.append(f"<div class='pop-box'>{note}</div>")
-    if card.get("bullets"):
-        title, items, caveat = card["bullets"]
-        lis = "".join(f"<li>{esc(i)}</li>" for i in items)
-        out.append(f"<div class='pop-box pop-bul'><div class='pop-head'>{esc(title)}</div>"
-                   f"<ul>{lis}</ul><div class='pop-caveat'>{esc(caveat)}</div></div>")
-    if card.get("foot"):
-        out.append(f"<div class='pop-foot'>{card['foot']}</div>")
-    out.append("</div>")
+    out.append(f"<div class='pop-foot'><span class='pop-eq'>{esc(card.get('foot_left', ''))}</span>"
+               f"<span>{esc(card.get('foot_right', ''))}</span></div></div>")
     st.markdown("".join(out), unsafe_allow_html=True)
