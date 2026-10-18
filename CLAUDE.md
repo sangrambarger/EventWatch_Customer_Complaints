@@ -967,6 +967,45 @@ rules and in `audit_pages.miss_buckets()`, rather than the Product rule losing a
 that rule exists to say "the model misjudged a captured event", and it is now the only
 Product-rooted value that means it.
 
+**Three more rows left `Mapping` on 18-Oct-2026, and the common fault is the same one
+that emptied `Event Identification`: a record's own `Comments` describe the symptom, and
+`Mapping` is what a symptom of "nothing reached them" reads like.**
+
+* **Ford, Eason & Co factory fire.** Its Comments read "Event not triggered due to
+  company not mapped as Ford supplier", and it was filed `Product` / `Mapping` for
+  years. The owner settles it as **the same failure as the ADM data breach row
+  (EAO-51)**: the articles were captured, the classification models categorised them
+  Not Impactful, and the human-in-the-loop review did not correct it. `Product` /
+  `Model Classification Defect`, with a supersession sentence on the Comments. **Its
+  `Automation Opportunity` and `Standard Automation Focus` still carry the mapping
+  theory** ("not mapped" explanation template, `Entity & Supplier Resolution`) and were
+  left as they are pending the owner's wording -- the Bombardier precedent says the
+  remedy follows the cause, so this is an open loose end, not a settled row.
+* **Harman, Murata cyber attack (CAN-3298).** 45 Murata sites met the impact criteria
+  and impact-confirmation requests went to 41. The four omitted Tier 2 sites met the
+  customer settings and the impact-region criteria, so **the targets were on file and
+  the system did not send to them** -- an engineering shortfall, not a mapping gap.
+  `Product` / `Platform Bug`, still a miss. Its `Improvement VS Bug` still reads
+  `Improvement`; the row's own RCA records that no root cause was ever documented, so
+  the field was not flipped to `Bug` on inference.
+* **META, Samsung DRAM (EAO-15).** This one crosses owners, and it is the case for
+  reading a normalization RCA sceptically. The RCA said the Samsung Electronics sites
+  are normalized under Samsung and that normalization "was not applied during the
+  impacted-site assessment" -- which reads as a platform defect, and it is not.
+  **Samsung Electronics is also mapped as Samsung in the portal for this customer**, so
+  the supplier was on file under a second name. The analyst checked Samsung Electronics
+  and did not check Samsung, so the sites were never selected and no WarRoom was
+  created. `People` / `Supplier Selection Miss`, routed to EventWatch Ops, `Missed_Flag`
+  still Yes because nothing reached META. Both `RCA Details` and `Comments` were
+  rewritten together with an explicit supersession sentence, per the EAO-13 rule.
+
+**`Supplier Selection Miss` now carries its first miss.** The other two rows on it
+(Caterpillar / Dana, META / Bangkok) are `Missed_Flag = No`, matching the original
+People / `Mapping` precedent where the WarRoom was published and the supplier was left
+off it. EAO-15 is the other shape: the supplier was left off and **no WarRoom was
+created at all**, so nothing reached the customer. **Leaving a supplier off a published
+WarRoom is not a miss; leaving one off so completely that no WarRoom exists is.**
+
 **The Executive Summary's "Seen, but overlooked" card selects on the OWNER, not on a
 bucket index.** It read `bucket(MISS_BUCKETS[2][0])`, which counted only the sub-types
 that one rule happens to name, so a People miss whose sub-type moved out of that rule --
@@ -1111,11 +1150,11 @@ Product root cause **and** `Missed_Flag = Yes`, not Product fault alone.
 ```
 127 emails     = 103 complaints + 24 inquiries
 103 complaints = 86 confirmed misses + 17 process issues
- 86 misses     = 52 Product + 34 Analyst
-Product 52 = source 24 + keyword 18 + model classification 3
-           + alerting gap 3 + supplier mapping 2 + routing 1 + clustering 1
-Analyst 34 = analyst miss 28 + published late 4
-           + industry selection 1 + tagging 1
+ 86 misses     = 51 Product + 35 Analyst
+Product 51 = source 24 + keyword 18 + model classification 4
+           + alerting gap 3 + platform bug 1 + clustering 1
+Analyst 35 = analyst miss 28 + published late 4
+           + supplier selection 1 + industry selection 1 + tagging 1
 ```
 
 **Counts written into prose elsewhere in this file are historical snapshots.** 78 misses,
@@ -1139,7 +1178,7 @@ is marked below.
 | LPG/LNG shortage (Caterpillar, 18-Mar) | `Product` / `Model Classification Defect` | Yes | the model classified the captured event Not Impactful; review did not correct it |
 | HPE SEC notification (25-Mar) | `Process` / `Process Clarification`, **Inquiry** | **No** | the news was not in the public domain, so there was nothing to report |
 | EAO-13 FXI foam fire (Ford) | `Product` / `Model Classification Defect` | Yes | captured, then classified Not Impactful by the model |
-| EAO-15 Samsung DRAM (META) | `Product` / `Mapping / Routing Defect` | Yes | bulletin existed; the customer WarRoom was never created because normalization was not applied |
+| EAO-15 Samsung DRAM (META) | ~~`Product` / `Mapping / Routing Defect`~~ **`People` / `Supplier Selection Miss`** | Yes | **superseded 18-Oct.** The supplier was on file under two names and the analyst checked only one. See below |
 | Uber Freight (Red Cross, TS-22695) | `People` / `Industry selection` | ~~No~~ **Yes** | **superseded 15-Oct.** Published on 13-Aug, but incorrect industry selection kept it off the Red Cross portal and a customer-specific treatment existed only after they chased it. Nothing reached them. The ownership was right; the flag read "published" as "delivered" |
 
 **The discriminator that now does the most work is who made the Not Impactful call.**
@@ -1273,9 +1312,19 @@ meanings are different failures rather than variants.** The owner settled this:
 
 | Owner | What actually happened | Label |
 | --- | --- | --- |
-| Product (6) | the supplier is not in the customer's mapped supply chain at all -- they never shared the company with Resilinc, so there was nothing for the event to match against | Supplier was not mapped by the customer |
-| People (2) | the supplier **was** mapped, and an analyst left it off the WarRoom or its geofence when the WarRoom was built | Supplier mapped, but left off the WarRoom |
-| Process (3) | neither: the customer asked why the mapping behaved as it did, and a clarification went back | Supplier mapping queried by the customer |
+| Product | the supplier is not in the customer's mapped supply chain at all -- they never shared the company with Resilinc, so there was nothing for the event to match against | Supplier was not mapped by the customer |
+| People | the supplier **was** mapped, and an analyst left it off the WarRoom or its geofence when the WarRoom was built | Supplier mapped, but left off the WarRoom |
+| Process | neither: the customer asked why the mapping behaved as it did, and a clarification went back | Supplier mapping queried by the customer |
+
+**The three owner counts were 6 / 2 / 3 when this was written and the tracker now holds
+one Product row and one Process row.** `Mapping` has been the collecting bucket for
+every miss whose symptom is "nothing reached them", and the V1 taxonomy has been taking
+its rows back one evidenced ruling at a time -- People's two to `Supplier Selection
+Miss`, and on 18-Oct Eason to `Model Classification Defect` and Murata to `Platform
+Bug`. **The owner-aware labels stay regardless of the counts**: `OWNED_SUBTYPE` must go
+on handling all three, because the next row filed under `Mapping` will be filed under it
+for the same reason, and `failure_label()` is what stops the Product wording appearing
+over a People row.
 
 **A customer-side data gap is not automatically `Product`, and the NVR row is why.**
 NVR, 09-Oct-2026: their MasterBrand Kinston site was never shared with Resilinc, so the
