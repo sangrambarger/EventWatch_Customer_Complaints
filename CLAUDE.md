@@ -467,7 +467,8 @@ the same recording artifact the June rule above warns about.
 holds only the four rules where the **owner changes the answer** -- `Source not in our
 vendor or monitoring network` (Sub-type `Source Coverage`), `Keyword Miss` (`Keyword
 Update`), `An analyst let it through` and `The model did not spot it` (both `Review` /
-`Event Identification` / `Prioritization`, split on `Root Cause` People against Product).
+`Model Classification Defect` / `Analyst Review Miss`, split on `Root Cause` People
+against Product).
 The first two take their wording from `PLAIN_SUBTYPE` rather than repeating it, so a
 label cannot be renamed in one place and not the other. The last two are the only labels
 on the page that may name an actor, because the owner is part of the rule that selects
@@ -920,6 +921,52 @@ still carry a row that was deliberately not migrated for want of evidence, and
 names `Captured Late` as the category it is not. A value with no rows costs nothing; a
 value removed from under a definition that cites it costs a gate failure.
 
+**`Event Identification` was retired on 18-Oct-2026, and the reason is the test for
+retiring any value: it named no failure of its own.** The owner's definition was "the
+product classified it incorrectly, or the analyst", and both halves were already taken --
+the model's wrong call is `Model Classification Defect`, the analyst's is `Review`. Its
+label, "Classified as not impactful, wrongly", therefore read as a second wording for
+`Review` on every chart that drew the two side by side, which is how it was found: the
+owner asked why two rows of one popup said the same thing.
+
+**Reading the ten rows it held showed the same thing from the data end, and four of them
+were not classification failures at all.** The record's own `Comments` carried the cause
+even where `RCA Details` was blank:
+
+| Row | Its own Comments | Now |
+| --- | --- | --- |
+| Ford, Stark Manufacturing closure | "Feed harvesting gap" | `Product` / `Keyword Update` |
+| Ford, Highway 57 blockade | "source coverage + keyword gap identified" | `Product` / `Keyword Update` |
+| Caterpillar, Isselguss fire (EAO-9) | "captured by feeds but incorrectly clustered" | `Product` / `Clustering / Duplication Defect` |
+| Ford, Linamar facility fire | "human review missed company-facility validation" | `People` / `Review` |
+| Ford, Snowstorm forecast | "moved to monitoring incorrectly" | `People` / `Review` |
+| Ford, Mexico highway blockades | "AI correctly classified, but analyst assessed as localized" | `People` / `Review` |
+| Ford, Canadian wildfire smoke (EAO-21) | analyst did not assess the event correctly | `People` / `Review` |
+| Eaton, Schaeffler CO2 leak (EAO-4) | an analyst overlooked it | `People` / `Review`, routing moved |
+| Caterpillar, Spain railway strike | event notified with no WarRoom attached | `People` / `WarRoom Creation` |
+| Ford, Severe weather, Midwest | monitored correctly, escalated after the customer email | `People` / `Published Late` |
+
+**Linamar is the one that was nearly filed as a Process miss, and the owner settled it
+as People.** The analyst skipped the company-mapping check before marking the story Not
+Impactful, which reads as a process failure -- but the process existed and worked; a
+person did not follow it. `People` / `Review` with the process-adherence finding in
+`Comments`, and **Process still carries zero confirmed misses**, which is what keeps the
+Executive Summary at two root-cause cards.
+
+**Severe weather, Midwest is the worked example of `Published Late` against `Review`.**
+The guidance notifies thunderstorms and tornado warnings only on confirmed impact, and
+while the event was at warning stage it was correctly held under monitoring -- so no
+decision was wrong. What came late was the escalation once structural damage in Hardin
+County and Kenton met the criteria, and the bulletin went out only after Ford wrote in.
+`Review` would say we looked and declined; we did not. The Collins Aerospace Sandy Fire
+row is the precedent, filed `Published Late` on the same shape. **The line between the
+two is whether a decision went wrong or a clock did.**
+
+`Model Classification Defect` took `Event Identification`'s place in both `MISS_BUCKETS`
+rules and in `audit_pages.miss_buckets()`, rather than the Product rule losing a member:
+that rule exists to say "the model misjudged a captured event", and it is now the only
+Product-rooted value that means it.
+
 **The Executive Summary's "Seen, but overlooked" card selects on the OWNER, not on a
 bucket index.** It read `bucket(MISS_BUCKETS[2][0])`, which counted only the sub-types
 that one rule happens to name, so a People miss whose sub-type moved out of that rule --
@@ -948,11 +995,17 @@ It gives each pair EventWatch's own name for the failure and the same thing in p
 English: the term is what the chart prints, the plain English rides on the hover and
 fills a column of the table, so the page reads to a VP without costing an analyst the
 word they file records under. `Source Coverage` is `Source Miss`, `Keyword Update` is
-`Keyword Miss`, Product-rooted `Review` / `Event Identification` / `Prioritization` /
-`Relevancy` are all `Model Miss`, People-rooted `Review` is `People / Analyst Miss`, and
-Process-rooted `Visibility` and `WarRoom Creation` are both `WarRoom Issue` -- the
-tooltip for which says "missing, delayed, duplicated, or not visible", which is why both
-belong to it.
+`Keyword Miss`, Product-rooted `Review` and `Relevancy` are both `Model Miss`,
+People-rooted `Review` is `People / Analyst Miss`, and `Visibility` and `WarRoom
+Creation` are both `WarRoom Issue` -- the tooltip for which says "missing, delayed,
+duplicated, or not visible", which is why both belong to it.
+
+**`WarRoom Creation` is mapped under People as well as Process**, and the Caterpillar
+Spain row is why. Notifying an event and raising its WarRoom are two steps issued
+together; there the event went out with no WarRoom attached and one was created only
+after the customer wrote in. Only the Process-rooted pair had a mapping, so a correctly
+classified record would have rendered as `Needs Review` -- the bucket that must only
+ever mean "nobody decided".
 
 **A pair that is not in the map counts as `Needs Review`, and never folds into `Other`.**
 Talking an unmapped pair into the nearest plausible heading is how a taxonomy stops
@@ -1053,16 +1106,16 @@ stop delivery is a Process Issue with a Product root cause -- CAN-3242 is one, w
 query timeout kept a delivered notification off the supplier portal. "Product Miss" means
 Product root cause **and** `Missed_Flag = Yes`, not Product fault alone.
 
-**Baseline on 15-Oct-2026**, and every figure below reconciles:
+**Baseline on 18-Oct-2026**, and every figure below reconciles:
 
 ```
-124 emails     = 100 complaints + 24 inquiries
-100 complaints = 83 confirmed misses + 17 process issues
- 83 misses     = 50 Product + 33 Analyst
-Product 50 = source 23 + keyword 14 + model 7 + alerting gap 3
-           + supplier mapping 2 + routing 1
-Analyst 33 = analyst miss 23 + event identification 5
-           + industry selection 2 + published late 2 + prioritization 1
+127 emails     = 103 complaints + 24 inquiries
+103 complaints = 86 confirmed misses + 17 process issues
+ 86 misses     = 52 Product + 34 Analyst
+Product 52 = source 24 + keyword 18 + model classification 3
+           + alerting gap 3 + supplier mapping 2 + routing 1 + clustering 1
+Analyst 34 = analyst miss 28 + published late 4
+           + industry selection 1 + tagging 1
 ```
 
 **Counts written into prose elsewhere in this file are historical snapshots.** 78 misses,
@@ -1082,7 +1135,7 @@ is marked below.
 
 | Case | Now | `Missed_Flag` | Why |
 | --- | --- | --- | --- |
-| Spain railway strike (Caterpillar, 20-Feb) | `People` / `Event Identification` | **No** | bulletin already published; the analyst picked the wrong event type and review did not correct it |
+| Spain railway strike (Caterpillar, 20-Feb) | `People` / `WarRoom Creation` | **No** | the event was notified with no WarRoom attached; one was created after the customer wrote in. Sub-type corrected 18-Oct; the flag is unchanged |
 | LPG/LNG shortage (Caterpillar, 18-Mar) | `Product` / `Model Classification Defect` | Yes | the model classified the captured event Not Impactful; review did not correct it |
 | HPE SEC notification (25-Mar) | `Process` / `Process Clarification`, **Inquiry** | **No** | the news was not in the public domain, so there was nothing to report |
 | EAO-13 FXI foam fire (Ford) | `Product` / `Model Classification Defect` | Yes | captured, then classified Not Impactful by the model |
@@ -1105,8 +1158,8 @@ lowered to match -- which is only legitimate because the missing chart is a real
 in the data. **Check that before lowering a minimum again**; otherwise it is a gate being
 filed down to pass.
 
-`Methodology Weakness` and `WarRoom Creation` now carry no rows. They stay defined, for
-the same reason `Captured Late` does.
+`Methodology Weakness` carries no rows. It stays defined, for the same reason
+`Captured Late` does. `WarRoom Creation` carried none until the Spain row moved onto it.
 
 **Two things could not be verified and were not guessed.** Jira attachments are not
 readable from here -- the content endpoint returns 403, no credential is available to the
@@ -1195,8 +1248,7 @@ Applied on the owner's instruction:
 `Review` is **We saw it and chose not to report it** -- the second pass at that label,
 because "Seen at review, and not raised" never said what review *is*, and the sub-type
 sits under both People (an analyst) and Product (the model). Describing the **decision**
-is the one thing true of both. `Event Identification` is **Classified as
-not impactful, wrongly**, `Mapping` is owner-aware and explained below,
+is the one thing true of both. `Mapping` is owner-aware and explained below,
 `Visibility` is **Published, but not visible to the customer**, `Process Clarification`
 is **We had to clarify the reporting guidelines**, `WarRoom Creation` is **WarRoom
 Missed**, `Relevancy` is **Judged not relevant to this customer**.
@@ -1267,8 +1319,8 @@ happened, the answer is two rows, not a vaguer label -- the same argument that k
 `Review` split across two `MISS_BUCKETS`.
 
 **No label names an actor where the tracker puts that sub-type under more than one
-owner.** `Event Identification` is 5 People and 4 Product, `Review` is 21 People and 2
-Product, and `Relevancy`'s single record is Product -- so "an analyst classified this"
+owner.** `Review` is 26 People and 2 Product, `Mapping` sits under all three, and
+`Relevancy`'s single record is Product -- so "an analyst classified this"
 is a false statement on every Product row. The owner asked for analyst-named wording and
 it was not taken literally for that reason; the actor is carried instead by the Owner
 column and by the two `MISS_BUCKETS` rules that select on owner, which are the only two
