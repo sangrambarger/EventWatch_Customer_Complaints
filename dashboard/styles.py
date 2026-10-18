@@ -64,6 +64,59 @@ h1,h2,h3,h4,h5,h6,p,span,div,label{color:var(--ink)!important}.page-hero,.sectio
 .excel-table.grid td.wrap>.cell::-webkit-scrollbar-thumb{background:var(--line2);border-radius:4px;border:2px solid transparent;background-clip:content-box}
 .excel-table.grid td.wrap>.cell::-webkit-scrollbar-track{background:rgba(255,255,255,.04);border-radius:4px}
 @media(max-width:1200px){.kpi-grid{grid-template-columns:repeat(2,minmax(180px,1fr))}.insight-row{grid-template-columns:1fr}}@media(max-width:760px){.kpi-grid{grid-template-columns:1fr}}
+/* The card popups. One anatomy on all eight; colour carries only who fixes it, and
+   every row prints its own name and count so nothing rests on colour alone. */
+.pop{display:flex;flex-direction:column;gap:14px;font-size:14px}
+.pop-chain{font-size:11px;color:var(--muted)!important;border-bottom:1px solid var(--line);padding-bottom:11px}
+.pop-chain .pop-here{color:var(--ink)!important;font-weight:700}
+.pop-chain .pop-sep{color:var(--line2)!important;margin:0 3px}
+.pop-q{font-size:19px;font-weight:700;line-height:1.3}
+.pop-hero{display:flex;align-items:baseline;gap:14px}
+.pop-num{font-size:48px;font-weight:900;line-height:1}
+.pop-base{font-size:13px;color:var(--muted)!important;line-height:1.35}
+.pop-find{font-size:14px;line-height:1.55;border-left:3px solid var(--accent);padding-left:13px}
+.pop-stack{display:flex;gap:2px;height:14px;border-radius:4px;overflow:hidden}
+.pop-stack span{display:block}
+.pop-keys{display:flex;flex-wrap:wrap;gap:16px;font-size:11px;color:var(--muted)!important}
+.pop-key{display:inline-flex;align-items:center;gap:6px}
+.pop-key i,.pop-group i,.pop-wide i{width:9px;height:9px;border-radius:3px;display:inline-block;flex:none}
+.pop-head{font-size:11px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)!important}
+.pop-rows{display:flex;flex-direction:column;gap:9px}
+.pop-row{display:flex;align-items:center;gap:12px}
+.pop-name{font-size:13px;flex:1 1 auto;min-width:0}
+.pop-row .pop-name{flex:0 0 42%}
+.pop-track{flex:1 1 auto;height:10px;background:rgba(255,255,255,.05);border-radius:0 4px 4px 0}
+.pop-fill{display:block;height:100%;border-radius:0 4px 4px 0}
+.pop-val{font-size:13px;font-weight:800;min-width:30px;text-align:right;font-variant-numeric:tabular-nums}
+.pop-note{font-size:11px;color:var(--muted)!important;min-width:46px;text-align:right;font-variant-numeric:tabular-nums}
+.pop-wide{display:flex;align-items:baseline;gap:10px}
+.pop-wide .pop-name{font-size:14px;font-weight:600}
+.pop-wide .pop-val{font-size:15px}
+.pop-group{display:flex;align-items:baseline;gap:8px;margin-top:5px}
+.pop-group span{flex:1 1 auto;font-size:11.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)!important}
+.pop-group b{font-size:13px;font-weight:800;font-variant-numeric:tabular-nums}
+.pop-gloss{font-size:12px;color:var(--muted)!important;line-height:1.5;margin:-3px 0 4px}
+.pop-gloss.indent{padding-left:19px}
+.pop-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px 22px}
+.pop-grid div{display:flex;justify-content:space-between;gap:10px;font-size:13px}
+.pop-grid b{font-variant-numeric:tabular-nums}
+.pop-box{background:#202631;border-radius:8px;padding:12px 15px;font-size:13px;color:var(--muted)!important;line-height:1.55}
+.pop-box strong{color:var(--ink)!important}
+.pop-proof{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.pop-proof b{font-size:17px;font-weight:800;color:var(--ink)!important;font-variant-numeric:tabular-nums}
+.pop-bul{display:flex;flex-direction:column;gap:9px}
+.pop-bul ul{margin:0;padding-left:17px;display:flex;flex-direction:column;gap:7px}
+.pop-bul li{font-size:13px;line-height:1.45;color:var(--ink)!important}
+.pop-caveat{font-size:11px;color:var(--muted)!important;line-height:1.45;border-top:1px solid var(--line);padding-top:9px}
+.pop-foot{font-size:12px;color:var(--muted)!important;border-top:1px solid var(--line);padding-top:12px}
+/* The trigger strip reads as the card's own footer rather than a control bolted under
+   it: panel ground, a hairline above, and the card's bottom corners. */
+.st-key-kpi-more-1 [data-testid="stHorizontalBlock"],.st-key-kpi-more-2 [data-testid="stHorizontalBlock"]{gap:10px}
+.st-key-kpi-more-1,.st-key-kpi-more-2{margin-top:-10px;margin-bottom:14px}
+.st-key-kpi-more-1 button,.st-key-kpi-more-2 button{width:100%;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:5px 13px;min-height:0;color:var(--muted)!important;font-size:11px;font-weight:700;letter-spacing:.04em}
+.st-key-kpi-more-1 button p,.st-key-kpi-more-2 button p{color:var(--muted)!important;font-size:11px;font-weight:700}
+.st-key-kpi-more-1 button:hover,.st-key-kpi-more-2 button:hover{background:#222833;border-color:var(--line2)}
+.st-key-kpi-more-1 button:hover p,.st-key-kpi-more-2 button:hover p{color:var(--ink)!important}
 </style>
 """
 NAV_ACCENT = {page: colour for colour, names in NAV_GROUPS.values() for page in names}

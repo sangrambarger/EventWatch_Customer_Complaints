@@ -256,6 +256,63 @@ def pairs(tables) -> dict[str, set[int]]:
     return found
 
 
+def card_detail_problems(df: pd.DataFrame) -> tuple[list[str], int]:
+    """Every card popup's own arithmetic, checked without opening a browser.
+
+    The panels are only in the DOM once a reader clicks, so the scrape above never
+    sees them -- which would leave eight panels of figures outside the one gate that
+    exists to say whether a number is right. Their payloads are plain data, so the
+    check is a pure call: the rows a panel prints must sum to the equation it prints
+    underneath, and that equation must be true.
+
+    This is the whole reason a popup carries a visible `N + M = T` line. A panel whose
+    parts do not add up to its own headline is the fault a reader spots first and
+    trusts least, and it has shipped on this dashboard before -- the Customers impacted
+    foot once read 120 against a tracker of 115.
+    """
+    sys.path.insert(0, str(REPO))
+    from dashboard.metrics import card_details
+    problems, checked = [], 0
+    for card in card_details(df):
+        if not card.get("proof"):
+            continue
+        equation = card["proof"][0]
+        left, _, right = equation.partition("=")
+        try:
+            parts = [int(p.strip()) for p in left.split("+")]
+            whole = int(right.strip())
+        except ValueError:
+            problems.append(f"popup {card['key']!r}: cannot read its own equation {equation!r}")
+            continue
+        checked += 1
+        if sum(parts) != whole:
+            problems.append(f"popup {card['key']!r}: {equation} does not add up")
+        # A panel that groups its rows (the account one groups by owner) proves the
+        # equation against the GROUP totals, and each group against the leaves beneath
+        # it. Checking the equation against the leaves would compare an owner subtotal
+        # with a list of causes and call a correct panel wrong, which is how a gate
+        # gets filed down rather than fixed.
+        groups, leaves, current = [], [], None
+        for r in card.get("rows", []):
+            if not isinstance(r.get("value"), int):
+                continue
+            if r.get("group"):
+                groups.append(r["value"]); current = []; leaves.append(current)
+            elif current is not None:
+                current.append(r["value"])
+            else:
+                leaves.append([r["value"]])
+        top = groups if groups else [v for part in leaves for v in part]
+        if top and sorted(top, reverse=True) != sorted(parts, reverse=True):
+            problems.append(f"popup {card['key']!r}: rows {sorted(top, reverse=True)} do not "
+                            f"match the equation {sorted(parts, reverse=True)}")
+        for total, part in zip(groups, leaves):
+            if part and sum(part) != total:
+                problems.append(f"popup {card['key']!r}: a group of {total} holds rows "
+                                f"summing to {sum(part)}")
+    return problems, checked
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--port", type=int, default=8631)
@@ -312,6 +369,10 @@ def main() -> int:
         note = f"{checked} label(s) reconciled" + (f", {missing} not rendered (top-N cut)" if missing else "")
         note += f", {feet} total row(s) checked" if feet else ""
         print(f"{page:34s} {note}")
+
+    card_problems, cards_checked = card_detail_problems(df)
+    problems += card_problems
+    print(f"{'Executive Summary popups':34s} {cards_checked} card popup(s) add up")
 
     if problems:
         print(f"\nFAIL — {len(problems)} figure(s) do not match the tracker:")

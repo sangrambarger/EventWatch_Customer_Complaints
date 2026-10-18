@@ -456,6 +456,61 @@ eight cards carry the concentration, the trend section carries the movement, and
 root-cause table carries the recurring failure with its own denominator beside it. A
 panel that restates the page in different words is a panel a reader has to reconcile.
 
+## The card popups
+
+Each of the eight cards carries a **Break it down** strip that opens that card's own
+breakdown in an `st.dialog`. `metrics.card_details()` builds one payload per card and
+`components.detail_panel()` draws it -- the same split the rest of the package keeps, so
+a panel can be restyled without touching a total and a total cannot move on a styling
+edit.
+
+**Every figure is computed off the frame on screen, and from the functions the cards
+already use.** The eight panels were designed as mockups first, with their numbers
+typed into the markup, and they went stale in three days. `card_details()` reads
+`miss_bucket_series()`, `miss_by_customer()`, `trend_windows()` and `reason_category()`
+rather than recomputing anything: a popup that re-derives a figure its own card prints
+is a second implementation waiting to disagree with the first. The panels follow the
+sidebar filter for the same reason -- they are built from `filtered`, so a popup can
+never describe a different population from the card that opened it.
+
+**One anatomy on all eight**, because eight panels that each invent their own shape are
+eight things a reader has to learn: a chain line saying where the figure sits in the
+funnel (`127 emails > 103 complaints > 86 misses`), the question, the figure with its
+base, one computed finding, the breakdown with a line of plain English under every row,
+the arithmetic that proves the breakdown sums, and the caveat that stops the obvious
+misreading. **The chain is the anti-confusion device**: the eight cards quote five
+different denominators, and "42 of what" was the question every one of them left open.
+
+**Colour carries one thing and nothing else: who fixes it.** Product `--blue`,
+EventWatch Ops `--red`, a delivered bulletin that was wrong `--amber`, a row that
+belongs to nobody `--muted`. **Nothing is shaded by its own size.** The first cut faded
+each bar by its value -- darkest first, palest last -- which spends the only free
+channel restating the bar's own length; `dataviz` names it as a value ramp on nominal
+categories. Every pair that actually sits on one panel clears the colourblind floor
+(`--blue` against `--red` is dE 17.0 protan, against `--amber` 20.6). `--red` against
+`--amber` is the one weak pair at dE 13.9 and never co-occurs, because Process carries
+no misses; if it ever does, that panel needs a different encoding, not a new hue.
+
+**The triggers are their own four-column row, not part of the card grid.** A Streamlit
+widget cannot live inside the CSS grid `kpis()` draws, so the strip sits directly
+beneath each row of four and is styled to read as part of the cards. The container
+carries a `key`, so the stylesheet matches **`.st-key-kpi-more-N`** -- a documented,
+stable class, unlike the hashed emotion names that are rewritten between releases.
+`st.dialog` is applied at call time rather than at module level so each panel's title is
+its own card's eyebrow, and `width="medium"`: at `large` the panel stretches past
+1200px and the gloss under each row becomes a line nobody tracks back to its start.
+
+**`audit_pages.card_detail_problems()` is what keeps them honest.** The panels are only
+in the DOM once a reader clicks, so the scrape that reconciles every rendered figure
+never sees them -- which would leave eight panels of numbers outside the only gate that
+says whether a figure is right. The payloads are plain data, so the check is a pure
+call with no browser: the rows a panel prints must match the equation printed under
+them, and that equation must be true. A panel that groups its rows (the account one
+groups by owner) is checked against the **group** totals, and each group against the
+leaves beneath it; checking the equation against the leaves compares an owner subtotal
+with a list of causes and calls a correct panel wrong. **This is the whole reason a
+popup prints a visible `N + M = T` line at all.**
+
 `kpis(items, columns=n)` sizes the grid to the count. Both the auto-fitting variant and
 a fixed five were wrong: auto-fit wrapped a five-card row to four-plus-one on any window
 under about 1200px -- which is the width these are actually read at -- and a fixed five
@@ -967,6 +1022,45 @@ rules and in `audit_pages.miss_buckets()`, rather than the Product rule losing a
 that rule exists to say "the model misjudged a captured event", and it is now the only
 Product-rooted value that means it.
 
+**Three more rows left `Mapping` on 18-Oct-2026, and the common fault is the same one
+that emptied `Event Identification`: a record's own `Comments` describe the symptom, and
+`Mapping` is what a symptom of "nothing reached them" reads like.**
+
+* **Ford, Eason & Co factory fire.** Its Comments read "Event not triggered due to
+  company not mapped as Ford supplier", and it was filed `Product` / `Mapping` for
+  years. The owner settles it as **the same failure as the ADM data breach row
+  (EAO-51)**: the articles were captured, the classification models categorised them
+  Not Impactful, and the human-in-the-loop review did not correct it. `Product` /
+  `Model Classification Defect`, with a supersession sentence on the Comments. **Its
+  `Automation Opportunity` and `Standard Automation Focus` still carry the mapping
+  theory** ("not mapped" explanation template, `Entity & Supplier Resolution`) and were
+  left as they are pending the owner's wording -- the Bombardier precedent says the
+  remedy follows the cause, so this is an open loose end, not a settled row.
+* **Harman, Murata cyber attack (CAN-3298).** 45 Murata sites met the impact criteria
+  and impact-confirmation requests went to 41. The four omitted Tier 2 sites met the
+  customer settings and the impact-region criteria, so **the targets were on file and
+  the system did not send to them** -- an engineering shortfall, not a mapping gap.
+  `Product` / `Platform Bug`, still a miss. Its `Improvement VS Bug` still reads
+  `Improvement`; the row's own RCA records that no root cause was ever documented, so
+  the field was not flipped to `Bug` on inference.
+* **META, Samsung DRAM (EAO-15).** This one crosses owners, and it is the case for
+  reading a normalization RCA sceptically. The RCA said the Samsung Electronics sites
+  are normalized under Samsung and that normalization "was not applied during the
+  impacted-site assessment" -- which reads as a platform defect, and it is not.
+  **Samsung Electronics is also mapped as Samsung in the portal for this customer**, so
+  the supplier was on file under a second name. The analyst checked Samsung Electronics
+  and did not check Samsung, so the sites were never selected and no WarRoom was
+  created. `People` / `Supplier Selection Miss`, routed to EventWatch Ops, `Missed_Flag`
+  still Yes because nothing reached META. Both `RCA Details` and `Comments` were
+  rewritten together with an explicit supersession sentence, per the EAO-13 rule.
+
+**`Supplier Selection Miss` now carries its first miss.** The other two rows on it
+(Caterpillar / Dana, META / Bangkok) are `Missed_Flag = No`, matching the original
+People / `Mapping` precedent where the WarRoom was published and the supplier was left
+off it. EAO-15 is the other shape: the supplier was left off and **no WarRoom was
+created at all**, so nothing reached the customer. **Leaving a supplier off a published
+WarRoom is not a miss; leaving one off so completely that no WarRoom exists is.**
+
 **The Executive Summary's "Seen, but overlooked" card selects on the OWNER, not on a
 bucket index.** It read `bucket(MISS_BUCKETS[2][0])`, which counted only the sub-types
 that one rule happens to name, so a People miss whose sub-type moved out of that rule --
@@ -1111,11 +1205,11 @@ Product root cause **and** `Missed_Flag = Yes`, not Product fault alone.
 ```
 127 emails     = 103 complaints + 24 inquiries
 103 complaints = 86 confirmed misses + 17 process issues
- 86 misses     = 52 Product + 34 Analyst
-Product 52 = source 24 + keyword 18 + model classification 3
-           + alerting gap 3 + supplier mapping 2 + routing 1 + clustering 1
-Analyst 34 = analyst miss 28 + published late 4
-           + industry selection 1 + tagging 1
+ 86 misses     = 51 Product + 35 Analyst
+Product 51 = source 24 + keyword 18 + model classification 4
+           + alerting gap 3 + platform bug 1 + clustering 1
+Analyst 35 = analyst miss 28 + published late 4
+           + supplier selection 1 + industry selection 1 + tagging 1
 ```
 
 **Counts written into prose elsewhere in this file are historical snapshots.** 78 misses,
@@ -1139,7 +1233,7 @@ is marked below.
 | LPG/LNG shortage (Caterpillar, 18-Mar) | `Product` / `Model Classification Defect` | Yes | the model classified the captured event Not Impactful; review did not correct it |
 | HPE SEC notification (25-Mar) | `Process` / `Process Clarification`, **Inquiry** | **No** | the news was not in the public domain, so there was nothing to report |
 | EAO-13 FXI foam fire (Ford) | `Product` / `Model Classification Defect` | Yes | captured, then classified Not Impactful by the model |
-| EAO-15 Samsung DRAM (META) | `Product` / `Mapping / Routing Defect` | Yes | bulletin existed; the customer WarRoom was never created because normalization was not applied |
+| EAO-15 Samsung DRAM (META) | ~~`Product` / `Mapping / Routing Defect`~~ **`People` / `Supplier Selection Miss`** | Yes | **superseded 18-Oct.** The supplier was on file under two names and the analyst checked only one. See below |
 | Uber Freight (Red Cross, TS-22695) | `People` / `Industry selection` | ~~No~~ **Yes** | **superseded 15-Oct.** Published on 13-Aug, but incorrect industry selection kept it off the Red Cross portal and a customer-specific treatment existed only after they chased it. Nothing reached them. The ownership was right; the flag read "published" as "delivered" |
 
 **The discriminator that now does the most work is who made the Not Impactful call.**
@@ -1273,9 +1367,19 @@ meanings are different failures rather than variants.** The owner settled this:
 
 | Owner | What actually happened | Label |
 | --- | --- | --- |
-| Product (6) | the supplier is not in the customer's mapped supply chain at all -- they never shared the company with Resilinc, so there was nothing for the event to match against | Supplier was not mapped by the customer |
-| People (2) | the supplier **was** mapped, and an analyst left it off the WarRoom or its geofence when the WarRoom was built | Supplier mapped, but left off the WarRoom |
-| Process (3) | neither: the customer asked why the mapping behaved as it did, and a clarification went back | Supplier mapping queried by the customer |
+| Product | the supplier is not in the customer's mapped supply chain at all -- they never shared the company with Resilinc, so there was nothing for the event to match against | Supplier was not mapped by the customer |
+| People | the supplier **was** mapped, and an analyst left it off the WarRoom or its geofence when the WarRoom was built | Supplier mapped, but left off the WarRoom |
+| Process | neither: the customer asked why the mapping behaved as it did, and a clarification went back | Supplier mapping queried by the customer |
+
+**The three owner counts were 6 / 2 / 3 when this was written and the tracker now holds
+one Product row and one Process row.** `Mapping` has been the collecting bucket for
+every miss whose symptom is "nothing reached them", and the V1 taxonomy has been taking
+its rows back one evidenced ruling at a time -- People's two to `Supplier Selection
+Miss`, and on 18-Oct Eason to `Model Classification Defect` and Murata to `Platform
+Bug`. **The owner-aware labels stay regardless of the counts**: `OWNED_SUBTYPE` must go
+on handling all three, because the next row filed under `Mapping` will be filed under it
+for the same reason, and `failure_label()` is what stops the Product wording appearing
+over a People row.
 
 **A customer-side data gap is not automatically `Product`, and the NVR row is why.**
 NVR, 09-Oct-2026: their MasterBrand Kinston site was never shared with Resilinc, so the
