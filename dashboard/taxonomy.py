@@ -219,7 +219,19 @@ PLAIN_SUBTYPE = {
     "Source Coverage": "Source not in our vendor or monitoring network",
     "Keyword Update": "Keyword Miss",
     "Review": "We saw it and chose not to report it",
-    "Event Identification": "Classified as not impactful, wrongly",
+    # `Event Identification` was retired on the owner's call, for the reason
+    # `Prioritization` was: it named no failure of its own. The owner's definition was
+    # "the product classified it incorrectly, or the analyst", and both halves were
+    # already taken -- the model's wrong call is `Model Classification Defect`, the
+    # analyst's is `Review`. So its label, "Classified as not impactful, wrongly", read
+    # as a second wording for `Review` on every chart that drew them side by side, which
+    # is exactly how it was found.
+    #
+    # Reading the ten rows it held showed the same thing from the data end: four were
+    # not classification failures at all (two capture gaps, one clustering defect, one
+    # analyst who skipped a mapping check), and the rest were analyst judgement calls.
+    # Every one moved to a sub-type that already existed. The value stays on the
+    # Definitions sheet, as `Methodology Weakness` and `WarRoom Creation` do.
     "Captured Late": "Captured, but notified late",
     "Mapping": "Supplier was not mapped by the customer",
     "Alerting Gap": "Captured, but never reached the analyst portal",
@@ -335,7 +347,6 @@ DRIVERS = {
     # -- Product: detection and system coverage -----------------------------------
     ("Product", "Source Coverage"): ("Source Miss", "The source is not in our vendor or monitoring network"),
     ("Product", "Keyword Update"): ("Keyword Miss", "Monitored source, but retrieval logic missed the article"),
-    ("Product", "Event Identification"): ("Model Miss", "Incorrect automated classification or routing"),
     ("Product", "Review"): ("Model Miss", "The model had it and did not flag it as reportable"),
     ("Product", "Relevancy"): ("Model Miss", "Incorrect automated classification or routing"),
     ("Product", "Mapping"): ("Supplier Impact / Mapping", "The supplier was not mapped to the impacted event"),
@@ -362,8 +373,14 @@ DRIVERS = {
     # lateness, and `Published Late` is that word.
     # -- People: analyst assessment and review ------------------------------------
     ("People", "Review"): ("People / Analyst Miss", "An analyst read it and decided not to report it"),
-    ("People", "Event Identification"): ("Event Identification", "Seen by an analyst and classified as not impactful"),
     ("People", "Relevancy"): ("Impact Misclassification", "Judged not relevant to the customer, wrongly"),
+    # Notifying an event and raising its WarRoom are two steps issued together, and the
+    # Caterpillar Spain row is the case where the event went out with no WarRoom attached
+    # and one was created only after the customer wrote in. Only the Process-rooted pair
+    # was mapped, so without this the row renders as `Needs Review` -- a correctly
+    # classified record sitting in the bucket that must only ever mean "nobody decided".
+    ("People", "WarRoom Creation"): ("WarRoom Issue",
+     "The event was notified and no WarRoom was attached to it"),
     ("People", "Duplication"): ("Duplicate Assessment Error", "The same event assessed and published twice"),
     ("People", "Mapping"): ("Supplier Selection", "An impacted supplier was left off the WarRoom"),
     ("People", "Tagging"): ("Industry Selection", "Incorrect industry selection, or the industry was missed"),

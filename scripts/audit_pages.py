@@ -57,7 +57,7 @@ def miss_buckets(df: pd.DataFrame) -> dict[str, int]:
     # `Analyst Review Miss` joins the three the analyst/model rules already name: it is
     # the V1 taxonomy's word for the same failure, so leaving it out here would have the
     # audit recompute a bucket the app no longer draws that way and call the app wrong.
-    surfaced = ["Review", "Event Identification", "Analyst Review Miss"]
+    surfaced = ["Review", "Model Classification Defect", "Analyst Review Miss"]
     out = {
         PLAIN_SUBTYPE["Source Coverage"]: int((sub == "Source Coverage").sum()),
         PLAIN_SUBTYPE["Keyword Update"]: int((sub == "Keyword Update").sum()),

@@ -188,9 +188,13 @@ MISS_BUCKETS = (
     # These two are the only labels on the page that may name an actor, because the
     # owner is part of the rule that selects the rows rather than a property of the
     # sub-type: People on one, Product on the other.
-    ("An analyst let it through", ("Review", "Event Identification", "Analyst Review Miss"), ("People",), "#f28b82",
+    # `Event Identification` left these lists with the value itself, retired on the
+    # owner's call. `Model Classification Defect` takes its place rather than the rule
+    # losing a member: the Product rule exists to say "the model misjudged a captured
+    # event", and that sub-type is now the only Product-rooted value that means it.
+    ("An analyst let it through", ("Review", "Model Classification Defect", "Analyst Review Miss"), ("People",), "#f28b82",
      "An analyst saw this event and chose not to report it · EventWatch Ops"),
-    ("The model did not spot it", ("Review", "Event Identification", "Analyst Review Miss"), ("Product",), "#f6c177",
+    ("The model did not spot it", ("Review", "Model Classification Defect", "Analyst Review Miss"), ("Product",), "#f6c177",
      "The model had this event and did not flag it as reportable · Product"),
 )
 MISS_COLOURS = [c for _, _, _, c, _ in MISS_BUCKETS]

@@ -528,11 +528,6 @@
           "Detailed cause/handling category"
         ],
         [
-          "Event Identification",
-          "The relevant event was not recognized or converted into reportable coverage.",
-          "Detailed cause/handling category"
-        ],
-        [
           "Industry selection",
           "An incorrect or missing industry classification affected tracking.",
           "Detailed cause/handling category"
@@ -585,6 +580,11 @@
         [
           "Visibility",
           "Published content was not visible because of profile, portal, notification, or display conditions.",
+          "Detailed cause/handling category"
+        ],
+        [
+          "WarRoom Creation",
+          "A required WarRoom was not created despite available EventWatch coverage.",
           "Detailed cause/handling category"
         ],
         [
