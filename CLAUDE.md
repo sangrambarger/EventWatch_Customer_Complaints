@@ -456,6 +456,61 @@ eight cards carry the concentration, the trend section carries the movement, and
 root-cause table carries the recurring failure with its own denominator beside it. A
 panel that restates the page in different words is a panel a reader has to reconcile.
 
+## The card popups
+
+Each of the eight cards carries a **Break it down** strip that opens that card's own
+breakdown in an `st.dialog`. `metrics.card_details()` builds one payload per card and
+`components.detail_panel()` draws it -- the same split the rest of the package keeps, so
+a panel can be restyled without touching a total and a total cannot move on a styling
+edit.
+
+**Every figure is computed off the frame on screen, and from the functions the cards
+already use.** The eight panels were designed as mockups first, with their numbers
+typed into the markup, and they went stale in three days. `card_details()` reads
+`miss_bucket_series()`, `miss_by_customer()`, `trend_windows()` and `reason_category()`
+rather than recomputing anything: a popup that re-derives a figure its own card prints
+is a second implementation waiting to disagree with the first. The panels follow the
+sidebar filter for the same reason -- they are built from `filtered`, so a popup can
+never describe a different population from the card that opened it.
+
+**One anatomy on all eight**, because eight panels that each invent their own shape are
+eight things a reader has to learn: a chain line saying where the figure sits in the
+funnel (`127 emails > 103 complaints > 86 misses`), the question, the figure with its
+base, one computed finding, the breakdown with a line of plain English under every row,
+the arithmetic that proves the breakdown sums, and the caveat that stops the obvious
+misreading. **The chain is the anti-confusion device**: the eight cards quote five
+different denominators, and "42 of what" was the question every one of them left open.
+
+**Colour carries one thing and nothing else: who fixes it.** Product `--blue`,
+EventWatch Ops `--red`, a delivered bulletin that was wrong `--amber`, a row that
+belongs to nobody `--muted`. **Nothing is shaded by its own size.** The first cut faded
+each bar by its value -- darkest first, palest last -- which spends the only free
+channel restating the bar's own length; `dataviz` names it as a value ramp on nominal
+categories. Every pair that actually sits on one panel clears the colourblind floor
+(`--blue` against `--red` is dE 17.0 protan, against `--amber` 20.6). `--red` against
+`--amber` is the one weak pair at dE 13.9 and never co-occurs, because Process carries
+no misses; if it ever does, that panel needs a different encoding, not a new hue.
+
+**The triggers are their own four-column row, not part of the card grid.** A Streamlit
+widget cannot live inside the CSS grid `kpis()` draws, so the strip sits directly
+beneath each row of four and is styled to read as part of the cards. The container
+carries a `key`, so the stylesheet matches **`.st-key-kpi-more-N`** -- a documented,
+stable class, unlike the hashed emotion names that are rewritten between releases.
+`st.dialog` is applied at call time rather than at module level so each panel's title is
+its own card's eyebrow, and `width="medium"`: at `large` the panel stretches past
+1200px and the gloss under each row becomes a line nobody tracks back to its start.
+
+**`audit_pages.card_detail_problems()` is what keeps them honest.** The panels are only
+in the DOM once a reader clicks, so the scrape that reconciles every rendered figure
+never sees them -- which would leave eight panels of numbers outside the only gate that
+says whether a figure is right. The payloads are plain data, so the check is a pure
+call with no browser: the rows a panel prints must match the equation printed under
+them, and that equation must be true. A panel that groups its rows (the account one
+groups by owner) is checked against the **group** totals, and each group against the
+leaves beneath it; checking the equation against the leaves compares an owner subtotal
+with a list of causes and calls a correct panel wrong. **This is the whole reason a
+popup prints a visible `N + M = T` line at all.**
+
 `kpis(items, columns=n)` sizes the grid to the count. Both the auto-fitting variant and
 a fixed five were wrong: auto-fit wrapped a five-card row to four-plus-one on any window
 under about 1200px -- which is the width these are actually read at -- and a fixed five

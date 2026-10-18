@@ -16,10 +16,36 @@ import streamlit as st
 from dashboard.styles import ROOT_COLOURS, SPLIT_COLOURS
 from dashboard.taxonomy import ROOT_OWNERSHIP, SPLIT_MEANING
 from dashboard.filters import filter_note
-from dashboard.metrics import MISS_BUCKETS, miss_by_customer, miss_categories, miss_owner_split, overview_split, trend_windows
-from dashboard.components import add_rule, add_section, donut, downloads, excel_bar_table, kpis, page_header
+from dashboard.metrics import MISS_BUCKETS, card_details, miss_by_customer, miss_categories, miss_owner_split, overview_split, trend_windows
+from dashboard.components import add_rule, add_section, detail_panel, donut, downloads, excel_bar_table, kpis, page_header
 from dashboard.sections import render_customers, render_event_types, render_monthly_volume, render_nature, render_root_cause
 
+
+
+def _card_triggers(details, keys, row):
+    """A quiet strip under each row of four cards, opening that card's own breakdown.
+
+    A Streamlit widget cannot live inside the CSS grid `kpis()` draws, so the triggers
+    are their own four-column row directly beneath it, styled to read as part of the
+    cards rather than as a control bolted under them. The container carries a `key`, so
+    the stylesheet matches `.st-key-kpi-more-N` -- a documented, stable class, not one
+    of Streamlit's hashed emotion names that are rewritten between releases.
+
+    A card whose payload the filter emptied (no account on the page, too few months to
+    compare) gets a disabled strip rather than a button that opens an empty panel.
+    """
+    with st.container(key=f"kpi-more-{row}"):
+        for column, key in zip(st.columns(4), keys):
+            card = details.get(key)
+            with column:
+                if st.button("Break it down", key=f"kpi-more-{key}", disabled=card is None,
+                             help=None if card else "Not enough data in this filter"):
+                    # `medium`, not `large`: at large the panel stretches past 1200px and
+                    # the gloss under each row runs to a line nobody tracks back to its
+                    # start. The decorator is applied here rather than at module level
+                    # so the dialog's title is the card's own eyebrow instead of one
+                    # generic heading on all eight.
+                    st.dialog(card["eyebrow"], width="medium")(lambda c=card: detail_panel(c))()
 
 
 def render(df, filtered, selected_page):
@@ -50,11 +76,13 @@ def render(df, filtered, selected_page):
     # across a meeting room -- is the first thing to shrink. Every card prints its own
     # denominator inside the number, because a bare percentage beside a bare count on
     # one screen is what made the last read-out of this page unreadable.
+    details = {c["key"]: c for c in card_details(page)}
     kpis([("Customer emails", len(page), f"{complaints} complaints · {inquiries} inquiries", "#8ab4f8"),
           ("Complaints", f"{complaints} of {len(page)}", f"{complaints / total * 100:.0f}% of these emails", "#f6c177"),
           ("Confirmed misses", f"{missed} of {len(page)}", f"{missed / total * 100:.0f}% of these emails", "#f28b82"),
           ("Complaints, not a miss", f"{not_a_miss} of {max(complaints, 1)}",
            "we did report it; the issue was something else", "#80cbc4")], columns=4)
+    _card_triggers(details, ("emails", "complaints", "misses", "notamiss"), "1")
     kpis([("Never captured by us", f"{never} of {max(missed, 1)}",
            f"{never / max(missed, 1) * 100:.0f}% of misses — the event never entered our system", "#8ab4f8"),
           ("Seen, but overlooked", f"{overlooked} of {max(missed, 1)}",
@@ -67,6 +95,7 @@ def render(df, filtered, selected_page):
            f"{biggest['Customer'].iloc[0]}: {int(biggest['Emails'].iloc[0])} of {len(page)}" if not biggest.empty else "—",
            (f"{int(biggest['Emails'].iloc[0]) / total * 100:.0f}% of every email on this page"
             if not biggest.empty else "no customer recorded"), "#b6beca")], columns=4)
+    _card_triggers(details, ("nevercaptured", "overlooked", "trend", "account"), "2")
 
     add_rule()
     add_section("What customers sent us", "Two rings over the same filter. The left one is every "
