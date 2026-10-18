@@ -195,14 +195,13 @@ def shorten(value, limit=110):
 
 # The tracker's taxonomy, read out in English. `Root Cause` and `Sub-type` are the
 # vocabulary of the people who file the records, and on a leadership page they say
-# nothing: "Event Identification" and "Prioritization" are not categories a reader
+# nothing: "Event Identification" and "Relevancy" are not categories a reader
 # outside the team can rank, and "Review" -- the single largest People bucket -- is
 # the vaguest word in the file. The tracker keeps its own wording, because that is
 # the record; only the chart label is translated, and the original travels with it
 # in the table beside the chart so an analyst can tie any slice back to a field.
-# Two pairs deliberately share a label, which is what "club them" means: they are one
-# failure to a reader and two values to the tracker. `Prioritization` and `Captured Late`
-# both end with the customer hearing about an event we already had, late; `Tagging` and
+# One pair deliberately shares a label, which is what "club them" means: they are one
+# failure to a reader and two values to the tracker. `Tagging` and
 # `Industry selection` are both the industry being wrong or missing at publication. The
 # tracker keeps both values -- they travel in the `Tracker value` column beside the label
 # -- and every block that aggregates on the label (`root_frame`, the miss-bucket tail,
@@ -221,7 +220,6 @@ PLAIN_SUBTYPE = {
     "Keyword Update": "Keyword Miss",
     "Review": "We saw it and chose not to report it",
     "Event Identification": "Classified as not impactful, wrongly",
-    "Prioritization": "Captured, but notified late",
     "Captured Late": "Captured, but notified late",
     "Mapping": "Supplier was not mapped by the customer",
     "Alerting Gap": "Captured, but never reached the analyst portal",
@@ -339,7 +337,6 @@ DRIVERS = {
     ("Product", "Keyword Update"): ("Keyword Miss", "Monitored source, but retrieval logic missed the article"),
     ("Product", "Event Identification"): ("Model Miss", "Incorrect automated classification or routing"),
     ("Product", "Review"): ("Model Miss", "The model had it and did not flag it as reportable"),
-    ("Product", "Prioritization"): ("Model Miss", "Incorrect automated classification or routing"),
     ("Product", "Relevancy"): ("Model Miss", "Incorrect automated classification or routing"),
     ("Product", "Mapping"): ("Supplier Impact / Mapping", "The supplier was not mapped to the impacted event"),
     ("Product", "Visibility"): ("Portal Visibility Issue", "Published, but not visible to the customer"),
@@ -354,10 +351,18 @@ DRIVERS = {
     # would have folded the Suntory row into the Alerting Gap count on Root cause.
     ("Product", "Captured Late"): ("Product Captured Late",
      "Our first usable capture of the story came late"),
+    # `Prioritization` was retired on the owner's call: it and `Published Late` named one
+    # failure -- we had the story and the customer heard late -- and the two rows carrying
+    # them were filed under each other's names. Row 41's own RCA says the team
+    # "deprioritized the event", filed `Published Late`; row 55 says the WarRoom was
+    # "delayed ~9 days", filed `Prioritization`. One value now, `Published Late`, which is
+    # the V1 term with a written definition and names what the customer experienced rather
+    # than an internal queue decision. `("People", "Captured Late")` goes with it: it was
+    # held against a future row only because the People vocabulary had no word for
+    # lateness, and `Published Late` is that word.
     # -- People: analyst assessment and review ------------------------------------
     ("People", "Review"): ("People / Analyst Miss", "An analyst read it and decided not to report it"),
     ("People", "Event Identification"): ("Event Identification", "Seen by an analyst and classified as not impactful"),
-    ("People", "Prioritization"): ("Prioritization", "Ranked too low to raise, so the customer heard late"),
     ("People", "Relevancy"): ("Impact Misclassification", "Judged not relevant to the customer, wrongly"),
     ("People", "Duplication"): ("Duplicate Assessment Error", "The same event assessed and published twice"),
     ("People", "Mapping"): ("Supplier Selection", "An impacted supplier was left off the WarRoom"),
@@ -369,7 +374,6 @@ DRIVERS = {
     # one that briefly did turned out to be an analyst who overlooked the story, which is
     # `Review` -- but the pair is plausible and mapping it keeps it out of Needs Review.
     # A term is a label, not a claim about the owner; the owner is the key it hangs on.
-    ("People", "Captured Late"): ("Delayed Notification", "Captured, but the customer was told too late"),
     # -- Process: workflow and control ---------------------------------------------
     ("Process", "Process Clarification"): ("SOP Unclear", "Reporting guidelines had to be clarified to the customer"),
     ("Process", "Captured Late"): ("Delayed Notification", "Captured, but the customer was told too late"),

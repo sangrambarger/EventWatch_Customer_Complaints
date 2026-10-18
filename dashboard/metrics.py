@@ -188,9 +188,9 @@ MISS_BUCKETS = (
     # These two are the only labels on the page that may name an actor, because the
     # owner is part of the rule that selects the rows rather than a property of the
     # sub-type: People on one, Product on the other.
-    ("An analyst let it through", ("Review", "Event Identification", "Prioritization", "Analyst Review Miss"), ("People",), "#f28b82",
+    ("An analyst let it through", ("Review", "Event Identification", "Analyst Review Miss"), ("People",), "#f28b82",
      "An analyst saw this event and chose not to report it · EventWatch Ops"),
-    ("The model did not spot it", ("Review", "Event Identification", "Prioritization", "Analyst Review Miss"), ("Product",), "#f6c177",
+    ("The model did not spot it", ("Review", "Event Identification", "Analyst Review Miss"), ("Product",), "#f6c177",
      "The model had this event and did not flag it as reportable · Product"),
 )
 MISS_COLOURS = [c for _, _, _, c, _ in MISS_BUCKETS]
