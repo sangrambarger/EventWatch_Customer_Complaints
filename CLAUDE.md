@@ -177,13 +177,36 @@ and both turned out to be keyword gaps in the same bankruptcy algorithm, a week 
 
 **The staging default is `Keyword Update`, not `Source Coverage`, on a bankruptcy,
 insolvency or utility miss** -- changed on the owner's call after the old default went
-0 for 3. EAO-41, EAO-42 and EAO-52 were every case where a staged `Source Coverage`
-guess was later tested against an investigation, and all three came back a keyword gap
-in the algorithm. **`Source Coverage` means the story never arrived at all**, so reach
-for it only where the ticket says the feed was not received -- the Bombardier / STELIA
-thread ("the feed associated with that URL has not been received by our application")
-is what that evidence looks like. Either way the Comments say the `Sub-type` is a
-staging guess, because it is one.
+0 for 3 (EAO-41, EAO-42, EAO-52, all three a keyword gap in the algorithm). **Its record
+since is five right and one wrong**: those three, plus both EAO-54 rows, against EAO-53.
+It is a good default and it is not a law -- this line said it had been right every time
+it was tested, which stopped being true the moment EAO-53 closed, and a rule that cannot
+record its own exception is a rule nobody can check.
+
+**`Source Coverage` means the story never arrived at all**, so reach for it only where
+the evidence says the feed was not received. Two cases are what that evidence looks
+like: the Bombardier / STELIA thread ("the feed associated with that URL has not been
+received by our application"), and **EAO-53**, where engineering wrote "Neither of the
+sources is part of the vendor's network. We have requested them to add it." Either way
+the Comments say the `Sub-type` is a staging guess, because it is one.
+
+**Non-capture is a symptom, not a cause, and this is where the sub-type is most often
+got wrong.** `Source Coverage` and `Keyword Update` produce the identical symptom --
+nothing in the system, nothing shown to the customer -- so a finding that "neither the
+exact titles nor similar articles were found for that date window" settles nothing by
+itself. **One question separates them: was the carrying outlet monitored.** Monitored
+means the article arrived and the matching terms missed it, which is a keyword gap;
+not monitored means it never arrived, which is a source gap. Ask that before filing
+either, and record the answer in `RCA Details` with the reason it is not the other one.
+
+**The two EAO-54 rows are the first where that question was actually asked**, rather
+than the cause being inferred from the symptom. Belden raised one ticket covering a
+Reuters report on gallium and germanium under Chinese export curbs and a DigiTimes
+report on GaAs and InP epiwafer prices; the owner confirmed both outlets are in the
+monitoring network, which ruled out a source gap and established the keyword gap
+positively. It took two corrections to get there -- the row was filed `Source Coverage`
+on a reading of "the sources were not captured" that the owner then narrowed -- and that
+is the round trip the question above is meant to save.
 
 **EAO-51 is the case that shows how far a staged guess can travel, and that the owner
 ends it.** It was staged `Product` / `Source Coverage`, corrected to `People` / `Review`
