@@ -47,9 +47,56 @@ def kpis(items, columns=None):
     narrower than about 1200px, and a fixed five leaves a hole when there are four.
     Passing the count keeps the row a row at any width the dashboard is read at.
     """
-    cards = [f"<div class='kpi' style='--accent:{a}'><div class='kpi-label'>{esc(l)}</div><div class='kpi-num'>{esc(v)}</div><div class='kpi-foot'>{esc(f)}</div></div>" for l, v, f, a in items]
+    cards = [kpi_card(l, v, f, a) for l, v, f, a in items]
     style = f" style='grid-template-columns:repeat({columns},minmax(0,1fr))'" if columns else ""
-    st.markdown(f"<div class='kpi-grid'{style}>" + "".join(cards) + "</div>", unsafe_allow_html=True)
+    st.markdown("<div class='kpi-grid'" + style + ">" + "".join(cards) + "</div>", unsafe_allow_html=True)
+
+
+def kpi_card(label, value, foot, accent):
+    """One card's markup. The single source for it, so the plain grid above and the
+    clickable row below cannot drift into two slightly different cards."""
+    return (f"<div class='kpi' style='--accent:{accent}'><div class='kpi-label'>{esc(label)}</div>"
+            f"<div class='kpi-num'>{esc(value)}</div><div class='kpi-foot'>{esc(foot)}</div></div>")
+
+
+def clickable_kpis(items, keys, row, available=()):
+    """A row of cards where the WHOLE CARD is the click target, not a button beside it.
+
+    Returns the key of the card clicked this run, or None.
+
+    Streamlit cannot attach a callback to arbitrary HTML, so the first cut put a small
+    button under each card. The owner's answer was that the card itself should open its
+    own breakdown, which leaves two ways to do it and only one that is safe.
+
+    A plain `<a href="?card=...">` would make the card clickable with no widget at all,
+    and it is the wrong answer here: a real anchor navigates the page, Streamlit hands
+    back a fresh session, and every sidebar filter resets. The filters are the one thing
+    on this dashboard that has already cost a round of "I had to constantly refresh the
+    tab", so a popup that silently clears them is a worse bug than the one it fixes.
+
+    So: a real `st.button` per card, laid over the card and made invisible. The click
+    stays inside the session, the filter state is untouched, and the button keeps its
+    label in the accessibility tree -- the text is hidden with `color:transparent` and a
+    zero font size rather than by removing it, so a screen reader still announces which
+    card it is opening. Each card sits in its own `st.container(key=...)`, which is what
+    the stylesheet positions the overlay against.
+
+    A card with no payload (the filter left it nothing to break down) renders as a plain
+    card with no overlay, rather than a click that opens an empty panel.
+    """
+    clicked = None
+    with st.container(key=f"kpi-row-{row}"):
+        for column, (item, key) in zip(st.columns(len(items)), zip(items, keys)):
+            label, value, foot, accent = item
+            with column:
+                if key not in available:
+                    st.markdown(kpi_card(label, value, foot, accent), unsafe_allow_html=True)
+                    continue
+                with st.container(key=f"kpi-hit-{key}"):
+                    st.markdown(kpi_card(label, value, foot, accent), unsafe_allow_html=True)
+                    if st.button(f"Break down {label}", key=f"kpi-open-{key}", width="stretch"):
+                        clicked = key
+    return clicked
 
 
 def excel_bar_table(df, label_col, value_col="Records", extras=None, label_head=None,
