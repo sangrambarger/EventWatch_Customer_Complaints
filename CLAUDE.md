@@ -548,6 +548,7 @@ font size rather than removed, so a screen reader still announces which card it 
 The click stays in the session and the filters are untouched. `kpi_card()` is the one
 source of the card markup, so the plain grid and the clickable row cannot drift.
 
+<<<<<<< HEAD
 **Both rows of cards are drawn on every rerun, and `opened = opened or clickable_kpis(...)`
 is why they were not.** Python short-circuits `or`: once a card in the top row returned
 its key, the right-hand side was never evaluated, so the second row of four was never
@@ -555,6 +556,8 @@ drawn -- the reader clicked a card, closed the dialog, and the bottom four cards
 vanished. Call both rows, then combine. **Never fold a call that draws something into
 a boolean expression.**
 
+=======
+>>>>>>> origin/main
 **The overlay is pinned to `--kpi-h`, and three attempts to let it inherit a height
 each landed 16px short.** Streamlit lays the markdown out through a flex wrapper with
 a definite height; the card overflowed it, so every ancestor measured under the card
