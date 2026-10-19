@@ -262,13 +262,18 @@ def card_detail_problems(df: pd.DataFrame) -> tuple[list[str], int]:
     The panels are only in the DOM once a reader clicks, so the scrape above never
     sees them -- which would leave eight panels of figures outside the one gate that
     exists to say whether a number is right. Their payloads are plain data, so the
-    check is a pure call: the rows a panel prints must sum to the equation it prints
-    underneath, and that equation must be true.
+    check is a pure call: the stat cards a panel prints must match the equation it
+    prints underneath, and that equation must be true.
 
     This is the whole reason a popup carries a visible `N + M = T` line. A panel whose
     parts do not add up to its own headline is the fault a reader spots first and
     trusts least, and it has shipped on this dashboard before -- the Customers impacted
     foot once read 120 against a tracker of 115.
+
+    Only the blocks marked `partition` are compared against the equation. A block that
+    is context rather than a split -- the account panel's second row, which carries that
+    account's share of the capture gap and two other accounts entirely -- would
+    otherwise be matched against an owner split and call a correct panel wrong.
     """
     sys.path.insert(0, str(REPO))
     from dashboard.metrics import card_details
@@ -276,7 +281,7 @@ def card_detail_problems(df: pd.DataFrame) -> tuple[list[str], int]:
     for card in card_details(df):
         if not card.get("proof"):
             continue
-        equation = card["proof"][0]
+        equation = card["proof"]
         left, _, right = equation.partition("=")
         try:
             parts = [int(p.strip()) for p in left.split("+")]
@@ -287,29 +292,14 @@ def card_detail_problems(df: pd.DataFrame) -> tuple[list[str], int]:
         checked += 1
         if sum(parts) != whole:
             problems.append(f"popup {card['key']!r}: {equation} does not add up")
-        # A panel that groups its rows (the account one groups by owner) proves the
-        # equation against the GROUP totals, and each group against the leaves beneath
-        # it. Checking the equation against the leaves would compare an owner subtotal
-        # with a list of causes and call a correct panel wrong, which is how a gate
-        # gets filed down rather than fixed.
-        groups, leaves, current = [], [], None
-        for r in card.get("rows", []):
-            if not isinstance(r.get("value"), int):
-                continue
-            if r.get("group"):
-                groups.append(r["value"]); current = []; leaves.append(current)
-            elif current is not None:
-                current.append(r["value"])
-            else:
-                leaves.append([r["value"]])
-        top = groups if groups else [v for part in leaves for v in part]
-        if top and sorted(top, reverse=True) != sorted(parts, reverse=True):
-            problems.append(f"popup {card['key']!r}: rows {sorted(top, reverse=True)} do not "
+        if card.get("foot_left") != equation:
+            problems.append(f"popup {card['key']!r}: prints {card.get('foot_left')!r} under an "
+                            f"equation of {equation!r}")
+        shown = [int(s["value"]) for b in card.get("blocks", []) if b.get("partition")
+                 for s in b["items"] if str(s["value"]).isdigit()]
+        if sorted(shown, reverse=True) != sorted(parts, reverse=True):
+            problems.append(f"popup {card['key']!r}: stat cards {sorted(shown, reverse=True)} do not "
                             f"match the equation {sorted(parts, reverse=True)}")
-        for total, part in zip(groups, leaves):
-            if part and sum(part) != total:
-                problems.append(f"popup {card['key']!r}: a group of {total} holds rows "
-                                f"summing to {sum(part)}")
     return problems, checked
 
 

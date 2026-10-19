@@ -1038,36 +1038,54 @@ def event_type_note(df):
 # which is the fault this file exists to prevent: a popup that recomputes a figure its
 # own card already shows is a second implementation waiting to disagree with the first.
 #
+# One anatomy on all eight, cut to the bone on the owner's call: the chain that says
+# where the figure sits in the funnel, the question, the figure with its base, ONE
+# short sentence, a rule, a row of stat cards, a rule, one footer line. The panels this
+# replaced carried a paragraph of gloss under every row and a stack of note boxes under
+# that; the reader's complaint was the right one -- the number was stranded at the right
+# edge of a bullet while the words did the talking. A stat card puts the number first
+# and its own label underneath it, which is the only arrangement where the figure is
+# what you read.
+#
 # Colour carries one thing on these panels and nothing else: who fixes it. Product is
 # `--blue`, EventWatch Ops `--red`, a delivered bulletin that was wrong `--amber`, and
 # a row that belongs to nobody takes `--muted`. Nothing is shaded by its own size --
-# fading a bar by its value spends the only free channel restating the bar's length,
-# and the dataviz check calls it out as a value ramp on nominal categories. Every row
-# carries its name and count, so nothing rests on colour alone, which is also what
-# relieves the grey rows of the contrast floor.
+# fading a card by its value spends the only free channel restating the number printed
+# on it. Every card carries its name and count, so nothing rests on colour alone.
+#
+# `proof` is the visible `N + M = T` line, and it is the whole reason a panel prints
+# one: the panels are only in the DOM once a reader clicks, so the scrape that
+# reconciles every rendered figure never sees them. `audit_pages.card_detail_problems()`
+# checks the equation against the cards of every block marked `partition`, which is why
+# a block that is context rather than a split (card 8's second row) carries
+# `partition=False` -- checking the equation against those would compare an owner split
+# with a list of other accounts and call a correct panel wrong.
 # ---------------------------------------------------------------------------------
 
 POP_MUTED = "#515a68"
 POP_NEUTRAL = "#b6beca"
 
 
-def _named_tail(counts, top=5, noun="failure", nouns=None):
-    """The `top` biggest entries, then one row naming everything left over.
+def _stat(value, label, note="", colour=POP_MUTED):
+    """One stat card: the number, two to four words naming it, a tiny qualifier."""
+    return {"value": str(value), "label": label, "note": note, "colour": colour}
 
-    The same bargain `root_drivers()` strikes: a tail row on a leadership panel is only
-    honest if the reader can see what went into it without leaving the panel, so the
-    row carries every name it swallowed. A tail of exactly one is shown by its own name
-    instead, because "1 smaller failure: Industry Selection (1)" is longer than
-    "Industry Selection" and hides a name to save no space.
+
+def _block(items, cols=None, partition=False):
+    """A row of stat cards laid out on a `cols`-wide grid.
+
+    The grid is fixed-column rather than flexed so a trailing short row keeps the card
+    width of the row above it -- five cards over three columns reads as 3 + 2 of equal
+    width, where a flex row would stretch the last two to half the panel each and make
+    the small numbers look like the big ones.
     """
-    items = [(str(k), int(v)) for k, v in counts.items() if int(v) > 0]
-    items.sort(key=lambda kv: (-kv[1], kv[0]))
-    if len(items) <= top + 1:
-        return items, None
-    head, tail = items[:top], items[top:]
-    names = ", ".join(f"{k} ({v})" for k, v in tail)
-    return head, (plural(len(tail), f"smaller {noun}", f"smaller {nouns or noun + 's'}"),
-                  sum(v for _, v in tail), names)
+    items = [i for i in items if i]
+    return {"cols": cols or min(len(items), 3), "items": items, "partition": partition}
+
+
+def _equation(items, total):
+    """The visible arithmetic under a partition block."""
+    return " + ".join(str(i["value"]) for i in items) + f" = {total}"
 
 
 def _miss_parts(df):
@@ -1090,36 +1108,116 @@ def _miss_parts(df):
             "analyst": analyst, "platform": platform}
 
 
-# What a People-rooted miss says the analyst actually did. The keys are tracker
-# sub-types; anything not named here keeps its own plain label, so a value added
-# tomorrow appears under its own name rather than vanishing into a residue row -- the
-# same rule `miss_bucket_series()` follows for the miss buckets.
+# What a People-rooted miss says the analyst actually did, and what was wrong with a
+# bulletin that did go out in time. Both are keyed on tracker sub-types with a
+# fall-through, so a value added tomorrow appears under its own name rather than
+# vanishing into a residue row -- the same rule `miss_bucket_series()` follows for the
+# miss buckets. The labels are two to four words because they sit under a 28px number
+# on a card a third of the panel wide; the sentence that used to explain each one is
+# gone on the owner's call.
 ANALYST_ACTIONS = (
-    ("They judged it not impactful", MISS_BUCKETS[2][1],
-     "The story was closed at review, so no alert and no WarRoom were ever raised"),
-    ("They sent it, too late to act on", ("Published Late", "Captured Late", "Prioritization"),
-     "The customer had already heard it elsewhere by the time we published"),
-    ("They tagged the wrong industry", ("Tagging", "Industry selection"),
-     "We published it, and the tag kept it off this customer's portal"),
-    ("They missed the supplier entirely", ("Supplier Selection Miss", "Mapping"),
-     "The supplier was on file and was not selected, so no WarRoom was created"),
+    ("Judged not impactful", MISS_BUCKETS[2][1], "An analyst closed it at review"),
+    ("We notified it late", ("Published Late", "Captured Late", "Prioritization"),
+     "Published, but not in time to act"),
+    ("Wrong industry tag", ("Tagging", "Industry selection"), "Kept it off their portal"),
+    ("Supplier left off", ("Supplier Selection Miss", "Mapping"), "On file, and not selected"),
 )
 
+WRONG_GROUPS = (
+    ("Wrong suppliers on it", ("Supplier Selection Miss", "Mapping", "Mapping / Routing Defect"),
+     "Who the bulletin named"),
+    ("They could not see it", ("Visibility", "Industry selection", "Tagging"),
+     "Published, and not on their portal"),
+    ("Wrong call on the event", ("Review", "Relevancy", "Model Classification Defect"),
+     "Scope or impact was wrong"),
+    ("Sent twice, or merged wrong", ("Duplication", "Strategy", "Clustering / Duplication Defect"),
+     "One event, two bulletins"),
+    ("No WarRoom raised", ("WarRoom Creation",), "The bulletin went out alone"),
+    ("A system fault", ("Platform Bug", "Alerting Gap"), "A confirmed defect"),
+)
 
-def _analyst_actions(df, mask):
-    """The People-rooted misses grouped by what the analyst did, biggest first."""
+# The one short name for a cause, in the words the stat cards use. A popup that names
+# a cause names it from here -- card 8's owner cards read "no monitored source 12 ·
+# keywords missed it 7" rather than the 46-character plain label, and rather than the
+# "4 failures · biggest 12" they read first, which told a reader nothing they could act
+# on. Keyed on the sub-type, with the owner-aware overrides `OWNED_SUBTYPE` already
+# makes elsewhere: `Review` under Product is the model deciding and under People is a
+# person deciding, which is the whole reason `MISS_BUCKETS` splits it in two.
+SHORT_CAUSE = {
+    "Source Coverage": "no monitored source",
+    "Keyword Update": "keywords missed it",
+    "Model Classification Defect": "the model misjudged it",
+    "Relevancy": "the model misjudged it",
+    "Alerting Gap": "never reached an analyst",
+    "Platform Bug": "a system fault",
+    "Clustering / Duplication Defect": "grouped with the wrong story",
+    "Visibility": "published, not visible",
+    "Mapping / Routing Defect": "sent to the wrong place",
+    "Review": "judged not impactful",
+    "Analyst Review Miss": "judged not impactful",
+    "Published Late": "notified late",
+    "Captured Late": "notified late",
+    "Prioritization": "notified late",
+    "Tagging": "wrong industry tag",
+    "Industry selection": "wrong industry tag",
+    "Supplier Selection Miss": "supplier left off",
+    "Mapping": "supplier not on file",
+    "WarRoom Creation": "no WarRoom raised",
+    "Duplication": "sent twice",
+    "Process Clarification": "we clarified the rule",
+    "Strategy": "how we group events",
+    "Deliberate Rule": "the rule applied",
+}
+SHORT_OWNED = {
+    ("Product", "Review"): "the model misjudged it",
+    ("People", "Mapping"): "supplier left off",
+    ("Process", "Mapping"): "they asked about mapping",
+}
+
+
+def short_cause(root, subtype):
+    """The short name for one cause, owner-aware, falling back to the plain label."""
+    key = (str(root).strip(), str(subtype).strip())
+    if key in SHORT_OWNED:
+        return SHORT_OWNED[key]
+    return SHORT_CAUSE.get(key[1]) or failure_label(key[0], key[1]).lower()
+
+
+def named_causes(df, mask, top=2):
+    """The causes under `mask`, biggest first, as "name N · name N · and K more"."""
+    root = df.get("Root Cause", pd.Series(dtype=str)).reindex(df.index).fillna("").astype(str)
+    sub = df.get("Sub-type", pd.Series(dtype=str)).reindex(df.index).fillna("").astype(str)
+    counts = {}
+    for r, t in zip(root[mask], sub[mask]):
+        name = short_cause(r, t)
+        counts[name] = counts.get(name, 0) + 1
+    ranked = sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))
+    shown = ranked[:top]
+    line = " · ".join(f"{esc(n)} {v}" for n, v in shown)
+    rest = sum(v for _, v in ranked[top:])
+    return line + (f" · and {rest} more" if rest else "")
+
+
+def _grouped(df, mask, groups, colour, tail_colour=POP_MUTED):
+    """Stat cards for `mask`, folded onto `groups` in order, with a named fall-through.
+
+    Groups apply in order and each claims only what the ones before it did not, so the
+    cards always sum to the masked count however the taxonomy grows. A sub-type outside
+    every group keeps its own plain label and its own card rather than landing in an
+    `Other` bucket, which is how a mis-filed row stays mis-filed.
+    """
     sub = df.get("Sub-type", pd.Series(dtype=str)).reindex(df.index).fillna("").astype(str).str.strip()
-    rows, claimed = [], pd.Series(False, index=df.index)
-    for name, subs, gloss in ANALYST_ACTIONS:
+    cards, claimed = [], pd.Series(False, index=df.index)
+    for name, subs, note in groups:
         hit = mask & sub.isin(subs) & ~claimed
         if int(hit.sum()):
-            rows.append((name, int(hit.sum()), gloss))
+            cards.append((int(hit.sum()), _stat(int(hit.sum()), name, note, colour)))
         claimed = claimed | hit
     rest = mask & ~claimed
     if int(rest.sum()):
         for label, count in labels_for(df[rest]).value_counts().items():
-            rows.append((str(label), int(count), "A People-rooted miss outside the four actions above"))
-    return sorted(rows, key=lambda r: -r[1])
+            cards.append((int(count), _stat(int(count), esc(shorten(str(label), 34)), "", tail_colour)))
+    return [c for _, c in sorted(cards, key=lambda c: -c[0])]
 
 
 def card_details(df):
@@ -1128,12 +1226,6 @@ def card_details(df):
     A payload is data, not markup: `components.detail_panel()` draws it. Keeping the
     two apart is the same split the rest of this package keeps -- a panel can be
     restyled without touching a total, and a total cannot be changed by a styling edit.
-
-    Every panel carries the same seven parts, because eight panels that each invent
-    their own shape are eight things a reader has to learn: where the figure sits in
-    the funnel, the question it answers, the figure with its base, one computed
-    finding, the breakdown with a plain-English line under every row, the arithmetic
-    that proves the breakdown sums, and the caveat that stops the obvious misreading.
     """
     total = len(df)
     if total == 0:
@@ -1143,192 +1235,150 @@ def card_details(df):
     inquiries = int(issue.eq("Inquiry").sum())
     part = _miss_parts(df)
     missed = int(part["missed"].sum())
-    never = int(part["source"].sum()) + int(part["keyword"].sum())
     source, keyword = int(part["source"].sum()), int(part["keyword"].sum())
+    never = source + keyword
     analyst, platform = int(part["analyst"].sum()), int(part["platform"].sum())
     not_a_miss = complaints - missed
     pct = lambda n, d: f"{n / max(d, 1) * 100:.0f}%"
+    blue, red, amber = ROOT_COLOURS["Product"], ROOT_COLOURS["People"], ROOT_COLOURS["Process"]
 
     chain_emails = f"{total} emails"
     chain_complaints = f"{complaints} complaints"
     chain_misses = f"{missed} misses"
+    cards = []
 
-    # 1 -- what came in, and what it was about.
-    # `miss_by_customer()` rather than a fresh count: it is the frame the Customers
-    # impacted table is already drawn from, so the panel and that table cannot disagree
-    # about how many emails named an account.
+    # 1 -- what came in. `miss_by_customer()` rather than a fresh count: it is the frame
+    # the Customers impacted table is drawn from, so the panel and that table cannot
+    # disagree about how many emails named an account.
     exposure = miss_by_customer(df) if "Customer" in df.columns else pd.DataFrame()
     exposure = exposure.sort_values("Emails", ascending=False) if not exposure.empty else exposure
-    top_accounts = exposure.head(5) if not exposure.empty else pd.DataFrame()
     accounts_n = len(exposure)
-    top_sum = int(top_accounts["Emails"].sum()) if not top_accounts.empty else 0
-    biggest_name = str(top_accounts["Customer"].iloc[0]) if not top_accounts.empty else ""
-    biggest_mail = int(top_accounts["Emails"].iloc[0]) if not top_accounts.empty else 0
-    second_mail = int(top_accounts["Emails"].iloc[1]) if len(top_accounts) > 1 else 0
-    reasons, reason_tail = _named_tail(reason_category(df).value_counts(), top=5,
-                                       noun="category", nouns="categories")
+    top = exposure.head(4)
+    top5 = int(exposure.head(5)["Emails"].sum()) if not exposure.empty else 0
     first = pd.to_datetime(df.get("Email/JIRA Date"), dayfirst=True, errors="coerce").min()
-    since = f"emails since {first:%b %Y}" if pd.notna(first) else "emails in this view"
-    cards = [{
-        "key": "emails", "eyebrow": "Customer emails", "accent": ROOT_COLOURS["Product"],
-        "question": "Who writes in, and what about?",
-        "chain": [(chain_emails, True)],
-        "hero": f"{total}", "base": since,
-        "finding": (f"{esc(biggest_name)} sends {pct(biggest_mail, total)} of everything we receive"
-                    + (f", and {biggest_mail / max(second_mail, 1):.1f} times the next account" if second_mail else "")
-                    + f". Five of {accounts_n} accounts carry {pct(top_sum, total)} of the book."
-                    if biggest_name else "No customer is recorded on these emails."),
-        "rows_head": f"Who writes in — top five of {accounts_n} accounts",
-        "rows": [{"name": esc(str(r["Customer"])), "value": int(r["Emails"]),
-                  "colour": POP_NEUTRAL, "gloss": ""} for _, r in top_accounts.iterrows()],
-        "grid_head": "What they write about — their own words, folded",
-        "grid": [(label, count) for label, count in reasons]
-                + ([(reason_tail[0].capitalize(), reason_tail[1])] if reason_tail else []),
-        "notes": [f"<strong>{complaints}</strong> of these asserted we failed. "
-                  f"The other <strong>{inquiries}</strong> asked how something works."]
-                 + ([f"The folded row holds {esc(reason_tail[2])}."] if reason_tail else []),
-        "foot": "An email naming two accounts counts for both.",
-    }]
+    if not top.empty:
+        biggest, biggest_n = str(top["Customer"].iloc[0]), int(top["Emails"].iloc[0])
+        second_n = int(top["Emails"].iloc[1]) if len(top) > 1 else 0
+        lead = (f"{esc(biggest)} sends {pct(biggest_n, total)} of everything"
+                + (f", {biggest_n / max(second_n, 1):.1f} times the next account." if second_n else "."))
+        items = [_stat(int(r["Emails"]), esc(str(r["Customer"])),
+                       f"{pct(int(r['Emails']), total)} of all email" if i == 0 else pct(int(r["Emails"]), total),
+                       blue if i == 0 else POP_MUTED) for i, (_, r) in enumerate(top.iterrows())]
+        # These four do not add up to the hero and never can: an email naming two
+        # accounts is counted for both, so the account column sums past the tracker.
+        # The Customers impacted table carries the same overshoot and explains it in
+        # its own caption; a panel that leaves a reader to discover it by adding four
+        # numbers is the arithmetic complaint that table was fixed for.
+        foot_left = (f"Top {len(items)} of {accounts_n} accounts. The top "
+                     f"{min(5, accounts_n)} carry {pct(top5, total)} of everything.")
+        shared = int(df["Customer"].astype(str).str.contains("/").sum())
+        foot_right = (f"{plural(shared, 'email', 'emails')} name two accounts, so these "
+                      f"add to {int(exposure['Emails'].sum())}, not {total}."
+                      if shared else "One account per email.")
+    else:
+        lead, items, foot_left = "No customer is recorded on these emails.", [], ""
+        foot_right = "An email naming two accounts counts for both."
+    cards.append({
+        "key": "emails", "eyebrow": "Customer emails", "accent": blue,
+        "question": "Who writes in?",
+        "chain": [(f"{total} customer emails", True)],
+        "hero": f"{total}",
+        "base": (f"emails since<br>{first:%b %Y}" if pd.notna(first) else "emails in this view"),
+        "lead": lead,
+        "blocks": [_block(items, cols=4)],
+        "proof": None, "foot_left": foot_left, "foot_right": foot_right,
+    })
 
     # 2 -- the complaints, split on whether anything reached the customer.
+    split = [_stat(missed, "We did not notify them", "Never sent, or sent too late to act on", red),
+             _stat(not_a_miss, "We notified them, and it was wrong",
+                   "Scope, impact, visibility or follow-up", POP_MUTED)]
     cards.append({
-        "key": "complaints", "eyebrow": "Complaints", "accent": ROOT_COLOURS["People"],
+        "key": "complaints", "eyebrow": "Complaints", "accent": red,
         "question": "What did the complaints turn out to be?",
         "chain": [(chain_emails, False), (chain_complaints, True)],
         "hero": f"{complaints}", "base": f"of {total} emails",
-        "finding": f"{pct(missed, complaints)} of them are events we never got to the customer. "
-                   "The rest were reported in time, and something about what we sent was wrong.",
-        "stack": [(missed, ROOT_COLOURS["People"]), (not_a_miss, POP_MUTED)],
-        "rows": [
-            {"name": "We did not notify the customer", "value": missed, "colour": ROOT_COLOURS["People"],
-             "gloss": "Events the customer raised that we never reported, or reported too late for them to act on"},
-            {"name": "We notified them, and it was wrong", "value": not_a_miss, "colour": POP_MUTED,
-             "gloss": "Wrong suppliers, wrong scope, a wrong severity call, sent twice, or hard to find on their portal"},
-        ],
-        "bars": False,
-        "proof": (f"{missed} + {not_a_miss} = {complaints}", "every complaint is in one of the two"),
-        "notes": [f"The other <strong>{inquiries}</strong> emails were questions, not complaints, "
-                  "so none of them counts as a failure."],
-        "foot": "A complaint is not automatically a miss.",
+        "lead": f"{pct(missed, complaints)} were events we did not report, or did not report in time.",
+        "stack": [(missed, red), (not_a_miss, POP_MUTED)],
+        "blocks": [_block(split, cols=2, partition=True)],
+        "proof": _equation(split, complaints),
+        "foot_left": _equation(split, complaints),
+        "foot_right": f"{inquiries} more emails were questions, not complaints.",
     })
 
-    # 3 -- where the story stopped. The one panel that names an owner per row.
-    plat_counts = labels_for(df[part["platform"]]).value_counts() if platform else pd.Series(dtype=int)
-    plat_gloss = ", ".join(f"{esc(str(k).lower())} ({int(v)})" for k, v in plat_counts.items())
+    # 3 -- where the story stopped. The one panel that names an owner per card.
+    stages = [_stat(never, "Never reached us at all",
+                    f"no monitored source {source} · keywords missed it {keyword}", blue),
+              _stat(platform, "Reached us, not an analyst", named_causes(df, part["platform"]), blue),
+              _stat(analyst, "Reached an analyst", named_causes(df, part["analyst"]), red)]
     recent = _recent_shape(df, part)
-    severity = df.get("Severity", pd.Series(dtype=str)).reindex(df.index).fillna("").astype(str).str.strip()
-    sev = severity[part["missed"]].value_counts()
-    sev_line = ", ".join(f"{int(v)} {esc(str(k))}" for k, v in sev.items())
     cards.append({
-        "key": "misses", "eyebrow": "Confirmed misses", "accent": ROOT_COLOURS["Product"],
+        "key": "misses", "eyebrow": "Confirmed misses", "accent": blue,
         "question": "Where did the story stop?",
         "chain": [(chain_emails, False), (chain_complaints, False), (chain_misses, True)],
         "hero": f"{missed}", "base": f"of {complaints} complaints",
-        "finding": f"{pct(never, missed)} of them never reached the portal at all. "
-                   "Almost all of the rest reached a person and stopped at their desk.",
-        "stack": [(never, ROOT_COLOURS["Product"]), (platform, ROOT_COLOURS["Product"]),
-                  (analyst, ROOT_COLOURS["People"])],
-        "legend": [("Product fixes it", ROOT_COLOURS["Product"]),
-                   ("EventWatch Ops fixes it", ROOT_COLOURS["People"])],
-        "rows": [
-            {"name": "It never reached the portal", "value": never, "colour": ROOT_COLOURS["Product"],
-             "gloss": f"No monitored source carried it ({source}), or a monitored source did and our "
-                      f"search terms missed it ({keyword}). There was never anything to work on."},
-            {"name": "It reached the portal and was lost there", "value": platform, "colour": ROOT_COLOURS["Product"],
-             "gloss": (f"Behind it: {plat_gloss}." if plat_gloss else "No miss stopped here.")},
-            {"name": "It reached an analyst and was not sent", "value": analyst, "colour": ROOT_COLOURS["People"],
-             "gloss": "A person had the story on the portal, and it did not go out, or went out too "
-                      "late for the customer to act on."},
-        ],
-        "bars": False,
-        "proof": (f"{never} + {platform} + {analyst} = {missed}", "a story stops once, in one place"),
-        "notes": ([recent] if recent else []),
-        "foot": (f"Of the {missed}: {sev_line}." if sev_line else "Product owns the first two stages, Ops the third."),
+        "lead": f"{pct(never, missed)} never reached us at all. Most of the rest stopped with an analyst.",
+        "stack": [(never, blue), (platform, blue), (analyst, red)],
+        "legend": [("Product fixes it", blue), ("EventWatch Ops fixes it", red)],
+        "blocks": [_block(stages, cols=3, partition=True)],
+        "proof": _equation(stages, missed),
+        "foot_left": _equation(stages, missed),
+        "foot_right": recent or "Product owns the first two steps, EventWatch Ops the third.",
     })
 
     # 4 -- reported in time, and wrong anyway.
-    wrong = df[issue.eq("Complaint") & ~part["missed"]]
-    wrong_rows, wrong_tail = _named_tail(labels_for(wrong).value_counts(), top=5) if not wrong.empty else ([], None)
+    wrong = _grouped(df, issue.eq("Complaint") & ~part["missed"], WRONG_GROUPS, amber)
     cards.append({
-        "key": "notamiss", "eyebrow": "Complaints, not a miss", "accent": ROOT_COLOURS["Process"],
-        "question": "We reported it. What was wrong with it?",
+        "key": "notamiss", "eyebrow": "Complaints, not a miss", "accent": amber,
+        "question": "We reported it. What was wrong?",
         "chain": [(chain_emails, False), (chain_complaints, False),
                   (f"{not_a_miss} reported, but wrong", True)],
         "hero": f"{not_a_miss}", "base": f"of {complaints} complaints",
-        "finding": "The bulletin went out in time. What the customer raised was who or what was on "
-                   "it, the call we made, or where it ended up afterwards.",
-        "rows": [{"name": esc(name), "value": count, "colour": ROOT_COLOURS["Process"], "gloss": ""}
-                 for name, count in wrong_rows]
-                + ([{"name": wrong_tail[0].capitalize(), "value": wrong_tail[1],
-                     "colour": POP_MUTED, "gloss": esc(wrong_tail[2])}] if wrong_tail else []),
-        "proof": (" + ".join(str(c) for _, c in wrong_rows)
-                  + (f" + {wrong_tail[1]}" if wrong_tail else "") + f" = {not_a_miss}",
-                  "nothing is folded into an Other bucket") if wrong_rows else None,
-        "notes": ["Every one of these reached the customer in time, so none of them counts "
-                  "as a miss. The failure is in what was sent, not whether it was sent."],
-        "foot": "Delivered in time, so none of these is a miss.",
+        "lead": "Delivered on time. The content, or its reach, was wrong.",
+        "blocks": [_block(wrong, cols=3, partition=True)],
+        "proof": _equation(wrong, not_a_miss) if wrong else None,
+        "foot_left": _equation(wrong, not_a_miss) if wrong else "",
+        "foot_right": "None of these is a miss.",
     })
 
     # 5 -- the capture gap, which is the number Product sizes investment against.
-    acct_never = _account_share(df, part["source"] | part["keyword"])
+    gap = [_stat(source, "No monitored source carried it", "Product buys the coverage", blue),
+           _stat(keyword, "Our keywords missed it", "Product widens the terms", blue)]
     cards.append({
-        "key": "nevercaptured", "eyebrow": "Never captured by us", "accent": ROOT_COLOURS["Product"],
+        "key": "nevercaptured", "eyebrow": "Never captured by us", "accent": blue,
         "question": "Why did we never find these?",
         "chain": [(chain_complaints, False), (chain_misses, False),
-                  (f"{never} never reached the portal", True)],
+                  (f"{never} never reached us", True)],
         "hero": f"{never}", "base": f"of {missed} misses<br>{pct(never, missed)}",
-        "finding": "Two reasons, and no third. Nothing reached the portal, so no analyst and no "
-                   "model ever had the chance to see these stories.",
-        "rows": [
-            {"name": "No monitored source carried it", "value": source, "colour": ROOT_COLOURS["Product"],
-             "gloss": "The outlet is not in our vendor or monitoring network, or its feed never "
-                      "arrived. Product buys the coverage."},
-            {"name": "A monitored source carried it, our terms missed it", "value": keyword,
-             "colour": ROOT_COLOURS["Product"],
-             "gloss": "The article came through, worded in a way our keywords did not match. "
-                      "Product widens the terms."},
-        ],
-        "proof": (f"{source} + {keyword} = {never}", "the two have the same symptom and different fixes"),
-        "notes": ["<strong>One question splits these two rows:</strong> was the carrying outlet "
-                  "monitored. Ask it before filing either, because nothing in the system looks "
-                  "different from the outside."]
-                 + ([acct_never] if acct_never else []),
-        "foot": "Both rows are Product's to fix.",
+        "lead": "Nothing reached us, so no analyst and no model ever saw them.",
+        "blocks": [_block(gap, cols=2, partition=True)],
+        "proof": _equation(gap, never),
+        "foot_left": _equation(gap, never),
+        "foot_right": "One test splits them: was the outlet monitored.",
     })
 
     # 6 -- the story reached a person and stopped.
-    actions = _analyst_actions(df, part["analyst"])
+    actions = _grouped(df, part["analyst"], ANALYST_ACTIONS, red)
     cards.append({
-        "key": "overlooked", "eyebrow": "Seen, but overlooked", "accent": ROOT_COLOURS["People"],
+        "key": "overlooked", "eyebrow": "Seen, but overlooked", "accent": red,
         "question": "What did the analyst do with it?",
         "chain": [(chain_complaints, False), (chain_misses, False),
                   (f"{analyst} reached an analyst", True)],
         "hero": f"{analyst}", "base": f"of {missed} misses<br>{pct(analyst, missed)}",
-        "finding": "Every one was a story we already had on the portal."
-                   + (f" {pct(actions[0][1], analyst)} of them died on one decision: {actions[0][0].lower()}."
-                      if actions else ""),
-        "rows": [{"name": esc(name), "value": count, "colour": ROOT_COLOURS["People"], "gloss": gloss}
-                 for name, count, gloss in actions],
-        "proof": (" + ".join(str(c) for _, c, _ in actions) + f" = {analyst}",
-                  "the tracker files the top row under more than one name; one failure, one row")
-                 if actions else None,
-        "bullets": ("What the team is working against", [
-            "100+ events captured every day, by a team that has not grown",
-            "150+ events can be waiting in the rework queue",
-            "Nine steps run at once, from research through to publishing",
-            "Better filtering means more events need a real look, not a quick no",
-            "Peer review is the same people doing the first pass",
-        ], "Operating context from EventWatch Ops. These five are not measured in the tracker."),
-        "notes": [],
-        "foot": f"All {analyst} are EventWatch Ops to fix.",
+        "lead": (f"{pct(int(actions[0]['value']), analyst)} stopped on one call: "
+                 f"{actions[0]['label'].lower()}." if actions else "No miss stopped with an analyst."),
+        "blocks": [_block(actions, cols=2, partition=True)],
+        "proof": _equation(actions, analyst) if actions else None,
+        "foot_left": _equation(actions, analyst) if actions else "",
+        "foot_right": f"All {analyst} are EventWatch Ops to fix.",
     })
 
     # 7 -- the one panel about movement rather than composition.
     rate, band = trend_windows(df)
-    cards.append(_trend_card(rate, band, total, chain_emails))
+    cards.append(_trend_card(rate, band, chain_emails))
 
     # 8 -- the account that dominates the page.
-    cards.append(_account_card(df, part, exposure, total, chain_emails, never))
+    cards.append(_account_card(df, part, exposure, total, chain_emails, never, missed))
     return [c for c in cards if c]
 
 
@@ -1342,95 +1392,81 @@ def _recent_shape(df, part, window=3):
     """
     dates = pd.to_datetime(df.get("Email/JIRA Date"), dayfirst=True, errors="coerce")
     months = dates.dt.to_period("M")
-    span = months.dropna().unique()
+    span = sorted(months.dropna().unique())
     if len(span) <= window * 2:
         return ""
-    recent = months.isin(sorted(span)[-window:])
+    live = span[-window:]
+    recent = months.isin(live)
     n = int((recent & part["missed"]).sum())
     if n == 0:
         return ""
     a = int((recent & (part["source"] | part["keyword"])).sum())
     b = int((recent & part["platform"]).sum())
     c = int((recent & part["analyst"]).sum())
-    return (f"<strong>Over the last {window} months</strong> the {plural(n, 'miss', 'misses')} "
-            f"split <strong>{a} / {b} / {c}</strong> across the same three stages.")
+    return (f"In {live[0].strftime('%b')} to {live[-1].strftime('%b')} the same three "
+            f"read {a} / {b} / {c}.")
 
 
-def _account_share(df, mask):
-    """Which account carries most of a masked subset, and how that subset splits for them.
-
-    Named rather than generic because "Ford carries 19 of the 42" is the line a reader
-    asks for next, and a panel that makes them open another tab to get it has sent them
-    away from the question it just answered.
-    """
-    if "Customer" not in df.columns or not int(mask.sum()):
-        return ""
-    names = customer_names(df.loc[mask, "Customer"])
-    if not names:
-        return ""
-    counts = {n: int(names_match(df.loc[mask, "Customer"], [n]).sum()) for n in names}
-    top = max(counts, key=lambda n: counts[n])
-    return (f"{esc(top)} carries <strong>{counts[top]}</strong> of the {int(mask.sum())}, "
-            f"more than any other account.")
-
-
-def _trend_card(rate, band, total, chain_emails, window=3, months=6):
+def _trend_card(rate, band, chain_emails, window=3, months=6):
     """The movement panel: the last `months` months with each month's own base beside it.
 
     The base is on every row because a rate without one invites a reader to lean on a
-    month that will move: October at 78% is seven emails, and the three-month windows
-    moved the day it opened. A move under the noise threshold is named as noise rather
-    than dressed up as a trend, which is the rule `missed_verdict()` already applies.
+    month that will move: a month of seven emails swings a long way on one record, and
+    the three-month windows moved the day October opened. A move under the noise
+    threshold is named as noise rather than dressed up as a trend, which is the rule
+    `missed_verdict()` already applies.
     """
     if rate.empty:
         return None
     tail = rate.tail(months)
-    recent_months = set(rate.tail(window)["Month"])
-    emails = int(rate["Records"].sum())
-    rows = []
+    live = set(rate.tail(window)["Month"])
+    bars = []
     for _, r in tail.iterrows():
         n, d = int(r["Missed"]), int(r["Records"])
-        live = r["Month"] in recent_months
-        rows.append({"name": pd.Period(r["Month"], freq="M").strftime("%b"),
+        bars.append({"name": pd.Period(r["Month"], freq="M").strftime("%b"),
                      "value": f"{n / max(d, 1) * 100:.0f}%", "note": f"{n}/{d}",
                      "width": n / max(d, 1) * 100,
-                     "colour": ROOT_COLOURS["Product"] if live else POP_MUTED})
+                     "colour": ROOT_COLOURS["Product"] if r["Month"] in live else POP_MUTED})
+    span = lambda w: f"{pd.Period(w['months'][0], freq='M').strftime('%b')} to " \
+                     f"{pd.Period(w['months'][-1], freq='M').strftime('%b')}"
     if band:
         move = band["recent"]["value"] - band["older"]["value"]
+        items = [_stat(f"{band['recent']['value']:.0f}%", span(band["recent"]),
+                       f"{band['recent']['missed']} of {band['recent']['emails']}", ROOT_COLOURS["Product"]),
+                 _stat(f"{band['older']['value']:.0f}%", span(band["older"]),
+                       f"{band['older']['missed']} of {band['older']['emails']}", POP_MUTED),
+                 _stat(f"{abs(move):.1f}", "Points moved",
+                       "Under 5 reads as noise" if abs(move) < 5 else "A real move", POP_MUTED)]
         hero = f"{band['recent']['value']:.0f}%"
-        finding = (f"<strong>{'Not improving, and no worse.' if abs(move) < 5 else 'Moving.'}</strong> "
-                   f"{band['recent']['missed']} of {band['recent']['emails']} emails, against "
-                   f"{band['older']['missed']} of {band['older']['emails']} in the {window} months "
-                   f"before. The rate moved by {abs(move):.1f} points.")
+        lead = (f"{'No change.' if abs(move) < 5 else 'Moving.'} "
+                f"{band['recent']['missed']} of {band['recent']['emails']}, against "
+                f"{band['older']['missed']} of {band['older']['emails']} before.")
         chain = [(chain_emails, False),
-                 (f"{band['recent']['emails']} in the last {window} months", False),
+                 (f"{band['recent']['emails']} in {span(band['recent'])}", False),
                  (f"{band['recent']['missed']} misses", True)]
-        notes = [f"A move under 5 points is read here as noise, not as a trend. "
-                 f"This one is <strong>{abs(move):.1f}</strong>."]
+        base = f"of {band['recent']['emails']} emails<br>in {span(band['recent'])}"
     else:
-        hero, finding = "—", "Two full windows of months are needed before a comparison means anything."
-        chain, notes = [(chain_emails, True)], []
+        items, hero, base = [], "—", f"of the last {window} months"
+        lead = "Two full windows of months are needed before a comparison means anything."
+        chain = [(chain_emails, True)]
     last = tail.iloc[-1]
-    thin = (f"The latest month holds <strong>{plural(int(last['Records']), 'email', 'emails')}</strong> "
-            "so far. A thin month moves a long way on one record, which is why the base "
-            "sits beside every rate.")
     return {"key": "trend", "eyebrow": f"Last {window} months", "accent": ROOT_COLOURS["Process"],
             "question": "Are we getting better?", "chain": chain,
-            "hero": hero,
-            "base": (f"of {band['recent']['emails']} emails<br>in the last {window} months"
-                     if band else f"of the last {window} months"),
-            "finding": finding, "rows_head": "Miss rate by month, with the emails behind it",
-            "rows": rows, "bars": True, "scale": 100,
-            "notes": notes + [thin],
-            "foot": "Pooled on counts, not an average of monthly rates."}
+            "hero": hero, "base": base, "lead": lead,
+            "blocks": [_block(items, cols=3)] if items else [],
+            "bars": bars, "proof": None,
+            "foot_left": "Pooled on counts, never averaged.",
+            "foot_right": (f"{pd.Period(last['Month'], freq='M').strftime('%b')} holds "
+                           f"{plural(int(last['Records']), 'email', 'emails')} so far.")}
 
 
-def _account_card(df, part, exposure, total, chain_emails, never):
+def _account_card(df, part, exposure, total, chain_emails, never, book):
     """The biggest account, cut by owner first because that is who has to act.
 
-    The flat cause list this replaced mixed owners inside single rows, so colour could
-    not carry the owner and "who do I take this to" had no answer on the panel that
-    exists to raise the question.
+    The second block is context rather than a split -- the account's share of the
+    capture gap, and the accounts that run hotter on far smaller volume -- so it is
+    marked `partition=False` and the equation under the panel is checked against the
+    owner cards alone.
     """
     if exposure.empty or "Customer" not in df.columns:
         return None
@@ -1442,41 +1478,42 @@ def _account_card(df, part, exposure, total, chain_emails, never):
     if not hit:
         return None
     root = df.get("Root Cause", pd.Series(dtype=str)).reindex(df.index).fillna("").astype(str).str.strip()
-    rows, stack = [], []
+    owners, stack = [], []
     for owner, who in (("Product", "Product fixes it"), ("People", "EventWatch Ops fixes it"),
                        ("Process", "Process fixes it")):
         owned = mask & root.eq(owner)
         n = int(owned.sum())
         if not n:
             continue
-        colour = ROOT_COLOURS[owner]
-        stack.append((n, colour))
-        rows.append({"group": True, "name": who, "value": n, "colour": colour})
-        for label, count in labels_for(df[owned]).value_counts().items():
-            rows.append({"name": esc(str(label)), "value": int(count), "colour": colour, "gloss": ""})
-    clean = [f"{esc(c)} {int(m)} of {int(m)}" for c, m in
-             zip(exposure["Customer"], exposure["Misses"])
-             if int(m) == int(exposure.loc[exposure["Customer"] == c, "Emails"].iloc[0])
-             and int(m) >= 3 and str(c) != name][:2]
-    book = int(part["missed"].sum())
-    notes = []
-    if clean:
-        notes.append("Accounts that run hotter on much smaller volume: "
-                     + ", ".join(clean) + " were all misses.")
+        # The failure names here are the plain labels, and the longest runs to 46
+        # characters -- three of them under a 28px number is a paragraph in a box the
+        # width of a third of the panel. The count and the biggest of them says the
+        # same thing in four words, and Root cause is one click away for the names.
+        note = named_causes(df, owned)
+        stack.append((n, ROOT_COLOURS[owner]))
+        owners.append(_stat(n, who, note, ROOT_COLOURS[owner]))
     share = int((mine & (part["source"] | part["keyword"])).sum())
+    context = []
     if share:
-        notes.append(f"{esc(name)} carries <strong>{share}</strong> of the {never} that "
-                     "never reached the portal.")
+        context.append(_stat(share, f"Of the book's {never} never captured",
+                             f"{esc(name)} carries this many of them", ROOT_COLOURS["Product"]))
+    for _, r in exposure.iterrows():
+        if str(r["Customer"]) == name or int(r["Misses"]) < 3 or int(r["Misses"]) != int(r["Emails"]):
+            continue
+        context.append(_stat(f"{int(r['Misses'])}/{int(r['Emails'])}", f"{esc(str(r['Customer']))}, all misses",
+                             "Every email a miss, on far less volume", ROOT_COLOURS["People"]))
+        if len(context) >= 3:
+            break
+    blocks = [_block(owners, cols=max(len(owners), 2), partition=True)]
+    if context:
+        blocks.append(_block(context, cols=len(context)))
     return {"key": "account", "eyebrow": "One customer's share", "accent": ROOT_COLOURS["Product"],
             "question": f"Why is {esc(name)} so high?",
             "chain": [(chain_emails, False), (f"{emails} from {esc(name)}", False), (f"{hit} misses", True)],
             "hero": f"{emails}", "base": f"of {total} emails<br>{emails / max(total, 1) * 100:.0f}%",
-            "finding": f"{esc(name)} sends {emails / max(total, 1) * 100:.0f}% of everything we receive, and "
-                       f"<strong>{hit} of their {emails}</strong> were misses — "
-                       f"{hit / max(emails, 1) * 100:.0f}% against "
-                       f"{book / max(total, 1) * 100:.0f}% across the book. "
-                       "Volume alone does not explain that gap.",
-            "stack": stack, "rows": rows, "bars": True,
-            "proof": (" + ".join(str(n) for n, _ in stack) + f" = {hit}", "every miss has exactly one owner"),
-            "notes": notes,
-            "foot": "Accounts are split on the slash, so a merged email counts for both."}
+            "lead": (f"{hit / max(emails, 1) * 100:.0f}% of {esc(name)}'s emails were misses, against "
+                     f"{book / max(total, 1) * 100:.0f}% across the book."),
+            "stack": stack, "blocks": blocks,
+            "proof": _equation(owners, hit),
+            "foot_left": _equation(owners, hit),
+            "foot_right": "An email naming two accounts counts for both."}

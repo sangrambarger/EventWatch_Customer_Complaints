@@ -71,7 +71,11 @@ def render(df, filtered, selected_page):
           ("Complaints, not a miss", f"{not_a_miss} of {max(complaints, 1)}",
            "we did report it; the issue was something else", "#80cbc4")],
          ("emails", "complaints", "misses", "notamiss"), "1", available=set(details))
-    opened = opened or clickable_kpis([("Never captured by us", f"{never} of {max(missed, 1)}",
+    # Both rows run every time. `opened = opened or clickable_kpis(...)` short-circuits:
+    # when a top card returned a key, Python never evaluated the right-hand side, so the
+    # second row of four was never drawn on that rerun and the bottom cards vanished the
+    # moment a top card was clicked.
+    second = clickable_kpis([("Never captured by us", f"{never} of {max(missed, 1)}",
            f"{never / max(missed, 1) * 100:.0f}% of misses — the event never entered our system", "#8ab4f8"),
           ("Seen, but overlooked", f"{overlooked} of {max(missed, 1)}",
            f"{overlooked / max(missed, 1) * 100:.0f}% of misses — captured, but an analyst did not raise it", "#f28b82"),
@@ -84,6 +88,7 @@ def render(df, filtered, selected_page):
            (f"{int(biggest['Emails'].iloc[0]) / total * 100:.0f}% of every email on this page"
             if not biggest.empty else "no customer recorded"), "#b6beca")],
         ("nevercaptured", "overlooked", "trend", "account"), "2", available=set(details))
+    opened = opened or second
     if opened:
         _open_card(details, opened)
 
