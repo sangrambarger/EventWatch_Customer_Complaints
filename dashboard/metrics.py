@@ -1116,24 +1116,27 @@ def _miss_parts(df):
 # on a card a third of the panel wide; the sentence that used to explain each one is
 # gone on the owner's call.
 ANALYST_ACTIONS = (
-    ("Judged not impactful", MISS_BUCKETS[2][1], "An analyst closed it at review"),
-    ("We notified it late", ("Published Late", "Captured Late", "Prioritization"),
-     "Published, but not in time to act"),
-    ("Wrong industry tag", ("Tagging", "Industry selection"), "Kept it off their portal"),
-    ("Supplier left off", ("Supplier Selection Miss", "Mapping"), "On file, and not selected"),
+    ("They judged it not impactful", MISS_BUCKETS[2][1], "Closed at review, so nothing went out"),
+    ("They notified it late", ("Published Late", "Captured Late", "Prioritization"),
+     "Published, but not in time to act on"),
+    ("They tagged the wrong industry", ("Tagging", "Industry selection"),
+     "It stayed off this customer's portal"),
+    ("They missed a supplier", ("Supplier Selection Miss", "Mapping"),
+     "On file, never selected, so no WarRoom"),
 )
 
 WRONG_GROUPS = (
-    ("Wrong suppliers on it", ("Supplier Selection Miss", "Mapping", "Mapping / Routing Defect"),
-     "Who the bulletin named"),
+    ("The supplier list was wrong", ("Supplier Selection Miss", "Mapping", "Mapping / Routing Defect"),
+     "It went out naming the wrong suppliers"),
     ("They could not see it", ("Visibility", "Industry selection", "Tagging"),
      "Published, and not on their portal"),
-    ("Wrong call on the event", ("Review", "Relevancy", "Model Classification Defect"),
-     "Scope or impact was wrong"),
+    ("We called the event wrong", ("Review", "Relevancy", "Model Classification Defect"),
+     "The scope or the impact was wrong"),
     ("Sent twice, or merged wrong", ("Duplication", "Strategy", "Clustering / Duplication Defect"),
      "One event, two bulletins"),
-    ("No WarRoom raised", ("WarRoom Creation",), "The bulletin went out alone"),
-    ("A system fault", ("Platform Bug", "Alerting Gap"), "A confirmed defect"),
+    ("No WarRoom was raised", ("WarRoom Creation",), "The bulletin went out on its own"),
+    ("A confirmed software bug", ("Platform Bug", "Alerting Gap"),
+     "The bulletin landed; the platform then failed"),
 )
 
 # The one short name for a cause, in the words the stat cards use. A popup that names
@@ -1143,24 +1146,34 @@ WRONG_GROUPS = (
 # on. Keyed on the sub-type, with the owner-aware overrides `OWNED_SUBTYPE` already
 # makes elsewhere: `Review` under Product is the model deciding and under People is a
 # person deciding, which is the whole reason `MISS_BUCKETS` splits it in two.
+LOST_GROUPS = (
+    ("The model judged it not impactful", ("Model Classification Defect", "Review", "Relevancy"),
+     "No person was asked to look again"),
+    ("It never surfaced to an analyst", ("Alerting Gap", "Visibility"),
+     "Captured, and never put in front of anyone"),
+    ("Grouped under the wrong story", ("Clustering / Duplication Defect",),
+     "Filed with a cluster nobody worked"),
+    ("A confirmed software bug", ("Platform Bug",), "A defect we have confirmed"),
+)
+
 SHORT_CAUSE = {
     "Source Coverage": "no monitored source",
     "Keyword Update": "keywords missed it",
-    "Model Classification Defect": "the model misjudged it",
-    "Relevancy": "the model misjudged it",
-    "Alerting Gap": "never reached an analyst",
-    "Platform Bug": "a system fault",
-    "Clustering / Duplication Defect": "grouped with the wrong story",
+    "Model Classification Defect": "the model judged it not impactful",
+    "Relevancy": "the model judged it not relevant",
+    "Alerting Gap": "it never surfaced to an analyst",
+    "Platform Bug": "a confirmed software bug",
+    "Clustering / Duplication Defect": "grouped under the wrong story",
     "Visibility": "published, not visible",
     "Mapping / Routing Defect": "sent to the wrong place",
-    "Review": "judged not impactful",
-    "Analyst Review Miss": "judged not impactful",
+    "Review": "an analyst judged it not impactful",
+    "Analyst Review Miss": "an analyst judged it not impactful",
     "Published Late": "notified late",
     "Captured Late": "notified late",
     "Prioritization": "notified late",
     "Tagging": "wrong industry tag",
     "Industry selection": "wrong industry tag",
-    "Supplier Selection Miss": "supplier left off",
+    "Supplier Selection Miss": "a supplier was missed",
     "Mapping": "supplier not on file",
     "WarRoom Creation": "no WarRoom raised",
     "Duplication": "sent twice",
@@ -1169,8 +1182,8 @@ SHORT_CAUSE = {
     "Deliberate Rule": "the rule applied",
 }
 SHORT_OWNED = {
-    ("Product", "Review"): "the model misjudged it",
-    ("People", "Mapping"): "supplier left off",
+    ("Product", "Review"): "the model judged it not impactful",
+    ("People", "Mapping"): "a supplier was missed",
     ("Process", "Mapping"): "they asked about mapping",
 }
 
@@ -1309,8 +1322,8 @@ def card_details(df):
     # 3 -- where the story stopped. The one panel that names an owner per card.
     stages = [_stat(never, "Never reached us at all",
                     f"no monitored source {source} · keywords missed it {keyword}", blue),
-              _stat(platform, "Reached us, not an analyst", named_causes(df, part["platform"]), blue),
-              _stat(analyst, "Reached an analyst", named_causes(df, part["analyst"]), red)]
+              _stat(platform, "Lost before an analyst", named_causes(df, part["platform"]), blue),
+              _stat(analyst, "An analyst saw it", named_causes(df, part["analyst"]), red)]
     recent = _recent_shape(df, part)
     cards.append({
         "key": "misses", "eyebrow": "Confirmed misses", "accent": blue,
@@ -1319,7 +1332,11 @@ def card_details(df):
         "hero": f"{missed}", "base": f"of {complaints} complaints",
         "lead": f"{pct(never, missed)} never reached us at all. Most of the rest stopped with an analyst.",
         "stack": [(never, blue), (platform, blue), (analyst, red)],
-        "legend": [("Product fixes it", blue), ("EventWatch Ops fixes it", red)],
+        # `Routed To`'s own two values. "Product fixes it" was the first wording and the
+        # owner's question -- what does that mean -- is the right one: it names no team a
+        # reader could take the number to.
+        "legend": [("Product & Platform investigate these", blue),
+                   ("EventWatch Ops investigate these", red)],
         "blocks": [_block(stages, cols=3, partition=True)],
         "proof": _equation(stages, missed),
         "foot_left": _equation(stages, missed),
@@ -1345,7 +1362,7 @@ def card_details(df):
     gap = [_stat(source, "No monitored source carried it", "Product buys the coverage", blue),
            _stat(keyword, "Our keywords missed it", "Product widens the terms", blue)]
     cards.append({
-        "key": "nevercaptured", "eyebrow": "Never captured by us", "accent": blue,
+        "key": "nevercaptured", "eyebrow": "Never reached us", "accent": blue,
         "question": "Why did we never find these?",
         "chain": [(chain_complaints, False), (chain_misses, False),
                   (f"{never} never reached us", True)],
@@ -1360,25 +1377,40 @@ def card_details(df):
     # 6 -- the story reached a person and stopped.
     actions = _grouped(df, part["analyst"], ANALYST_ACTIONS, red)
     cards.append({
-        "key": "overlooked", "eyebrow": "Seen, but overlooked", "accent": red,
-        "question": "What did the analyst do with it?",
+        "key": "overlooked", "eyebrow": "An analyst saw it", "accent": red,
+        "question": "An analyst had it. What did they do?",
         "chain": [(chain_complaints, False), (chain_misses, False),
-                  (f"{analyst} reached an analyst", True)],
+                  (f"{analyst} an analyst had", True)],
         "hero": f"{analyst}", "base": f"of {missed} misses<br>{pct(analyst, missed)}",
         "lead": (f"{pct(int(actions[0]['value']), analyst)} stopped on one call: "
                  f"{actions[0]['label'].lower()}." if actions else "No miss stopped with an analyst."),
         "blocks": [_block(actions, cols=2, partition=True)],
         "proof": _equation(actions, analyst) if actions else None,
         "foot_left": _equation(actions, analyst) if actions else "",
-        "foot_right": f"All {analyst} are EventWatch Ops to fix.",
+        "foot_right": f"All {analyst} go to EventWatch Ops.",
     })
 
-    # 7 -- the one panel about movement rather than composition.
+    # 7 -- the middle stage of the miss ladder, and the reason this card exists at all.
+    # The KPI row showed 42 never captured and 35 seen by an analyst against a headline
+    # of 86, so a reader adding the two got 77 and had nine misses with nowhere to be.
+    # The three stages are a partition by construction; the row now prints all three.
+    lost = _grouped(df, part["platform"], LOST_GROUPS, blue)
+    cards.append({
+        "key": "lostinside", "eyebrow": "Lost before an analyst", "accent": blue,
+        "question": "We had the story. What happened to it?",
+        "chain": [(chain_complaints, False), (chain_misses, False),
+                  (f"{platform} lost before an analyst", True)],
+        "hero": f"{platform}", "base": f"of {missed} misses<br>{pct(platform, missed)}",
+        "lead": "It reached our system and no person ever got to see it.",
+        "blocks": [_block(lost, cols=2, partition=True)],
+        "proof": _equation(lost, platform) if lost else None,
+        "foot_left": _equation(lost, platform) if lost else "",
+        "foot_right": f"All {platform} go to Product & Platform.",
+    })
+
+    # 8 -- the one panel about movement rather than composition.
     rate, band = trend_windows(df)
     cards.append(_trend_card(rate, band, chain_emails))
-
-    # 8 -- the account that dominates the page.
-    cards.append(_account_card(df, part, exposure, total, chain_emails, never, missed))
     return [c for c in cards if c]
 
 
@@ -1450,7 +1482,7 @@ def _trend_card(rate, band, chain_emails, window=3, months=6):
         lead = "Two full windows of months are needed before a comparison means anything."
         chain = [(chain_emails, True)]
     last = tail.iloc[-1]
-    return {"key": "trend", "eyebrow": f"Last {window} months", "accent": ROOT_COLOURS["Process"],
+    return {"key": "trend", "eyebrow": "Last three months", "accent": ROOT_COLOURS["Process"],
             "question": "Are we getting better?", "chain": chain,
             "hero": hero, "base": base, "lead": lead,
             "blocks": [_block(items, cols=3)] if items else [],
@@ -1458,62 +1490,3 @@ def _trend_card(rate, band, chain_emails, window=3, months=6):
             "foot_left": "Pooled on counts, never averaged.",
             "foot_right": (f"{pd.Period(last['Month'], freq='M').strftime('%b')} holds "
                            f"{plural(int(last['Records']), 'email', 'emails')} so far.")}
-
-
-def _account_card(df, part, exposure, total, chain_emails, never, book):
-    """The biggest account, cut by owner first because that is who has to act.
-
-    The second block is context rather than a split -- the account's share of the
-    capture gap, and the accounts that run hotter on far smaller volume -- so it is
-    marked `partition=False` and the equation under the panel is checked against the
-    owner cards alone.
-    """
-    if exposure.empty or "Customer" not in df.columns:
-        return None
-    name = str(exposure["Customer"].iloc[0])
-    emails = int(exposure["Emails"].iloc[0])
-    mine = names_match(df["Customer"], [name])
-    mask = mine & part["missed"]
-    hit = int(mask.sum())
-    if not hit:
-        return None
-    root = df.get("Root Cause", pd.Series(dtype=str)).reindex(df.index).fillna("").astype(str).str.strip()
-    owners, stack = [], []
-    for owner, who in (("Product", "Product fixes it"), ("People", "EventWatch Ops fixes it"),
-                       ("Process", "Process fixes it")):
-        owned = mask & root.eq(owner)
-        n = int(owned.sum())
-        if not n:
-            continue
-        # The failure names here are the plain labels, and the longest runs to 46
-        # characters -- three of them under a 28px number is a paragraph in a box the
-        # width of a third of the panel. The count and the biggest of them says the
-        # same thing in four words, and Root cause is one click away for the names.
-        note = named_causes(df, owned)
-        stack.append((n, ROOT_COLOURS[owner]))
-        owners.append(_stat(n, who, note, ROOT_COLOURS[owner]))
-    share = int((mine & (part["source"] | part["keyword"])).sum())
-    context = []
-    if share:
-        context.append(_stat(share, f"Of the book's {never} never captured",
-                             f"{esc(name)} carries this many of them", ROOT_COLOURS["Product"]))
-    for _, r in exposure.iterrows():
-        if str(r["Customer"]) == name or int(r["Misses"]) < 3 or int(r["Misses"]) != int(r["Emails"]):
-            continue
-        context.append(_stat(f"{int(r['Misses'])}/{int(r['Emails'])}", f"{esc(str(r['Customer']))}, all misses",
-                             "Every email a miss, on far less volume", ROOT_COLOURS["People"]))
-        if len(context) >= 3:
-            break
-    blocks = [_block(owners, cols=max(len(owners), 2), partition=True)]
-    if context:
-        blocks.append(_block(context, cols=len(context)))
-    return {"key": "account", "eyebrow": "One customer's share", "accent": ROOT_COLOURS["Product"],
-            "question": f"Why is {esc(name)} so high?",
-            "chain": [(chain_emails, False), (f"{emails} from {esc(name)}", False), (f"{hit} misses", True)],
-            "hero": f"{emails}", "base": f"of {total} emails<br>{emails / max(total, 1) * 100:.0f}%",
-            "lead": (f"{hit / max(emails, 1) * 100:.0f}% of {esc(name)}'s emails were misses, against "
-                     f"{book / max(total, 1) * 100:.0f}% across the book."),
-            "stack": stack, "blocks": blocks,
-            "proof": _equation(owners, hit),
-            "foot_left": _equation(owners, hit),
-            "foot_right": "An email naming two accounts counts for both."}

@@ -16,7 +16,7 @@ import streamlit as st
 from dashboard.styles import ROOT_COLOURS, SPLIT_COLOURS
 from dashboard.taxonomy import ROOT_OWNERSHIP, SPLIT_MEANING
 from dashboard.filters import filter_note
-from dashboard.metrics import MISS_BUCKETS, card_details, miss_by_customer, miss_categories, miss_owner_split, overview_split, trend_windows
+from dashboard.metrics import _miss_parts, card_details, miss_owner_split, overview_split, trend_windows
 from dashboard.components import add_rule, add_section, clickable_kpis, detail_panel, donut, downloads, excel_bar_table, kpis, page_header
 from dashboard.sections import render_customers, render_event_types, render_monthly_volume, render_nature, render_root_cause
 
@@ -42,53 +42,66 @@ def render(df, filtered, selected_page):
     total = max(len(page), 1)
     missed = int(flag.eq("Yes").sum())
     not_a_miss = int((issue.eq("Complaint") & flag.ne("Yes")).sum())
-    cats = miss_categories(page)
-    bucket = lambda name: int(cats.loc[cats["Category"] == name, "Records"].iloc[0]) if name in set(cats["Category"]) else 0
-    never = bucket(MISS_BUCKETS[0][0]) + bucket(MISS_BUCKETS[1][0])
-    # Owner-based, NOT `bucket(MISS_BUCKETS[2][0])`. Reading one bucket meant the card
+    # The three stages a missed event can stop at, from `_miss_parts()` -- the same
+    # function the popups use, so a card and the panel it opens can never disagree.
+    part = _miss_parts(page)
+    never = int((part["source"] | part["keyword"]).sum())
+    lost = int(part["platform"].sum())
+    # Owner-based, NOT a bucket index. Reading one `MISS_BUCKETS` rule meant the card
     # counted only the sub-types that rule happens to name, so a People miss whose
     # sub-type moved out of it -- `Prioritization` becoming `Published Late`, `Review`
     # becoming `Analyst Review Miss` -- silently left the summary while still being a
-    # miss on every other page. "Captured, but an analyst did not raise it" is true of
-    # every People-rooted miss by definition, so selecting on the owner is both the
-    # honest reading of the card and the one a new sub-type cannot go stale against.
-    overlooked = int((flag.eq("Yes") & page.get("Root Cause", pd.Series(dtype=str))
-                      .astype(str).str.strip().eq("People")).sum())
+    # miss on every other page. Every People-rooted miss is one an analyst had, by
+    # definition, which is both the honest reading and the one a new sub-type cannot
+    # go stale against.
+    seen = int(part["analyst"].sum())
     rate, band = trend_windows(page)
-    accounts = miss_by_customer(page)
-    biggest = accounts.sort_values("Emails", ascending=False).head(1)
     # Eight cards in two rows of four, not eight across: eight in one row is 180px each
     # at the width this is read at, and the number -- the only part anyone reads from
     # across a meeting room -- is the first thing to shrink. Every card prints its own
     # denominator inside the number, because a bare percentage beside a bare count on
     # one screen is what made the last read-out of this page unreadable.
+    #
+    # Row one is the funnel: what arrived, what was a complaint, what we got wrong.
+    # Row two is where the misses stopped, and it carries ALL THREE stages. It used to
+    # carry two of them and one account's share, so a reader adding 42 and 35 against a
+    # headline of 86 came up nine short with nowhere to put them -- the stage where we
+    # had the story and no person saw it had no card. The account card went to make
+    # room: Ford's share is on card one's own panel and on Customers impacted below,
+    # and a third telling of it is a third thing to reconcile.
     # The whole card opens its own breakdown; there is no separate control. See
     # `clickable_kpis()` for why that is an overlaid button and not a link.
     details = {c["key"]: c for c in card_details(page)}
     opened = clickable_kpis([("Customer emails", len(page), f"{complaints} complaints · {inquiries} inquiries", "#8ab4f8"),
-          ("Complaints", f"{complaints} of {len(page)}", f"{complaints / total * 100:.0f}% of these emails", "#f6c177"),
-          ("Confirmed misses", f"{missed} of {len(page)}", f"{missed / total * 100:.0f}% of these emails", "#f28b82"),
+          ("Complaints", f"{complaints} of {len(page)}",
+           f"{complaints / total * 100:.0f}% of what customers sent us", "#f6c177"),
+          ("Confirmed misses", f"{missed} of {len(page)}",
+           "we did not get the event to them in time", "#f28b82"),
           ("Complaints, not a miss", f"{not_a_miss} of {max(complaints, 1)}",
-           "we did report it; the issue was something else", "#80cbc4")],
+           "we did report it; something else was wrong", "#80cbc4")],
          ("emails", "complaints", "misses", "notamiss"), "1", available=set(details))
     # Both rows run every time. `opened = opened or clickable_kpis(...)` short-circuits:
     # when a top card returned a key, Python never evaluated the right-hand side, so the
     # second row of four was never drawn on that rerun and the bottom cards vanished the
     # moment a top card was clicked.
-    second = clickable_kpis([("Never captured by us", f"{never} of {max(missed, 1)}",
-           f"{never / max(missed, 1) * 100:.0f}% of misses — the event never entered our system", "#8ab4f8"),
-          ("Seen, but overlooked", f"{overlooked} of {max(missed, 1)}",
-           f"{overlooked / max(missed, 1) * 100:.0f}% of misses — captured, but an analyst did not raise it", "#f28b82"),
+    second = clickable_kpis([("Never reached us", f"{never} of {max(missed, 1)}",
+           "no source carried it, or our keywords missed it", "#8ab4f8"),
+          ("Lost before an analyst", f"{lost} of {max(missed, 1)}",
+           "we had the story and no person ever saw it", "#8ab4f8"),
+          ("An analyst saw it", f"{seen} of {max(missed, 1)}",
+           "a person had it, and it still did not go out", "#f28b82"),
           ("Last three months",
            f"{band['recent']['value']:.0f}%" if band else "—",
            (f"of emails were a miss, against {band['older']['value']:.0f}% in the three before"
-            if band else "needs six months of emails to compare"), "#f6c177"),
-          ("One customer's share",
-           f"{biggest['Customer'].iloc[0]}: {int(biggest['Emails'].iloc[0])} of {len(page)}" if not biggest.empty else "—",
-           (f"{int(biggest['Emails'].iloc[0]) / total * 100:.0f}% of every email on this page"
-            if not biggest.empty else "no customer recorded"), "#b6beca")],
-        ("nevercaptured", "overlooked", "trend", "account"), "2", available=set(details))
+            if band else "needs six months of emails to compare"), "#f6c177")],
+        ("nevercaptured", "lostinside", "overlooked", "trend"), "2", available=set(details))
     opened = opened or second
+    # The three stages partition the misses, so the row can prove itself. A reader who
+    # adds the cards and finds they do not reach the headline challenges the page, and
+    # they are right to -- that is the arithmetic this line exists to close.
+    st.markdown(f"<div class='kpi-sum'><b>{never} + {lost} + {seen} = {missed}</b> confirmed "
+                "misses — every missed event stopped at exactly one of these three stages."
+                "</div>", unsafe_allow_html=True)
     if opened:
         _open_card(details, opened)
 

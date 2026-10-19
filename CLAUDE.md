@@ -492,6 +492,17 @@ to half the panel each and a 1 looks like an 8. The paragraph under every row an
 stack of note boxes under that are gone with it, on the same instruction -- a panel
 exists to answer the one question the card raises, not to brief the reader.
 
+**Two cards must not be told apart only by their count.** `Supplier left off` (1) on
+the analyst panel and `A system fault` (1) on the delivered-but-wrong panel read as the
+same kind of thing in different words, and the owner asked what the difference was.
+They are different fields entirely: the first is META / EAO-15, where the supplier was
+on file under two names, the analyst checked one, **no WarRoom was created and nothing
+reached the customer** -- a miss. The second is Hitachi, where **a bulletin was
+delivered** and the Disruption Agent then returned only Tier 1 suppliers -- a confirmed
+defect, `Missed_Flag` No. They now read `They missed a supplier / On file, never
+selected, so no WarRoom` and `A confirmed software bug / The bulletin landed; the
+platform then failed`. **A label that could sit on either panel is not a label.**
+
 **One short name per cause, and `SHORT_CAUSE` is where it lives.** Card 8's owner
 cards read `4 failures · biggest 12` in the first cut, which is two words a reader
 cannot act on: "failures" names nothing and "biggest" ranks something they cannot see.
@@ -581,10 +592,8 @@ in the DOM once a reader clicks, so the scrape that reconciles every rendered fi
 never sees them -- which would leave eight panels of numbers outside the only gate that
 says whether a figure is right. The payloads are plain data, so the check is a pure
 call with no browser: the rows a panel prints must match the equation printed under
-them, and that equation must be true. Only the blocks marked `partition` are compared against the equation -- the account
-panel's second row is context (that account's share of the capture gap, and two
-other accounts entirely), so matching it against an owner split would call a
-correct panel wrong. **This is the whole reason a
+them, and that equation must be true. Only the blocks marked `partition` are compared against the equation, so a block
+that is context rather than a split is not matched against one. **This is the whole reason a
 popup prints a visible `N + M = T` line at all.**
 
 `kpis(items, columns=n)` sizes the grid to the count. Both the auto-fitting variant and
@@ -766,11 +775,39 @@ built from, not the sum of the strings in it.
 
 1. **Eight cards**, two rows of four via `kpis(..., columns=4)`. Never eight across: at
    the width this is read at that is 180px a card, and the number is the first thing to
-   shrink. Row one is what came in (emails, complaints, confirmed misses, complaints
-   that were not a miss); row two is what it means (`Never captured by us`, `Seen, but
-   overlooked`, the last three months' rate, and the largest account's share of the
-   whole page). **`Never captured by us`, not "never notified to customers"** -- the
-   second is true of all 78 misses, so it stops contrasting with the card beside it.
+   shrink.
+
+   **Row one is the funnel** -- emails, complaints, confirmed misses, complaints that
+   were not a miss. **Row two is where the misses stopped, and it carries all THREE
+   stages**: `Never reached us` 42, `Lost before an analyst` 9, `An analyst saw it` 35,
+   then the last three months' rate. A computed line under the row prints
+   `42 + 9 + 35 = 86`.
+
+   **That line and the middle card are the fix for a real defect.** The row used to
+   carry two stages and one account's share, so a reader adding 42 and 35 against a
+   headline of 86 came up **nine short with nowhere to put them** -- the stage where we
+   had the story and no person ever saw it had no card at all. The owner found it by
+   adding the two numbers on screen, which is the first thing anyone does with a row of
+   figures. The three stages come from `_miss_parts()`, the same function the popups
+   use, so they are a partition by construction and the row can prove itself.
+   **Do not take a stage off this row without taking the reconciliation line with it.**
+
+   **The account card went to make room, and it was the right one to lose.** Ford's
+   share was on card one's own panel, on this page's Customers impacted section and on
+   Top customer complaints -- a fourth telling is a fourth thing to reconcile, and the
+   owner named the repetition before the arithmetic. `_account_card()` and
+   `_account_share()` went with it.
+
+   **Every foot says what the number means in plain words**, not what field it came
+   from: `we did not get the event to them in time`, `we had the story and no person
+   ever saw it`, `a person had it, and it still did not go out`.
+
+   **A card's eyebrow is its popup's title.** The dialog is headed with the words on
+   the card the reader clicked; a panel headed something else reads as the wrong panel.
+
+   **No label says "Product fixes it".** The owner asked what that meant, and the
+   question is the right one -- it names no team a reader could take the number to.
+   The two values of `Routed To` do: `Product & Platform` and `EventWatch Ops`.
 2. **What customers sent us** -- two donuts, side by side. `overview_split()` is all 115
    in three mutually exclusive parts (78 misses / 17 complaints that were not / 20
    inquiries); `miss_owner_split()` is the 78 by who fixes them. Three slices each, which
