@@ -18,7 +18,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from dashboard.config import DESCRIPTIONS, PAGE_KICKERS
-from dashboard.styles import BLUE_RAMP, RED_BLUE, TAGS, esc
+from dashboard.styles import BLUE_RAMP, RED_BLUE, ROOT_COLOURS, TAGS, esc
 from dashboard.taxonomy import plural
 from dashboard.metrics import MISS_COLOURS
 
@@ -35,7 +35,10 @@ def page_header(title):
 
 
 def add_section(title, desc="", accent="#8ab4f8"):
-    st.markdown(f"<div class='section-card' style='--accent:{accent}'><h3>{title}</h3><p>{desc}</p></div>", unsafe_allow_html=True)
+    # An empty `desc` used to render an empty `<p>`, which the card's flex gap then
+    # spaces as though it held a sentence. A heading with no description is a heading.
+    body = f"<p>{desc}</p>" if desc else ""
+    st.markdown(f"<div class='section-card' style='--accent:{accent}'><h3>{title}</h3>{body}</div>", unsafe_allow_html=True)
 
 
 def kpis(items, columns=None):
@@ -646,3 +649,78 @@ def detail_panel(card):
     out.append(f"<div class='pop-foot'><span class='pop-eq'>{esc(card.get('foot_left', ''))}</span>"
                f"<span>{esc(card.get('foot_right', ''))}</span></div></div>")
     st.markdown("".join(out), unsafe_allow_html=True)
+
+
+# Bottom to top, the order a reader works down the funnel: the two miss owners first,
+# then the stage nobody owns, then the emails that were never a failure. Colour carries
+# the one thing it carries everywhere on this dashboard -- who investigates it --
+# straight from `ROOT_COLOURS`, so a Product miss is the same blue here as on the cards.
+#
+# `--red` against `--amber` is the weak colourblind pair at dE 13.9 and they would sit
+# adjacent in this stack the day the first Process miss lands. Every segment prints its
+# own count and the table beneath carries all of them, which is the secondary encoding
+# that makes the pair legal -- but it is a real constraint, not a non-issue.
+MONTH_PARTS = (
+    ("Product", ROOT_COLOURS["Product"], "Product & Platform investigate it"),
+    ("Analyst", ROOT_COLOURS["People"], "EventWatch Ops investigate it"),
+    ("Process", ROOT_COLOURS["Process"], "A workflow or control failure"),
+    ("Wrong", "#515a68", "Reported in time, and something about it was wrong"),
+    ("Inquiries", "#80cbc4", "A question, not a complaint"),
+)
+MONTH_NAMES = {"Wrong": "Reported, but wrong", "Product": "Product miss", "Analyst": "Analyst miss",
+               "Process": "Process miss", "Inquiries": "Inquiry"}
+
+
+def monthly_stack(frame):
+    """One bar per month, split by where that month's emails ended up.
+
+    The grouped complaint-against-inquiry pair this replaced was volume only: it said
+    how many arrived and nothing about how many we got wrong, which is the whole of what
+    the block was asked for. Five segments in one bar carry the same total and the
+    failure split with it.
+
+    **The miss rate rides above each bar**, so the chart answers "is it getting worse"
+    without the reader going to the table. A month under `THIN_MONTH` emails prints its
+    rate muted: Jan is 3 of 4, where one record moves the figure 25 points, and a rate
+    that thin sitting in the same white as a 19-email month invites a comparison that
+    is not there.
+    """
+    if frame is None or frame.empty:
+        st.info("Chart cannot be rendered because required fields are missing: Month.")
+        return None
+    months = list(frame["Month"])
+    top = max([int(v) for v in frame["Emails"]] or [1])
+    # A segment under about a sixteenth of the tallest bar is too short to hold its own
+    # label: plotly clips the digit vertically rather than dropping it, and a clipped
+    # "1" reads as a stray mark on the bar. `uniformtext` does not catch it, because the
+    # text fits horizontally. The count is still on the hover and in the table.
+    floor = max(top * 0.06, 2)
+    fig = go.Figure()
+    for key, colour, meaning in MONTH_PARTS:
+        values = [int(v) for v in frame[key]]
+        if not any(values):
+            continue
+        fig.add_bar(
+            x=months, y=values, name=MONTH_NAMES.get(key, key),
+            marker=dict(color=colour, line=dict(width=0)),
+            text=[str(v) if v >= floor else "" for v in values], textposition="inside",
+            insidetextanchor="middle", textfont=dict(size=12, color="#1b1f26"),
+            hovertemplate="%{x} · %{y} " + esc(MONTH_NAMES.get(key, key).lower())
+                          + f"<br>{esc(meaning)}<extra></extra>")
+    for _, r in frame.iterrows():
+        fig.add_annotation(
+            x=r["Month"], y=int(r["Emails"]) + top * 0.04, showarrow=False,
+            text=f"{float(r['Miss %']):.0f}%",
+            font=dict(size=12, color="#808894" if bool(r["Thin"]) else "#f3f4f6"))
+    fig.update_layout(
+        barmode="stack", template="plotly_dark", plot_bgcolor="#1b1f26",
+        paper_bgcolor="#1b1f26", font=dict(color="#f3f4f6", size=13),
+        margin=dict(l=20, r=30, t=46, b=28), height=440, legend_title_text="",
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0, traceorder="normal"),
+        uniformtext=dict(minsize=10, mode="hide"), hovermode="x unified")
+    fig.update_xaxes(categoryorder="array", categoryarray=months,
+                     tickfont=dict(size=12, color="#f3f4f6"), gridcolor="#303846", title="")
+    fig.update_yaxes(tickfont=dict(size=12, color="#f3f4f6"), gridcolor="#303846",
+                     title="Customer emails", range=[0, top * 1.16])
+    st.plotly_chart(fig, width="stretch")
+    return fig

@@ -21,8 +21,8 @@ import streamlit as st
 from dashboard.styles import esc
 from dashboard.taxonomy import ROOT_OWNERSHIP, name_subtypes, plural
 from dashboard.filters import customer_names, filter_note, names_match
-from dashboard.metrics import MISS_BUCKETS, account_failures, account_headline, all_event_types, count_table, customer_totals, driver_table, event_type_note, event_type_pairs, miss_by_customer, miss_categories, miss_colours, missed_event_types, missed_verdict, nature_table, owner_accounts, owner_insight, root_drivers, root_frame, root_recent_note, root_summary, subtype_matrix, takeaway, trend_table, trend_windows
-from dashboard.components import add_section, chart, downloads, driver_bar, excel_bar_table, grouped_bar, heatmap, kpis, page_header, proportion_bar, stacked_bar, styled_table, trend_chart
+from dashboard.metrics import MISS_BUCKETS, account_failures, account_headline, all_event_types, count_table, customer_totals, driver_table, event_type_note, event_type_pairs, miss_by_customer, miss_categories, miss_colours, missed_event_types, missed_verdict, monthly_breakdown, monthly_note, monthly_table, nature_table, owner_accounts, owner_insight, root_drivers, root_frame, root_recent_note, root_summary, subtype_matrix, takeaway, trend_table, trend_windows
+from dashboard.components import add_section, chart, downloads, driver_bar, excel_bar_table, grouped_bar, heatmap, kpis, monthly_stack, page_header, proportion_bar, stacked_bar, styled_table, trend_chart
 
 
 
@@ -264,36 +264,37 @@ def source_page(title, df, col, key, primary=None, summary=True):
     return page
 
 
-def render_monthly_volume(page):
-    """Complaint and inquiry volume by month: the source table and the grouped bars.
+def render_monthly_breakdown(page):
+    """Month by month: what came in, and where it failed.
 
     On the Executive Summary and on Monthly trend, from one function, for the same
     reason every other shared block is: two pages drawing the same months from two
-    copies is how they end up disagreeing. It carries no miss rate -- that is
-    `render_trend()`, which lives on Monthly trend alone.
+    copies is how they end up disagreeing.
+
+    It replaced a grouped complaint-against-inquiry pair that was volume only -- how
+    many arrived, nothing about how many we got wrong, which is the whole of what a VP
+    asks this block for. The bar now carries the failure split and the table carries it
+    with both bases beside it.
+
+    No descriptive paragraph under the heading, on the owner's call. The one line under
+    the table is the hierarchy, which is a reconciliation rather than commentary: it is
+    what stops a reader adding Complaints to Misses.
     """
-    if "Month Label" not in page.columns or "Issue Type" not in page.columns:
-        st.info("Monthly volume requires Month/Reporting Month and Issue Type fields.")
+    frame = monthly_breakdown(page)
+    if frame.empty:
+        st.info("Monthly breakdown requires Month/Reporting Month and Issue Type fields.")
         return
-    monthly = page.groupby("Month Label", dropna=False)["Issue Type"].value_counts().unstack(fill_value=0).reset_index()
-    monthly["Month Date"] = pd.to_datetime(monthly["Month Label"], format="%b %Y", errors="coerce")
-    monthly = monthly.sort_values("Month Date")
-    monthly["Total"] = monthly.drop(columns=["Month Label", "Month Date"]).sum(axis=1)
-    display_monthly = monthly.drop(columns=["Month Date"], errors="ignore")
-    add_section("Monthly breakdown of all customer emails", "Complaint and inquiry counts "
-                "by reporting month, in calendar order. This is volume only — how many "
-                "emails arrived, not how many of them we got wrong.", "#80cbc4")
-    fig = px.bar(monthly, x="Month Label", y=[c for c in ["Complaint", "Inquiry"] if c in monthly.columns],
-                 barmode="group", text_auto=True, color_discrete_sequence=["#8ab4f8", "#80cbc4"])
-    fig.update_layout(template="plotly_dark", plot_bgcolor="#1b1f26", paper_bgcolor="#1b1f26",
-                      font=dict(color="#f3f4f6", size=13), margin=dict(l=20, r=30, t=30, b=40),
-                      height=430, legend_title_text="")
-    fig.update_xaxes(categoryorder="array", categoryarray=monthly["Month Label"].tolist(),
-                     tickfont=dict(color="#f3f4f6"), gridcolor="#303846", title="")
-    fig.update_yaxes(tickfont=dict(color="#f3f4f6"), gridcolor="#303846", title="Customer emails")
-    st.plotly_chart(fig, width="stretch")
-    styled_table(display_monthly, total_row=True)
-    downloads(display_monthly, "monthly_volume", fig)
+    add_section("Month by month: what came in, and where it failed", "", "#80cbc4")
+    fig = monthly_stack(frame)
+    table = monthly_table(frame)
+    # Not `wide`: at twelve short columns the content-sized table still ran 44px past
+    # its panel, so the last column lived behind a sideways scroll. A full-width table
+    # fits them and wraps only the one long header.
+    # `nowrap` on Month: a full-width table wrapped "Jan 2026" onto two lines and
+    # doubled the height of every row.
+    styled_table(table, variant="roomy", total_row=True, styles={"Month": "nowrap"})
+    st.caption(monthly_note(frame))
+    downloads(table, "monthly_breakdown", fig)
 
 
 def render_root_cause(page):

@@ -1528,3 +1528,125 @@ def _trend_card(rate, band, chain_emails, window=3, months=6):
             "foot_left": "Pooled on counts, never averaged.",
             "foot_right": (f"{pd.Period(last['Month'], freq='M').strftime('%b')} holds "
                            f"{plural(int(last['Records']), 'email', 'emails')} so far.")}
+
+
+# ---------------------------------------------------------------------------------
+# The monthly breakdown.
+#
+# The VP's question is "what arrived each month, and where did it fail", and the
+# block that answered it carried complaints against inquiries and nothing else --
+# volume only, with the whole of the failure story missing. One row per month now
+# carries the full hierarchy, and every level sums into the one above it:
+#
+#     Emails     = Complaints + Inquiries
+#     Complaints = Misses + Reported, but wrong
+#     Misses     = Product + Analyst + Process
+#
+# That is a nest, not two competing cuts of one total -- which is the fault that made
+# the event-type table read as broken arithmetic. The caption states all three lines so
+# nobody adds Complaints to Misses.
+#
+# It reads `_miss_parts()` and `Root Cause`, the same source the eight cards use, so a
+# month on this table cannot disagree with the headline above it.
+# ---------------------------------------------------------------------------------
+
+# A month this thin moves a long way on one record: Jan is 3 misses of 4 emails, so one
+# row is 25 points. `missed_verdict()` already flags a thin latest month on the trend
+# windows; this is the same rule applied where a reader is most likely to quote a figure
+# that will move.
+THIN_MONTH = 5
+
+
+def monthly_breakdown(df):
+    """One row per month: what arrived, and where it failed. Numbers only.
+
+    Returns the frame the chart draws and the table formats, in calendar order. Process
+    carries zero confirmed misses on the current data and the column stays regardless --
+    a VP who sees no Process column concludes nobody measured it, where a column of
+    zeros is the actual answer.
+    """
+    cols = ["Month", "Emails", "Complaints", "Inquiries", "Misses",
+            "Product", "Analyst", "Process", "Wrong", "Miss %", "Product %", "Analyst %", "Thin"]
+    if "Month Label" not in df.columns or "Issue Type" not in df.columns or df.empty:
+        return pd.DataFrame(columns=cols)
+    label = df["Month Label"].astype(str)
+    issue = df.get("Issue Type", pd.Series(dtype=str)).reindex(df.index).fillna("").astype(str).str.strip()
+    root = df.get("Root Cause", pd.Series(dtype=str)).reindex(df.index).fillna("").astype(str).str.strip()
+    part = _miss_parts(df)
+    rows = []
+    for month in label.dropna().unique():
+        m = label == month
+        emails = int(m.sum())
+        missed = int((m & part["missed"]).sum())
+        complaints = int((m & issue.eq("Complaint")).sum())
+        rows.append({
+            "Month": month, "Emails": emails, "Complaints": complaints,
+            "Inquiries": int((m & issue.eq("Inquiry")).sum()), "Misses": missed,
+            "Product": int((m & part["missed"] & root.eq("Product")).sum()),
+            "Analyst": int((m & part["missed"] & root.eq("People")).sum()),
+            "Process": int((m & part["missed"] & root.eq("Process")).sum()),
+            "Wrong": complaints - missed,
+            "Miss %": missed / max(emails, 1) * 100,
+            "Product %": int((m & part["missed"] & root.eq("Product")).sum()) / max(missed, 1) * 100,
+            "Analyst %": int((m & part["missed"] & root.eq("People")).sum()) / max(missed, 1) * 100,
+            "Thin": emails < THIN_MONTH,
+        })
+    out = pd.DataFrame(rows, columns=cols)
+    order = pd.to_datetime(out["Month"], format="%b %Y", errors="coerce")
+    return out.assign(_o=order).sort_values("_o").drop(columns="_o").reset_index(drop=True)
+
+
+def monthly_table(frame):
+    """The breakdown as a display frame, with a Total row whose rates are pooled.
+
+    The shares are formatted here rather than on the page, for the same reason
+    `trend_table()` formats its own: the Total's rate is the pooled figure over the
+    whole frame, never the mean of ten monthly percentages -- a month of 4 emails must
+    not weigh the same as one of 19.
+
+    **Two bases, and `monthly_note()` names both.** `Miss rate` is of that month's
+    emails; `Product %` and `Analyst %` are of that month's MISSES. The headers carried
+    the bases first -- `Miss rate (of emails)`, `Product share (of misses)` -- and that
+    ran the table 300px past its panel, so the last two columns only existed behind a
+    sideways scroll. The caption says it in the one line it already prints.
+    """
+    if frame is None or frame.empty:
+        return pd.DataFrame()
+    pct = lambda n, d: f"{n / max(d, 1) * 100:.0f}%"
+    rows = [{
+        "Month": r["Month"], "Emails": int(r["Emails"]), "Complaints": int(r["Complaints"]),
+        "Inquiries": int(r["Inquiries"]), "Misses": int(r["Misses"]),
+        "Miss rate": pct(int(r["Misses"]), int(r["Emails"])),
+        "Product": int(r["Product"]), "Product %": pct(int(r["Product"]), int(r["Misses"])),
+        "Analyst": int(r["Analyst"]), "Analyst %": pct(int(r["Analyst"]), int(r["Misses"])),
+        "Process": int(r["Process"]), "Reported, but wrong": int(r["Wrong"]),
+    } for _, r in frame.iterrows()]
+    whole = {c: int(frame[c].sum()) for c in ("Emails", "Complaints", "Inquiries", "Misses",
+                                              "Product", "Analyst", "Process", "Wrong")}
+    rows.append({
+        "Month": "Total", "Emails": whole["Emails"], "Complaints": whole["Complaints"],
+        "Inquiries": whole["Inquiries"], "Misses": whole["Misses"],
+        "Miss rate": pct(whole["Misses"], whole["Emails"]),
+        "Product": whole["Product"], "Product %": pct(whole["Product"], whole["Misses"]),
+        "Analyst": whole["Analyst"], "Analyst %": pct(whole["Analyst"], whole["Misses"]),
+        "Process": whole["Process"], "Reported, but wrong": whole["Wrong"],
+    })
+    return pd.DataFrame(rows)
+
+
+def monthly_note(frame):
+    """The one line under the table: the hierarchy, and which base each rate is of.
+
+    Two different denominators sit on one row -- the miss rate is of emails, the owner
+    shares are of misses -- and a reader adding a share to a rate is adding two bases.
+    Naming them in the headers was tried and cost 300px of table width.
+    """
+    if frame is None or frame.empty:
+        return ""
+    w = {c: int(frame[c].sum()) for c in ("Emails", "Complaints", "Inquiries", "Misses",
+                                          "Product", "Analyst", "Process", "Wrong")}
+    return (f"Emails {w['Emails']} = complaints {w['Complaints']} + inquiries {w['Inquiries']} · "
+            f"complaints {w['Complaints']} = misses {w['Misses']} + reported but wrong {w['Wrong']} · "
+            f"misses {w['Misses']} = Product {w['Product']} + Analyst {w['Analyst']} + "
+            f"Process {w['Process']}. Miss rate is of that month's emails; "
+            "Product % and Analyst % are of its misses.")

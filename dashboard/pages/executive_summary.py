@@ -18,7 +18,7 @@ from dashboard.taxonomy import ROOT_OWNERSHIP, SPLIT_MEANING
 from dashboard.filters import filter_note
 from dashboard.metrics import _miss_parts, card_details, miss_owner_split, overview_split, trend_windows
 from dashboard.components import add_rule, add_section, clickable_kpis, detail_panel, donut, downloads, excel_bar_table, kpis, page_header
-from dashboard.sections import render_customers, render_event_types, render_monthly_volume, render_nature, render_root_cause
+from dashboard.sections import render_customers, render_event_types, render_monthly_breakdown, render_nature, render_root_cause
 
 
 
@@ -106,6 +106,12 @@ def render(df, filtered, selected_page):
         _open_card(details, opened)
 
     add_rule()
+    # Section 2 on the owner's call. "Is it getting better?" (`render_trend`) stays on
+    # Monthly trend, which is the page for it; this is the same breakdown function that
+    # page draws, so the two cannot show one month two ways.
+    render_monthly_breakdown(page)
+
+    add_rule()
     add_section("What customers sent us", "Two rings over the same filter. The left one is every "
                 "email, split into the three things an email can be. The right one takes only the "
                 "confirmed misses and splits them by who has to fix it — so the first answers "
@@ -145,12 +151,6 @@ def render(df, filtered, selected_page):
 
     add_rule()
     render_event_types(page)
-
-    add_rule()
-    # "Is it getting better?" (`render_trend`) was removed from THIS page on the owner's
-    # call and stays on Monthly trend, which is the page for it. What sits here instead
-    # is the volume block from that page -- the same function, so the two cannot drift.
-    render_monthly_volume(page)
 
     add_rule()
     render_nature(page)
