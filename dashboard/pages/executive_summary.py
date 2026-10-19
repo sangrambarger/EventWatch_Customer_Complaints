@@ -109,7 +109,10 @@ def render(df, filtered, selected_page):
     # Section 2 on the owner's call. "Is it getting better?" (`render_trend`) stays on
     # Monthly trend, which is the page for it; this is the same breakdown function that
     # page draws, so the two cannot show one month two ways.
-    render_monthly_breakdown(page)
+    # Only this page passes `clickable`: the chart's widget key is one piece of
+    # session state, and two pages sharing it would have a month opened here open
+    # again on Monthly trend.
+    render_monthly_breakdown(page, clickable=True)
 
     add_rule()
     add_section("What customers sent us", "Two rings over the same filter. The left one is every "

@@ -890,6 +890,61 @@ built from, not the sum of the strings in it.
    flex gap spaces as though it held a sentence. The one caption line is a
    reconciliation, not commentary.
 
+   **Click a month and it opens its own root-cause breakdown** in an `st.dialog`:
+   `render_root_tier()`, the owner cards and driver bars split out of
+   `render_root_cause()`, run against that one month. The popup looks like the Root
+   cause page because it **is** the Root cause page's code -- a second implementation of
+   those cards would be a second set of numbers waiting to disagree.
+
+   **The month is the click target, not the segment, and that is a correction to the
+   obvious design.** A segment of one or two emails is about 10px tall, which is the
+   fault already recorded on the driver bars: *"a one-miss bar is fourteen pixels wide,
+   and Other and Needs Review are exactly the short ones -- the rows a reader most wants
+   explained were the hardest to hit."* Vertically it is worse. There are also 19
+   non-empty owner cells against 10 months, **four of them holding two records or
+   fewer** and six drawing a single bar, so segment panels would be more panels and
+   thinner ones. And the figure the owner asked this to look like shows two owners side
+   by side, which is a month, not a segment.
+
+   **`selected` and `unselected` marker opacity are both pinned to 1.** Streamlit's
+   selection styling dims every bar the reader did not click, so the chart sat washed
+   out behind the dialog and **stayed that way after it closed**, reading as broken
+   rather than as a selection. Verified by reading computed opacity back off every bar
+   after an Escape, not by assuming.
+
+   **Only the Executive Summary passes `clickable=True`.** The chart's widget key is one
+   piece of session state; two pages sharing it would have a month opened here open
+   again on Monthly trend.
+
+   The dialog is **`width="large"`**, the one departure from `medium` on this dashboard.
+   `large` was rejected for the card popups because a line of prose stretches past
+   1200px and nobody tracks it back to its start -- cards and bars have no such problem,
+   and two owner cards with their driver charts do not fit 700px.
+
+   **Two chart-furniture facts, both found by screenshotting.** Plotly's modebar floats
+   over the top-right of the graph on hover, exactly where the click hint sits, so the
+   modebar is docked `orientation="v"` down the right edge instead -- cheaper than
+   hiding it, which would take the download and zoom buttons with it. And under
+   `hovermode="x unified"` the box already prints the month as its header, so a
+   hovertemplate carrying `%{x}` reads "May 2026 · 9 product miss" under a heading that
+   says May 2026.
+
+   **`audit_pages.month_panel_problems()` is what keeps the dialogs honest.** A month
+   panel is only in the DOM once a reader clicks, so the scrape never sees it -- the
+   same hole `card_detail_problems()` closed for the eight cards. The panel reuses the
+   renderer rather than carrying a payload, which is what stops it drifting and also
+   means there is nothing to read back, so the check **recomputes both levels from the
+   CSV**: a month's owner cards sum to that month's confirmed misses, and each owner's
+   driver bars sum to that owner's card. It derives `Month Label` the way `data.py`
+   does, because a check that silently found no months would pass on every tracker. Ten
+   panels, thirty assertions; seeding one wrong owner count fires all three levels.
+
+   **The table is a scroll box, not an expander.** A collapsed expander lays out at zero
+   height, so `innerText` reads empty and `audit_pages.py` silently stops reconciling
+   every row it hides -- eleven rows and the Total among them. `stickytotal` keeps the
+   foot on screen. If it ever does need to collapse, the expander has to come with a
+   line in the audit that opens it before scraping.
+
    It is shared with **Monthly trend**, for the same reason every other shared block
    is: two pages drawing the same months from two copies is how they end up disagreeing.
 3. **What customers sent us** -- two donuts, side by side. `overview_split()` is all 115

@@ -264,7 +264,44 @@ def source_page(title, df, col, key, primary=None, summary=True):
     return page
 
 
-def render_monthly_breakdown(page):
+def _open_month(page, frame, month):
+    """One month's own root-cause breakdown, in the figure the summary already draws.
+
+    `width="large"` is a deliberate departure. Every other dialog here is `medium`,
+    because at `large` a line of prose stretches past 1200px and nobody tracks it back
+    to its start -- but this panel is cards and bars, which have no such problem, and
+    two owner cards with their driver charts do not fit 700px.
+    """
+    part = page[page["Month Label"].astype(str) == month]
+    if part.empty:
+        return
+    row = frame[frame["Month"] == month]
+    head = ""
+    if not row.empty:
+        r = row.iloc[0]
+        head = (f"<div class='pop-chain'><span>{int(r['Emails'])} emails</span> "
+                f"<span class='pop-sep'>&rsaquo;</span> <span>{int(r['Complaints'])} complaints</span> "
+                f"<span class='pop-sep'>&rsaquo;</span> <span class='pop-here'>"
+                f"{int(r['Misses'])} misses</span></div>")
+        # `plural()` for the same reason the driver hovers use it: a leadership panel
+        # does not print "1 complaints".
+        foot = (plural(int(r["Wrong"]),
+                       "other complaint was reported in time with something wrong on it",
+                       "other complaints were reported in time with something wrong on them")
+                + ", and "
+                + plural(int(r["Inquiries"]), "email was an inquiry", "emails were inquiries") + ".")
+
+    def panel():
+        if head:
+            st.markdown(head, unsafe_allow_html=True)
+        render_root_tier(part)
+        if head:
+            st.caption(foot)
+
+    st.dialog(month, width="large")(panel)()
+
+
+def render_monthly_breakdown(page, clickable=False):
     """Month by month: what came in, and where it failed.
 
     On the Executive Summary and on Monthly trend, from one function, for the same
@@ -276,6 +313,11 @@ def render_monthly_breakdown(page):
     asks this block for. The bar now carries the failure split and the table carries it
     with both bases beside it.
 
+    **`clickable` belongs to the page, not to the block.** Only one page may own the
+    chart's widget key, or Streamlit hands the two pages one piece of selection state
+    and a month opened on the summary opens again on Monthly trend. The Executive
+    Summary owns it; Monthly trend draws the same chart without the click.
+
     No descriptive paragraph under the heading, on the owner's call. The one line under
     the table is the hierarchy, which is a reconciliation rather than commentary: it is
     what stops a reader adding Complaints to Misses.
@@ -285,16 +327,57 @@ def render_monthly_breakdown(page):
         st.info("Monthly breakdown requires Month/Reporting Month and Issue Type fields.")
         return
     add_section("Month by month: what came in, and where it failed", "", "#80cbc4")
-    fig = monthly_stack(frame)
+    fig, month = monthly_stack(frame, key="monthly-stack" if clickable else None)
     table = monthly_table(frame)
-    # Not `wide`: at twelve short columns the content-sized table still ran 44px past
-    # its panel, so the last column lived behind a sideways scroll. A full-width table
-    # fits them and wraps only the one long header.
+    # A scroll box, not an expander. A collapsed expander lays out at zero height, so
+    # `innerText` reads empty and `audit_pages.py` silently stops reconciling every row
+    # it hides -- eleven rows and the Total among them. The box keeps the table in the
+    # DOM, the sticky foot keeps the Total on screen, and the gate keeps working.
+    #
     # `nowrap` on Month: a full-width table wrapped "Jan 2026" onto two lines and
     # doubled the height of every row.
-    styled_table(table, variant="roomy", total_row=True, styles={"Month": "nowrap"})
+    styled_table(table, variant="roomy stickytotal", height=420, total_row=True,
+                 styles={"Month": "nowrap"})
     st.caption(monthly_note(frame))
     downloads(table, "monthly_breakdown", fig)
+    if month:
+        _open_month(page, frame, month)
+
+
+def render_root_tier(page):
+    """The owner cards and their driver bars -- the top tier of the root-cause block.
+
+    Split out of `render_root_cause()` so the month dialog can draw the same thing for
+    one month. It is the figure the owner asked that dialog to look like, and the only
+    honest way to make a popup look like a page is to run the page's own code: a second
+    implementation of these cards would be a second set of numbers waiting to disagree.
+    """
+    roots = root_summary(page)
+    if not roots:
+        st.info("No email in this view is flagged as a confirmed miss.")
+        return
+    missed = int(page.get("Missed_Flag", pd.Series(dtype=str)).astype(str).str.strip().eq("Yes").sum())
+    # One height for all three, from the longest list: three panels ending at three
+    # different depths reads as three unrelated charts rather than one comparison.
+    frames = {root: root_drivers(page, root) for root, *_ in roots}
+    slots = max((len(f) for f in frames.values()), default=1)
+    widest = max((float(f["Misses"].max()) for f in frames.values() if not f.empty), default=1.0)
+    # Card and bars in ONE column each, not two rows of three. As two separate
+    # st.columns calls the card sat in a row of its own and its drivers in another,
+    # so at the width this is read at the eye had to carry "Product" down past a
+    # card border to know whose bars it was looking at -- and the three cards, being
+    # equal-height, pushed the bars a full card below the fold. One column per root
+    # cause reads as one story per root cause.
+    for column, (root, n, share, owns, colour) in zip(st.columns(len(roots)), roots):
+        with column:
+            st.markdown(
+                f"<div class='root-card' style='--accent:{colour}'>"
+                f"<div class='rc-name'>{esc(root)}</div>"
+                f"<div class='rc-num'>{n}</div>"
+                f"<div class='rc-base'>of {missed} confirmed misses</div>"
+                f"<div class='rc-share'>{share:.0f}%</div>"
+                f"<div class='rc-desc'>{esc(owns)}</div></div>", unsafe_allow_html=True)
+            driver_bar(frames[root], colour, slots=slots, xmax=widest)
 
 
 def render_root_cause(page):
@@ -333,27 +416,7 @@ def render_root_cause(page):
             f"carried it and no keyword matched. That is the size of the source-and-keyword "
             f"problem; what to buy or build against it is Product's call, not this "
             f"dashboard's.</div>", unsafe_allow_html=True)
-        # One height for all three, from the longest list: three panels ending at three
-        # different depths reads as three unrelated charts rather than one comparison.
-        frames = {root: root_drivers(page, root) for root, *_ in roots}
-        slots = max((len(f) for f in frames.values()), default=1)
-        widest = max((float(f["Misses"].max()) for f in frames.values() if not f.empty), default=1.0)
-        # Card and bars in ONE column each, not two rows of three. As two separate
-        # st.columns calls the card sat in a row of its own and its drivers in another,
-        # so at the width this is read at the eye had to carry "Product" down past a
-        # card border to know whose bars it was looking at -- and the three cards, being
-        # equal-height, pushed the bars a full card below the fold. One column per root
-        # cause reads as one story per root cause.
-        for column, (root, n, share, owns, colour) in zip(st.columns(len(roots)), roots):
-            with column:
-                st.markdown(
-                    f"<div class='root-card' style='--accent:{colour}'>"
-                    f"<div class='rc-name'>{esc(root)}</div>"
-                    f"<div class='rc-num'>{n}</div>"
-                    f"<div class='rc-base'>of {missed} confirmed misses</div>"
-                    f"<div class='rc-share'>{share:.0f}%</div>"
-                    f"<div class='rc-desc'>{esc(owns)}</div></div>", unsafe_allow_html=True)
-                driver_bar(frames[root], colour, slots=slots, xmax=widest)
+        render_root_tier(page)
         line = takeaway(page)
         if line:
             text, colour = line
