@@ -671,13 +671,17 @@ MONTH_NAMES = {"Wrong": "Reported, but wrong", "Product": "Product miss", "Analy
                "Process": "Process miss", "Inquiries": "Inquiry"}
 
 
-def monthly_stack(frame):
+def monthly_stack(frame, key=None):
     """One bar per month, split by where that month's emails ended up.
 
     The grouped complaint-against-inquiry pair this replaced was volume only: it said
     how many arrived and nothing about how many we got wrong, which is the whole of what
     the block was asked for. Five segments in one bar carry the same total and the
     failure split with it.
+
+    Returns `(figure, clicked month or None)`. With a `key` the bars are a click target
+    and the chart reports which month the reader opened; without one it is a plain chart,
+    which is what the download helper and any future caller that owns no dialog want.
 
     **The miss rate rides above each bar**, so the chart answers "is it getting worse"
     without the reader going to the table. A month under `THIN_MONTH` emails prints its
@@ -687,7 +691,7 @@ def monthly_stack(frame):
     """
     if frame is None or frame.empty:
         st.info("Chart cannot be rendered because required fields are missing: Month.")
-        return None
+        return None, None
     months = list(frame["Month"])
     top = max([int(v) for v in frame["Emails"]] or [1])
     # A segment under about a sixteenth of the tallest bar is too short to hold its own
@@ -705,8 +709,11 @@ def monthly_stack(frame):
             marker=dict(color=colour, line=dict(width=0)),
             text=[str(v) if v >= floor else "" for v in values], textposition="inside",
             insidetextanchor="middle", textfont=dict(size=12, color="#1b1f26"),
-            hovertemplate="%{x} · %{y} " + esc(MONTH_NAMES.get(key, key).lower())
-                          + f"<br>{esc(meaning)}<extra></extra>")
+            # `hovermode="x unified"` already prints the month as the box's header, so a
+            # row that repeats it reads "May 2026 · 9 product miss" under a heading that
+            # says May 2026.
+            hovertemplate="%{y} " + esc(MONTH_NAMES.get(key, key).lower())
+                          + f" — {esc(meaning)}<extra></extra>")
     for _, r in frame.iterrows():
         fig.add_annotation(
             x=r["Month"], y=int(r["Emails"]) + top * 0.04, showarrow=False,
@@ -722,5 +729,26 @@ def monthly_stack(frame):
                      tickfont=dict(size=12, color="#f3f4f6"), gridcolor="#303846", title="")
     fig.update_yaxes(tickfont=dict(size=12, color="#f3f4f6"), gridcolor="#303846",
                      title="Customer emails", range=[0, top * 1.16])
-    st.plotly_chart(fig, width="stretch")
-    return fig
+    if not key:
+        st.plotly_chart(fig, width="stretch")
+        return fig, None
+    # The affordance lives inside the plot, because there is nowhere else to put it: a
+    # plotly bar takes no CSS hover rule the way `clickable_kpis()`'s cards do, and a
+    # line of prose under the chart is the commentary the owner removed.
+    fig.add_annotation(xref="paper", yref="paper", x=1, y=1.14, showarrow=False,
+                       xanchor="right", text="Click a month for its breakdown \u2192",
+                       font=dict(size=11, color="#808894"))
+    # Plotly's modebar floats over the top-right of the graph on hover, which is exactly
+    # where the hint sits. Docked vertically it runs down the right edge instead and the
+    # two stop overlapping -- cheaper than hiding the modebar, which would take the
+    # download and zoom buttons with it.
+    fig.update_layout(modebar=dict(orientation="v"))
+    # Selected and unselected both at full opacity. Streamlit's selection styling dims
+    # every bar the reader did not click, so the chart sat washed out behind the dialog
+    # and stayed that way after it closed -- which reads as broken, not as a selection.
+    fig.update_traces(selected=dict(marker=dict(opacity=1)),
+                      unselected=dict(marker=dict(opacity=1)))
+    event = st.plotly_chart(fig, width="stretch", key=key, on_select="rerun",
+                            selection_mode="points")
+    points = (event or {}).get("selection", {}).get("points", []) if event else []
+    return fig, (str(points[0]["x"]) if points else None)

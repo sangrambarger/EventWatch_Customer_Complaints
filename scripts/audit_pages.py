@@ -303,6 +303,69 @@ def card_detail_problems(df: pd.DataFrame) -> tuple[list[str], int]:
     return problems, checked
 
 
+def month_panel_problems(df: pd.DataFrame) -> tuple[list[str], int]:
+    """Every month dialog's own arithmetic, checked without opening a browser.
+
+    A month panel is only in the DOM once a reader clicks a bar, so the scrape above
+    never sees it -- the same hole `card_detail_problems()` was written to close for the
+    eight card popups. The panel reuses `render_root_tier()` rather than carrying a
+    payload, which is what stops it drifting from the Root cause page but also means
+    there is nothing for the scrape to read. So the check recomputes the panel's two
+    levels from the CSV instead:
+
+        that month's owner cards sum to that month's confirmed misses
+        each owner's driver bars sum to that owner's card
+
+    A month whose cards did not add up to its own headline is exactly the fault the
+    `42 + 9 + 35 = 86` row made visible on the cards, one level down.
+    """
+    sys.path.insert(0, str(REPO))
+    from dashboard.metrics import monthly_breakdown, root_drivers, root_summary
+    # The scrape reads the CSV raw, where `Month Label` does not exist -- the app derives
+    # it in `data.py` from the first of Reporting Month / Month / Email/JIRA Date that is
+    # present. Mirrored here in the same order, because a check that silently found no
+    # months would pass on every tracker.
+    df = df.copy()
+    if "Month Label" not in df.columns:
+        source = next((c for c in ("Reporting Month", "Month", "Email/JIRA Date")
+                       if c in df.columns), None)
+        if not source:
+            return [], 0
+        # `Reporting Month` already holds "Oct 2026"; naming the format keeps pandas
+        # from falling back to dateutil row by row and warning about it in a gate's output.
+        parsed = pd.to_datetime(df[source], format="%b %Y", errors="coerce")
+        if parsed.isna().all():
+            parsed = pd.to_datetime(df[source], errors="coerce", dayfirst=True)
+        df["Month Label"] = parsed.dt.strftime("%b %Y")
+    frame = monthly_breakdown(df)
+    if frame.empty:
+        return ["month panels: no month could be derived from the tracker"], 0
+    problems, checked = [], 0
+    for _, row in frame.iterrows():
+        month = str(row["Month"])
+        part = df[df["Month Label"].astype(str) == month]
+        roots = root_summary(part)
+        owners = {str(r[0]): int(r[1]) for r in roots}
+        expect = {"Product": int(row["Product"]), "People": int(row["Analyst"]),
+                  "Process": int(row["Process"])}
+        checked += 1
+        if sum(owners.values()) != int(row["Misses"]):
+            problems.append(f"month panel {month!r}: owner cards sum to {sum(owners.values())}, "
+                            f"the month holds {int(row['Misses'])} misses")
+        for owner, want in expect.items():
+            got = owners.get(owner, 0)
+            if got != want:
+                problems.append(f"month panel {month!r}: {owner} card shows {got}, "
+                                f"the table says {want}")
+        for owner, n in owners.items():
+            bars = root_drivers(part, owner, top=99)
+            total = int(bars["Misses"].sum()) if not bars.empty else 0
+            if total != n:
+                problems.append(f"month panel {month!r}: {owner} driver bars sum to {total} "
+                                f"against a card of {n}")
+    return problems, checked
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--port", type=int, default=8631)
@@ -363,6 +426,10 @@ def main() -> int:
     card_problems, cards_checked = card_detail_problems(df)
     problems += card_problems
     print(f"{'Executive Summary popups':34s} {cards_checked} card popup(s) add up")
+
+    month_problems, months_checked = month_panel_problems(df)
+    problems += month_problems
+    print(f"{'Month dialogs':34s} {months_checked} month panel(s) add up")
 
     if problems:
         print(f"\nFAIL — {len(problems)} figure(s) do not match the tracker:")
