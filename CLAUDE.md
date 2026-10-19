@@ -503,6 +503,21 @@ defect, `Missed_Flag` No. They now read `They missed a supplier / On file, never
 selected, so no WarRoom` and `A confirmed software bug / The bulletin landed; the
 platform then failed`. **A label that could sit on either panel is not a label.**
 
+**A card that says "a confirmed software bug" twice has told an ELT nothing.** The
+label appears on two panels and they are two different defects with two different
+outcomes -- Harman's impact-confirmation requests that never went to four Tier 2 sites
+(a miss), and Hitachi's Disruption Agent returning only Tier 1 suppliers after a
+bulletin had landed (not a miss). The bug groups carry `NAME_THEM` in place of a note
+and `defect_name()` reads each record's own `Event/Bulletin Title`, so the panels now
+print the defects rather than the category.
+
+**`NAME_THEM` is on the bug groups and nowhere else, and that is not timidity.** The
+house title convention is `<event> - <what went wrong> (<Customer>)`, which names the
+defect on a `Platform Bug` row and names the **event** on most others: put it on the
+clustering group and the panel explains a defect with "Fire at the Isselguss GmbH
+Facility", which is worse than the generic line it replaced. **Read what the titles
+actually say before putting it on another group.**
+
 **One short name per cause, and `SHORT_CAUSE` is where it lives.** Card 8's owner
 cards read `4 failures · biggest 12` in the first cut, which is two words a reader
 cannot act on: "failures" names nothing and "biggest" ranks something they cannot see.
@@ -780,17 +795,21 @@ built from, not the sum of the strings in it.
    **Row one is the funnel** -- emails, complaints, confirmed misses, complaints that
    were not a miss. **Row two is where the misses stopped, and it carries all THREE
    stages**: `Never reached us` 42, `Lost before an analyst` 9, `An analyst saw it` 35,
-   then the last three months' rate. A computed line under the row prints
-   `42 + 9 + 35 = 86`.
+   then the last three months' rate.
 
-   **That line and the middle card are the fix for a real defect.** The row used to
-   carry two stages and one account's share, so a reader adding 42 and 35 against a
-   headline of 86 came up **nine short with nowhere to put them** -- the stage where we
-   had the story and no person ever saw it had no card at all. The owner found it by
-   adding the two numbers on screen, which is the first thing anyone does with a row of
-   figures. The three stages come from `_miss_parts()`, the same function the popups
-   use, so they are a partition by construction and the row can prove itself.
-   **Do not take a stage off this row without taking the reconciliation line with it.**
+   **The middle card is the fix for a real defect.** The row used to carry two stages
+   and one account's share, so a reader adding 42 and 35 against a headline of 86 came
+   up **nine short with nowhere to put them** -- the stage where we had the story and
+   no person ever saw it had no card at all. The owner found it by adding the two
+   numbers on screen, which is the first thing anyone does with a row of figures. The
+   three stages come from `_miss_parts()`, the same function the popups use, so they
+   are a partition by construction.
+
+   **A line under the row printed `42 + 9 + 35 = 86` and the owner removed it.** What
+   went is the restatement, not the guarantee: `_miss_parts()` is what makes the three
+   a partition, and each card's own panel still prints the equation for the split it
+   shows. Do not read its absence as licence to put a stage on this row that is not
+   part of that partition.
 
    **The account card went to make room, and it was the right one to lose.** Ford's
    share was on card one's own panel, on this page's Customers impacted section and on

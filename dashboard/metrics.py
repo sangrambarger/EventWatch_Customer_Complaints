@@ -1108,6 +1108,40 @@ def _miss_parts(df):
             "analyst": analyst, "platform": platform}
 
 
+# A group whose note is `NAME_THEM` prints the records' own defects instead of a
+# category line. "A confirmed software bug" appears on two panels -- Harman's impact
+# requests that never went to four Tier 2 sites, and Hitachi's Disruption Agent
+# returning only Tier 1 suppliers -- and an ELT reading "a confirmed software bug"
+# twice learns nothing it can act on. The two are different defects with different
+# outcomes: one stopped delivery, the other followed a bulletin that landed.
+#
+# **It is set on the bug groups and nowhere else, deliberately.** It reads the record's
+# own `Event/Bulletin Title`, which on a Platform Bug row names what the platform did
+# and on most other rows names the EVENT -- applied to the clustering group it would
+# print "Fire at the Isselguss GmbH Facility" as the explanation of a defect, which is
+# worse than the generic line it replaced. Check what the titles actually say before
+# putting this on another group.
+NAME_THEM = object()
+
+
+def defect_name(title):
+    """The defect a record's own title names, stripped of event and customer.
+
+    The house title convention is `<event> - <what went wrong> (<Customer>)`, so the
+    customer is dropped and the clause after the dash is the defect. Where there is no
+    dash the title leads with the defect and trails with the event it was found on, so
+    the first `for` ends it. `shorten()` catches anything neither rule fits.
+    """
+    text = re.sub(r"\s*\([^()]*\)\s*$", "", str(title)).strip()
+    for dash in ("\u2013", "\u2014", " - "):
+        if dash in text:
+            tail = text.split(dash, 1)[1].strip()
+            if len(tail) > 12:
+                return shorten(tail, 58)
+    head = text.split(" for ", 1)[0].strip()
+    return shorten(head if len(head) > 12 else text, 58)
+
+
 # What a People-rooted miss says the analyst actually did, and what was wrong with a
 # bulletin that did go out in time. Both are keyed on tracker sub-types with a
 # fall-through, so a value added tomorrow appears under its own name rather than
@@ -1135,8 +1169,7 @@ WRONG_GROUPS = (
     ("Sent twice, or merged wrong", ("Duplication", "Strategy", "Clustering / Duplication Defect"),
      "One event, two bulletins"),
     ("No WarRoom was raised", ("WarRoom Creation",), "The bulletin went out on its own"),
-    ("A confirmed software bug", ("Platform Bug", "Alerting Gap"),
-     "The bulletin landed; the platform then failed"),
+    ("A confirmed software bug", ("Platform Bug", "Alerting Gap"), NAME_THEM),
 )
 
 # The one short name for a cause, in the words the stat cards use. A popup that names
@@ -1153,7 +1186,7 @@ LOST_GROUPS = (
      "Captured, and never put in front of anyone"),
     ("Grouped under the wrong story", ("Clustering / Duplication Defect",),
      "Filed with a cluster nobody worked"),
-    ("A confirmed software bug", ("Platform Bug",), "A defect we have confirmed"),
+    ("A confirmed software bug", ("Platform Bug",), NAME_THEM),
 )
 
 SHORT_CAUSE = {
@@ -1224,7 +1257,12 @@ def _grouped(df, mask, groups, colour, tail_colour=POP_MUTED):
     for name, subs, note in groups:
         hit = mask & sub.isin(subs) & ~claimed
         if int(hit.sum()):
-            cards.append((int(hit.sum()), _stat(int(hit.sum()), name, note, colour)))
+            shown = note
+            if note is NAME_THEM:
+                names = [defect_name(t) for t in df.loc[hit, "Event/Bulletin Title"]]
+                shown = (esc(" · ".join(names[:2])) if len(names) <= 2
+                         else esc(f"{names[0]} · and {len(names) - 1} more"))
+            cards.append((int(hit.sum()), _stat(int(hit.sum()), name, shown, colour)))
         claimed = claimed | hit
     rest = mask & ~claimed
     if int(rest.sum()):
