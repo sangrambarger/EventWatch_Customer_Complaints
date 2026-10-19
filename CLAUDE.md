@@ -492,6 +492,32 @@ to half the panel each and a 1 looks like an 8. The paragraph under every row an
 stack of note boxes under that are gone with it, on the same instruction -- a panel
 exists to answer the one question the card raises, not to brief the reader.
 
+**One short name per cause, and `SHORT_CAUSE` is where it lives.** Card 8's owner
+cards read `4 failures · biggest 12` in the first cut, which is two words a reader
+cannot act on: "failures" names nothing and "biggest" ranks something they cannot see.
+They now read `no monitored source 12 · keywords missed it 7 · and 3 more` -- the same
+short words the stat cards on cards 3, 5 and 6 print, from one map rather than a
+wording per panel. It is keyed on the sub-type with the owner-aware overrides
+`OWNED_SUBTYPE` already makes, because `Review` under Product is the model deciding and
+under People is a person deciding; `short_cause()` is the accessor and `named_causes()`
+builds the line. The long plain label is still what the tables print -- at 46 characters
+it is a paragraph under a 28px number in a box a third of the panel wide, and Root cause
+is one click away for the full taxonomy.
+
+**No popup prints a number that has to be remembered.** Card 6's late bucket read
+"18 hours to 25 days", a figure typed from a reading of the twelve `Reported late`
+rows, which is the fault this file exists to prevent. It says "Published, but not in
+time to act" -- a definition, which cannot go stale.
+
+**Card 1's four account cards do not sum to its hero, and the foot says so.** Accounts
+split on the slash, so the five emails naming two accounts are counted for both and the
+column adds to 132 against a tracker of 127. There is no partition to be had and the
+card is not wrong; a reader who adds four numbers under a hero of 127 and finds 81 will
+challenge the page, which is exactly what happened to the Customers impacted table
+before its caption explained the same overshoot. Both figures are computed. **Where a
+panel's parts cannot sum to its headline, say why on the panel** -- the same rule as
+"a total row is a reconciliation, not a sum".
+
 **The groupings are tables with a fall-through, not a fixed list.** `ANALYST_ACTIONS`
 folds the People-rooted misses onto what the analyst did and `WRONG_GROUPS` folds the
 delivered-but-wrong complaints onto what was wrong with the bulletin; both apply in
