@@ -69,6 +69,12 @@ def render(df, filtered, selected_page):
     # had the story and no person saw it had no card. The account card went to make
     # room: Ford's share is on card one's own panel and on Customers impacted below,
     # and a third telling of it is a third thing to reconcile.
+    #
+    # A line under the row printed `42 + 9 + 35 = 86` and the owner removed it. The
+    # three stages still partition the misses -- `_miss_parts()` is what guarantees
+    # that, not the caption -- and each card's own panel prints the equation for the
+    # split it shows. What went is the restatement; do not read its absence as licence
+    # to put a stage back that does not belong to the partition.
     # The whole card opens its own breakdown; there is no separate control. See
     # `clickable_kpis()` for why that is an overlaid button and not a link.
     details = {c["key"]: c for c in card_details(page)}
@@ -96,12 +102,6 @@ def render(df, filtered, selected_page):
             if band else "needs six months of emails to compare"), "#f6c177")],
         ("nevercaptured", "lostinside", "overlooked", "trend"), "2", available=set(details))
     opened = opened or second
-    # The three stages partition the misses, so the row can prove itself. A reader who
-    # adds the cards and finds they do not reach the headline challenges the page, and
-    # they are right to -- that is the arithmetic this line exists to close.
-    st.markdown(f"<div class='kpi-sum'><b>{never} + {lost} + {seen} = {missed}</b> confirmed "
-                "misses — every missed event stopped at exactly one of these three stages."
-                "</div>", unsafe_allow_html=True)
     if opened:
         _open_card(details, opened)
 
