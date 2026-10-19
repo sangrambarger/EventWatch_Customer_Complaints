@@ -762,7 +762,7 @@ spill cache on the Dashboard, which carried the old value.
 
 ## The Executive Summary, section by section
 
-The page is a story in seven parts, separated by `add_rule()` -- a full-width hairline,
+The page is a story in eight parts, separated by `add_rule()` -- a full-width hairline,
 because the heading card alone was not enough and two adjacent sections read as one.
 Every section is chart-then-table, in that order, so the eye learns the shape once.
 
@@ -775,9 +775,11 @@ under five blocks because its table has seventeen columns optimises for layout a
 the question being asked. It is back at **fourth**, directly under the failure analysis
 it belongs to.
 
-The order now is: what came in (cards, rings), **why we missed** (the root causes and
-their drivers), **who it hit** (Customers impacted), **what kind of event**, **when it
-arrived**, and last **what the customer themselves called it** (Nature of complaints,
+The order now is: what came in (the cards), **when it arrived and where it failed**
+(the monthly breakdown, moved to second on the owner's call), **how much of it was
+ours** (the rings), **why we missed** (the root causes and their drivers), **who it
+hit** (Customers impacted), **what kind of event**, and last **what the customer
+themselves called it** (Nature of complaints,
 moved to the foot on the owner's call -- it is the customer's own vocabulary and reads
 as the coda to the story rather than the opening of it). **Do not re-sort this page by
 table width.**
@@ -827,7 +829,70 @@ built from, not the sum of the strings in it.
    **No label says "Product fixes it".** The owner asked what that meant, and the
    question is the right one -- it names no team a reader could take the number to.
    The two values of `Routed To` do: `Product & Platform` and `EventWatch Ops`.
-2. **What customers sent us** -- two donuts, side by side. `overview_split()` is all 115
+2. **Month by month: what came in, and where it failed** -- `render_monthly_breakdown()`,
+   moved here from sixth on the owner's call. It is the view a VP comes to this page
+   for, and it sat behind five other blocks.
+
+   **One bar per month, five segments**, and every level of the hierarchy sums into the
+   one above it:
+
+   ```
+   Emails     = Complaints + Inquiries
+   Complaints = Misses + Reported, but wrong
+   Misses     = Product + Analyst + Process
+   ```
+
+   That is a **nest, not two competing cuts of one total** -- which is the fault that
+   made the event-type table read as broken arithmetic. `monthly_note()` prints all
+   three lines under the table so nobody adds Complaints to Misses.
+
+   **It replaced a grouped complaint-against-inquiry pair that was volume only**: how
+   many arrived, and nothing about how many we got wrong, which is the whole of what
+   the block was asked for. `monthly_breakdown()` reads `_miss_parts()` and
+   `Root Cause`, the same source the eight cards use, so a month here cannot disagree
+   with the headline above it.
+
+   **Colour comes straight from `ROOT_COLOURS`** -- Product `--blue`, Analyst `--red`,
+   Process `--amber` -- so a Product miss is the same blue here as on the cards. The
+   two segments that are not a miss owner take neutral tokens: `--line2` for
+   `Reported, but wrong` and `--teal` for an inquiry. The blue-against-green pair this
+   replaced carried no meaning at all. **One cost, accepted:** `--red` against
+   `--amber` is the weak colourblind pair at dE 13.9 and they would sit adjacent the
+   day the first Process miss lands. Every segment prints its own count and the table
+   carries all of them, which is the secondary encoding that makes it legal -- but it
+   is a real constraint, not a non-issue.
+
+   **Process is zero in every month and the column stays.** All four Process misses
+   moved off the flag in the October rulings, so the honest answer to "what about
+   process errors" is *none, all year*. A VP who sees no Process column concludes
+   nobody measured it. Process is not absent from the book -- it sits inside
+   `Reported, but wrong`, which is where it belongs.
+
+   **The miss rate rides above each bar**, so the chart answers "is it getting worse"
+   without the reader going to the table. **A month under `THIN_MONTH` emails prints
+   its rate muted**: Jan is 3 of 4, where one record moves the figure 25 points, and a
+   rate that thin in the same white as a 19-email month invites a comparison that is
+   not there. Same rule `missed_verdict()` applies to the trend windows.
+
+   **Three layout facts, each measured rather than guessed.** A segment under about a
+   sixteenth of the tallest bar gets no label -- plotly clips the digit vertically
+   rather than dropping it, `uniformtext` does not catch it because the text fits
+   *horizontally*, and a clipped `1` reads as a stray mark on the bar. The legend needs
+   `traceorder="normal"` or a stacked chart lists it upside down against its own stack.
+   And the table is **`roomy`, not `wide roomy`**: naming the bases in the headers
+   (`Miss rate (of emails)`, `Product share (of misses)`) ran it 300px past its panel,
+   and even shortened it was 44px over at content width, so the last column lived
+   behind a sideways scroll. Full width fits twelve columns; `nowrap` on `Month` stops
+   "Jan 2026" wrapping and doubling every row.
+
+   **No descriptive paragraph under the heading**, on the owner's call -- `add_section`
+   now emits no `<p>` at all when `desc` is empty, rather than an empty one the card's
+   flex gap spaces as though it held a sentence. The one caption line is a
+   reconciliation, not commentary.
+
+   It is shared with **Monthly trend**, for the same reason every other shared block
+   is: two pages drawing the same months from two copies is how they end up disagreeing.
+3. **What customers sent us** -- two donuts, side by side. `overview_split()` is all 115
    in three mutually exclusive parts (78 misses / 17 complaints that were not / 20
    inquiries); `miss_owner_split()` is the 78 by who fixes them. Three slices each, which
    is what a donut is for.
@@ -854,7 +919,7 @@ built from, not the sum of the strings in it.
    `Fx.hover` silently does nothing for a pie trace -- it returned empty text for all six
    slices. Dispatching `mouseover` then `mousemove` on the slice's own `g.slice` element
    works, and is how the six tooltips above were read back.
-3. **Why the events were missed** -- two tiers, and the page's headline above both:
+4. **Why the events were missed** -- two tiers, and the page's headline above both:
    *N of 78 misses never entered our system*, computed from the source and keyword
    buckets so it cannot go stale. That sentence is the number Product sizes the
    source-and-keyword problem with; what to buy against it is deliberately not on the
@@ -931,7 +996,7 @@ built from, not the sum of the strings in it.
    reads `g.hoverlayer`'s text back. That tests the hovertemplate and its customdata,
    which is the part that can actually be wrong. The clipping was only visible in a
    screenshot taken while the label was up.
-4. **Customers impacted** -- `miss_by_customer()`, the eight worst as a stacked bar and
+5. **Customers impacted** -- `miss_by_customer()`, the eight worst as a stacked bar and
    **every** account in a scrolling table. The row carries **both bases**: `Emails` with
    `Complaints` and `Inquiries` beside it (every email that named the account), then the
    failure columns and `Misses` (confirmed misses only, a smaller number from a different
@@ -960,7 +1025,7 @@ built from, not the sum of the strings in it.
    **The general rule: a total row is a reconciliation, not a sum.** Where the rows
    double-count on purpose, the foot has to carry the figure the rest of the dashboard
    uses, and the caption has to say why they differ.
-5. **Complaints by event type** -- two charts and one table. `all_event_types()` is
+6. **Complaints by event type** -- two charts and one table. `all_event_types()` is
    every email by the kind of event it was about; `missed_event_types()` is the confirmed
    misses only. Neither is readable alone: nine misses is a different fact depending on
    whether ten emails named that event type or forty.
@@ -990,22 +1055,17 @@ built from, not the sum of the strings in it.
    selection* says we reported the fire and the Automotive tag was missing, which is a
    different complaint from not reporting it. Three wordings at most, then "and N other
    reasons", and it follows the filter so it cannot go stale.
-6. **Monthly breakdown of all customer emails** -- `render_monthly_volume()`, the grouped
-   complaint-against-inquiry bars and the source table, shared with Monthly trend so the
-   two pages cannot draw the same months differently. It is volume only: how many emails
-   arrived, not how many we got wrong.
+7. **Is it getting better** is NOT on this page -- it was removed on the owner's call
+   and lives on Monthly trend alone. What it does, unchanged: `trend_chart()` is **one
+   bar per month**, its percentage printed on it, the last three months blue and the
+   three before grey, months outside both windows dark so they cannot be mistaken for
+   part of the comparison. It was a line with two flat shelves drawn over it and a
+   signed delta on the plot, and a reader had to be told what the shelves meant before
+   the chart said anything. The comparison is stated in words by `missed_verdict()`
+   above the chart instead of drawn into it, and `trend_table()` puts the months
+   underneath with a total whose rate is **pooled, not averaged**.
 
-   **"Is it getting better?" was removed from this page on the owner's call** and lives
-   on Monthly trend alone. What it does is described here because the function is
-   unchanged: `trend_chart()` is **one bar per month**, its percentage
-   printed on it, the last three months blue and the three before grey, months outside
-   both windows dark so they cannot be mistaken for part of the comparison. It was a line
-   with two flat shelves drawn over it and a signed delta on the plot, and a reader had
-   to be told what the shelves meant before the chart said anything. The comparison is
-   stated in words by `missed_verdict()` above the chart instead of drawn into it, and
-   `trend_table()` puts the months underneath with a total whose rate is **pooled, not
-   averaged**.
-7. **Nature of complaints** -- the eight `REASON_CATEGORIES`, the same vocabulary the
+8. **Nature of complaints** -- the eight `REASON_CATEGORIES`, the same vocabulary the
    All customer emails tab defines and lists the wordings behind. **The bar is stacked
    on the miss split**, darker for the emails in that category that were a confirmed
    miss and grey for the ones where the event did reach the customer, and a computed

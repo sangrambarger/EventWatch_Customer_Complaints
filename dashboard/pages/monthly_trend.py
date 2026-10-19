@@ -15,13 +15,13 @@ import streamlit as st
 
 from dashboard.filters import filter_note
 from dashboard.components import add_rule, page_header
-from dashboard.sections import render_monthly_volume, render_trend
+from dashboard.sections import render_monthly_breakdown, render_trend
 
 
 
 def render(df, filtered, selected_page):
     page_header(selected_page); page = filtered; filter_note()
-    render_monthly_volume(page)
+    render_monthly_breakdown(page)
     add_rule()
     # The same block the Executive Summary carries, from the same function. This page
     # used to draw its own miss-rate line from `missed_rate()` while the summary drew
