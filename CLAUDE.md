@@ -1910,6 +1910,30 @@ dropping rows, or a chart truncating a category all look identical to `smoke_app
 this names the label and both numbers. It found the app showing Ford as 41, 37 and 32
 on three pages at once.
 
+**It settles, then polls, for the same reason `smoke_app.py` does -- and it did
+neither until the tab cut exposed how badly that mattered.** `scrape()` waited a flat
+2200ms after each click and read whatever existed. On the light pages that was always
+everything, which is why it looked fine for months. On the heaviest it was not. Six
+consecutive scrapes of Analysis, against one running app, returned **7, 8, 6, 3, 12 and
+11** tables against the **17** it owes -- never once all of them -- and the audit printed
+PASS every time. **The gate was reconciling between a fifth and two-thirds of that page
+and being quoted as though it had checked the page.**
+
+The fix is `smoke_app.py`'s: settle for the body swap, then poll until the count both
+**meets what the page owes** and has **stopped changing** for three consecutive reads.
+Neither condition alone is enough -- a render that pauses mid-way reads as stable, and a
+page can pass its minimum while still drawing. `owed_tables()` takes the target from
+`smoke_app.EXPECTED` rather than a second list here that would drift.
+
+**A page that never gets there is returned as a problem, not swallowed.** The entire
+failure above was silence, so a timeout that printed nothing would reproduce it. Each
+page now also prints `N table(s) read`, which makes a shortfall visible rather than
+something to be inferred from a moving total.
+
+Measured after: **17, 17, 17, 17, 17, 17**, and the Total rows checked went from a
+wobbling 16-18 to a steady 22. Every figure in the newly-read tables was already
+correct -- the numbers were right, the checking was not.
+
 **It also checks every Total row** (`total_row_problems`), because a foot that disagrees
 with its own column is arithmetic nobody sees, and a foot that disagrees with the tracker
 is worse -- a reader trusts the foot over the rows. Both have shipped here. Each rendered
@@ -1918,7 +1942,7 @@ Total is compared against the sum of the column above it, except for the columns
 checked against the CSV instead. The check paid for itself on the run that introduced it,
 naming three bucket columns still adding to 27 / 24 / 13 where the chart above them said
 26 / 23 / 12. Columns whose foot is a formatted string -- a share, a blank -- carry no
-plain integer and are skipped. 16 feet across 6 pages today.
+plain integer and are skipped. 22 feet across 3 pages today.
 
 **The reconciled figures belong to a TABLE, not a page.** `reconciled_totals()` is keyed
 by page, and `total_row_problems()` applied it to every Total row on that page -- which
