@@ -46,10 +46,13 @@ EXPECTED: dict[str, tuple[int, int]] = {
     # two blocks drew, and one of those blocks moved rather than went -- Analysis is up
     # by Nature's 1 and 1 in the same commit, which is what says it was moved and not
     # lost.
-    # 7 not 6 since the funnel bars landed under the eight cards. It draws no table:
-    # its three equations are a computed caption, because a table of them would be the
-    # cards a third time in a fourth place.
-    "Executive Summary": (7, 4),
+    # Still 7 charts, and the churn underneath is the point: the event-type block went
+    # from two near-identical ranked bars to one, and the trend line -- the dashboard's
+    # first time-series chart -- took the freed slot. The 5th table is that trend's
+    # months. The Sankey replaced the funnel bars one-for-one and draws no table: its
+    # splits are a computed caption, because a table of them would be the cards a third
+    # time in a fourth place.
+    "Executive Summary": (7, 5),
     "All customer emails": (0, 6),
     # Analysis is the merge of Root cause (4 charts, 12 tables) and Top customer
     # complaints (5, 5), plus Nature of complaints (1, 1) off the Executive Summary.
@@ -130,7 +133,7 @@ def dialog_problems(page) -> list[str]:
     page.wait_for_timeout(2500)
 
     # Scoped to the month chart's own widget key, NOT to "the third bar on the page".
-    # It was the latter, and the funnel bars landing above it silently re-pointed this
+    # It was the latter, and a chart landing above the month chart silently re-pointed this
     # check at a segment that opens no dialog -- the click timed out and took the whole
     # gate down with it. An index into every bar on a page is a selector that any new
     # chart breaks; `st-key-monthly-stack` is the container Streamlit builds from the

@@ -23,8 +23,8 @@ import streamlit as st
 from dashboard.styles import esc
 from dashboard.taxonomy import ROOT_OWNERSHIP, name_subtypes, plural
 from dashboard.filters import customer_names, filter_note, names_match
-from dashboard.metrics import MISS_BUCKETS, account_failures, account_headline, all_event_types, count_table, customer_totals, driver_table, event_type_note, event_type_pairs, miss_by_customer, miss_categories, miss_colours, missed_event_types, monthly_breakdown, monthly_note, monthly_table, nature_table, owner_accounts, owner_insight, root_drivers, root_frame, root_recent_note, root_summary, subtype_matrix, takeaway, trend_windows
-from dashboard.components import add_section, chart, downloads, driver_bar, excel_bar_table, grouped_bar, heatmap, kpis, monthly_stack, page_header, proportion_bar, stacked_bar, styled_table
+from dashboard.metrics import MISS_BUCKETS, account_failures, account_headline, count_table, customer_totals, driver_table, event_type_flow, event_type_note, event_type_pairs, miss_by_customer, miss_categories, miss_colours, miss_trend, monthly_breakdown, monthly_note, monthly_table, nature_table, owner_accounts, owner_insight, root_drivers, root_frame, root_recent_note, root_summary, subtype_matrix, takeaway, trend_note, trend_windows
+from dashboard.components import add_section, chart, downloads, driver_bar, excel_bar_table, flow_bar, grouped_bar, heatmap, kpis, monthly_stack, page_header, proportion_bar, stacked_bar, styled_table, trend_line
 
 
 
@@ -510,25 +510,23 @@ def render_customers(page):
 
 
 def render_event_types(page):
-    """Event types: every email, the confirmed misses, and one table carrying both."""
-    add_section("Complaints by event type", "What kind of event customers write to us about. "
-                "The left chart is every email they sent; the right one is only the confirmed "
-                "misses, because nine misses is a different fact depending on whether ten "
-                "emails named that event type or forty. The table underneath carries one "
-                "split and one subset, and says which is which.", "#f28b82")
-    types, everything = missed_event_types(page), all_event_types(page)
-    if types.empty and everything.empty:
+    """Event types: one chart in the month chart's grammar, and one table under it."""
+    add_section("Complaints by event type", "What kind of event customers write to us about, "
+                "split the same way the month chart splits a month: the length of a row is how "
+                "many emails named that event type, and the colour is where it failed. The "
+                "event types we are worst at sit at the top, not the ones we merely receive a "
+                "lot of.", "#f28b82")
+    flow = event_type_flow(page)
+    if flow.empty:
         st.info("No email in the current filter carries an event type.")
     else:
-        left, right = st.columns(2)
-        with left:
-            st.markdown("**Every email, by event type**")
-            f_all = chart(everything, "Event type", title="", x_title="Customer emails") \
-                if not everything.empty else None
-        with right:
-            st.markdown("**Only the confirmed misses**")
-            f_types = chart(types, "Event type", title="", x_title="Confirmed misses") \
-                if not types.empty else None
+        # ONE chart, not two. This was a ranked bar of every email beside a ranked bar of
+        # the confirmed misses -- the same twenty-odd labels down both axes in two
+        # different orders, leaving the reader to join "nine misses" to "sixteen emails"
+        # themselves. The page's owner said the block confused them, which is the right
+        # reading of two rankings of one population drawn as though they were a
+        # comparison.
+        f_flow = flow_bar(flow, "Event type", x_title="Customer emails")
         pairs = event_type_pairs(page)
         if not pairs.empty:
             excel_bar_table(pairs, "Event type", value_col="Misses",
@@ -540,7 +538,64 @@ def render_event_types(page):
                                     "event never reached the customer in time** — it is a "
                                     "subset of the complaints column, not a third part of the "
                                     "split. " + event_type_note(page))
-            downloads(pairs, "event_types", f_types or f_all)
+            downloads(pairs, "event_types", f_flow)
+
+
+def _volume_caveat(trend):
+    """Say when the test can only ever fire one way, and why.
+
+    Three sigma above a ~68% base rate lands past 100% on a month of 4 to 19 emails, so
+    the upper limit is the ceiling and no month can register as WORSE however badly it
+    runs. A reader watching an arrow that only ever points down deserves to be told that
+    rather than left to infer it, and a dashboard that quietly runs a one-sided test is
+    the kind of thing this file exists to prevent. Computed, so it corrects itself the
+    month volumes grow enough to make the test two-sided again.
+    """
+    pinned, span = trend.get("pinned", 0), trend.get("span", 0)
+    if not span or not pinned:
+        return ""
+    if pinned == span:
+        return ("**No month here can register as worse.** At 4 to 19 emails a month the "
+                "upper limit lands above 100% in every one of them, so this test can only "
+                "ever confirm an improvement. More emails a month would narrow the band and "
+                "make it two-sided; nothing on the dashboard can.")
+    return (f"**{pinned} of {span} months cannot register as worse** — at their email "
+            f"counts the upper limit lands above 100%, so for those months this test only "
+            f"detects an improvement.")
+
+
+def render_trend(page):
+    """Is it getting better: the miss rate by month, inside its own control limits."""
+    trend = miss_trend(page)
+    latest = trend.get("latest")
+    arrow = {"worse": ("▲", "#f28b82"), "better": ("▼", "#a8dab5")}.get(
+        (latest or {}).get("direction", "flat"), ("▬", "#8a94a8"))
+    add_section("Is it getting better", "", "#8ab4f8")
+    if latest:
+        # The arrow is the whole answer for a reader who stops here, so it carries the
+        # verdict and not the month's percentage -- a number here would be the fourth
+        # place on this page that prints one, and the one most likely to be read as a
+        # target.
+        st.markdown(
+            f"<div style='display:flex;align-items:baseline;gap:14px;margin:2px 0 10px'>"
+            f"<span style='font-size:42px;line-height:1;color:{arrow[1]}'>{arrow[0]}</span>"
+            f"<span style='font-size:15px;color:#b6beca'>{esc(trend_note(trend))}</span>"
+            f"</div>", unsafe_allow_html=True)
+    trend_line(trend)
+    months = trend["months"]
+    if not months.empty:
+        table = months[["Month", "Emails", "Misses", "Rate"]].copy()
+        table.columns = ["Month", "Emails", "Confirmed misses", "Miss rate"]
+        table["Miss rate"] = table["Miss rate"].map(lambda v: f"{v:.0f}%")
+        excel_bar_table(table, "Month", value_col="Confirmed misses",
+                        extras=["Emails", "Miss rate"], label_head="Month",
+                        value_head="Confirmed misses", variant="roomy", total_row=False,
+                        caption=f"The dotted line is the **pooled** rate across every month "
+                                f"in this filter, {trend['centre']:.0f}% — not the average of "
+                                f"the monthly percentages, because a month with 4 emails must "
+                                f"not weigh the same as one with 19. The band is where this "
+                                f"book normally varies; only a point outside it is a change. "
+                                + _volume_caveat(trend))
 
 
 def render_nature(page):

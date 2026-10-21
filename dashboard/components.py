@@ -18,7 +18,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from dashboard.config import DESCRIPTIONS, PAGE_KICKERS
-from dashboard.styles import BLUE_RAMP, RED_BLUE, ROOT_COLOURS, TAGS, esc
+from dashboard.styles import BLUE_RAMP, CAT_SLATE, RED_BLUE, ROOT_COLOURS, TAGS, UNKNOWN_OWNER, esc
 from dashboard.taxonomy import plural
 
 
@@ -584,7 +584,7 @@ MONTH_PARTS = (
     ("Product", ROOT_COLOURS["Product"], "Product & Platform investigate it"),
     ("Analyst", ROOT_COLOURS["People"], "EventWatch Ops investigate it"),
     ("Process", ROOT_COLOURS["Process"], "A workflow or control failure"),
-    ("Wrong", "#515a68", "Reported in time, and something about it was wrong"),
+    ("Wrong", CAT_SLATE, "Reported in time, and something about it was wrong"),
     ("Inquiries", "#80cbc4", "A question, not a complaint"),
 )
 MONTH_NAMES = {"Wrong": "Reported, but wrong", "Product": "Product miss", "Analyst": "Analyst miss",
@@ -683,68 +683,130 @@ def monthly_stack(frame, key=None):
     return fig, (str(points[0]["x"]) if points else None)
 
 
-# The funnel's palette, and every value is a token this stylesheet already owns.
-#
-# **Colour says one thing here: did this email stop at this row, or carry on.** A
-# segment that is opened up on the row below takes `--carry`, the structural grey the
-# table headers wear -- it is deliberately NOT a categorical hue, because it is not a
-# category: it is the part of the bar the next row explains. Everything that stops gets
-# a real colour, and each one is the colour that email already wears elsewhere on this
-# page: `--teal` for an inquiry and `#515a68` for a bulletin that landed and was wrong,
-# both straight off `MONTH_PARTS`, and the three stages in the capture family's two
-# steps of `BLUE_RAMP` and `--red` -- the same blue/blue/red the cards themselves print.
-#
-# The two capture stages are one family in two steps rather than two hues because both
-# mean "it never reached a person"; drawn in one blue they would be indistinguishable
-# where they sit adjacent, and in two unrelated hues they would claim to be unrelated.
-# The carry segment is `--panel2` with a `--line2` outline, which is an OUTLINED BOX
-# rather than a filled one -- and that is a correction a screenshot forced. It was a
-# solid `#2d3542`, one grey sitting beside the `#515a68` of `Reported, but wrong` on the
-# very same row, and the 17 read as a lighter continuation of the carry rather than as
-# the thing that stopped there. Two greys adjacent cannot both mean something. Drawn as
-# an empty box the row below fills, it stops competing with any leaf at all, and the one
-# solid grey on the chart means exactly one thing again.
-FUNNEL_CARRY = "#202631"
-FUNNEL_CARRY_EDGE = "#515a68"
-FUNNEL_COLOURS = {
-    "Inquiries": "#80cbc4",
-    "Reported, but wrong": "#515a68",
-    # `--blue` then one step down, not two steps in the middle of the ramp. The darker
-    # pair put the "9" on `BLUE_RAMP[2]` at about 2:1 against its own label -- and the
-    # lighter of the two is now exactly the `#8ab4f8` its card prints, so the stage and
-    # the card that opens it are the same blue rather than merely a related one.
-    "Never reached us": BLUE_RAMP[4],
-    "Lost before an analyst": BLUE_RAMP[3],
-    "An analyst saw it": ROOT_COLOURS["People"],
-}
-# **One cost, measured and accepted rather than waved through.** Every fill here clears
-# 4.5:1 against the label `_on_fill()` picks for it -- 7.8, 8.9, 6.9 and 6.3 -- except
-# `#4e7bb8`, which is 3.8 against dark and 3.9 against light and therefore under the
-# floor whichever way it is labelled. `BLUE_RAMP` holds no third blue that is both
-# readable and distinguishable from `#8ab4f8`, and the two Product stages have to be one
-# family in two steps, so the pair is forced. It is legal only on secondary encoding:
-# the segment carries its count on the hover, the legend names it, and the caption under
-# the chart prints all three stages in full. **If a third usable blue ever exists, this
-# is the first place to spend it** -- do not instead merge the two stages, which throws
-# away the only part of the number that says who acts on it.
-FUNNEL_MEANING = {
-    "Inquiries": "A question, not a complaint",
-    "Reported, but wrong": "It reached them in time; something about it was wrong",
-    "Never reached us": "No source carried it, or our keywords missed it",
-    "Lost before an analyst": "We had the story and no person ever saw it",
-    "An analyst saw it": "A person had it, and it still did not go out",
-}
-FUNNEL_CARRY_NAME = "Opened up on the row below"
+# Band and node colours, by the one thing colour carries here: where the email stopped.
+# A `stage` node is a total that is itself split further on, so it takes the quietest
+# surface the stylesheet owns -- it is scaffolding, not a category. Everything that
+# ENDS somewhere takes a real colour, and the same colour that email wears everywhere
+# else on this page.
+FLOW_COLOURS = {"stage": "#39414f", "teal": "#80cbc4", "slate": CAT_SLATE,
+                "blue": BLUE_RAMP[4], "blue2": BLUE_RAMP[3], "red": ROOT_COLOURS["People"]}
+
+
+def _rgba(colour, alpha):
+    r, g, b = (int(colour[i:i + 2], 16) for i in (1, 3, 5))
+    return f"rgba({r},{g},{b},{alpha})"
+
+
+def flow_chart(graph):
+    """The eight cards as a Sankey: bands that split, not bars that get shorter.
+
+    **This replaces three left-aligned stacked bars that were called a funnel.** They
+    were a bar chart named after the thing they were meant to be -- the join between
+    levels was real but implicit, a reader had to notice that one bar's grey segment
+    was the next bar's total. Here the split is drawn: a band of 103 leaves the emails
+    node and arrives at complaints, and the 24 that do not go with it peel off where
+    the eye already is. Nothing has to be added and nothing has to be spotted.
+
+    It also removes the "carried" segment, which was a category invented only to make
+    the bar form work, and with it two of the three greys that were on that chart.
+    """
+    if not graph or not graph["nodes"]:
+        st.info("Chart cannot be rendered because required fields are missing: Issue Type.")
+        return None
+    labels = [f"{label}  {value}" for _, label, value, _, _ in graph["nodes"]]
+    colours = [FLOW_COLOURS.get(n[3], UNKNOWN_OWNER) for n in graph["nodes"]]
+    meanings = [n[4] for n in graph["nodes"]]
+    fig = go.Figure(go.Sankey(
+        arrangement="snap",
+        node=dict(
+            label=labels, pad=26, thickness=22,
+            color=colours, line=dict(color="#1b1f26", width=1),
+            customdata=meanings,
+            hovertemplate="<b>%{label}</b><br>%{customdata}<extra></extra>"),
+        link=dict(
+            source=[a for a, *_ in graph["links"]],
+            target=[b for _, b, *_ in graph["links"]],
+            value=[v for *_, v, _ in graph["links"]],
+            # A band is a translucent wash of the node it ARRIVES at, so the eye follows
+            # it to where that email ended up rather than to where it came from.
+            color=[_rgba(FLOW_COLOURS.get(
+                next(n[3] for n in graph["nodes"] if n[0] == key), UNKNOWN_OWNER), 0.42)
+                for *_, key in graph["links"]],
+            hovertemplate="%{value} of %{source.label}<extra></extra>")))
+    fig.update_layout(
+        template="plotly_dark", plot_bgcolor="#1b1f26", paper_bgcolor="#1b1f26",
+        font=dict(color="#f3f4f6", size=13), height=360,
+        margin=dict(l=10, r=10, t=30, b=10))
+    st.plotly_chart(fig, width="stretch")
+    return fig
+
+
+def trend_line(trend, title=""):
+    """The miss rate month by month, inside its own control limits.
+
+    **The first time-series chart on this dashboard.** Everything else is a ranked or
+    stacked bar, and the question this answers -- is it getting better -- was a
+    percentage printed on top of a bar for a reader to compare ten of in their head.
+
+    The shaded band is +/- 3 sigma around the pooled rate, scaled by each month's own
+    email count, so a 4-email month gets a wide band and a 19-email one a narrow band.
+    A point inside its band is normal variation, drawn plain. Only a point outside is
+    drawn as a signal, because a chart that reacts every month is reporting noise.
+    """
+    months = trend.get("months")
+    if months is None or months.empty:
+        st.info("Chart cannot be rendered because required fields are missing: Month.")
+        return None
+    x = list(months["Month"])
+    fig = go.Figure()
+    # The band first, so the line and its points sit on top of it.
+    fig.add_scatter(x=x, y=list(months["Upper"]), mode="lines", line=dict(width=0),
+                    hoverinfo="skip", showlegend=False)
+    # **A very light wash, with the lower edge drawn as a real line.** At 0.16 the band
+    # filled the plot: 3 sigma on 4-19 emails a month pins the UPPER limit at 100% in
+    # nine months of ten, so the fill ran from the lower limit to the ceiling and read
+    # as a rendering fault rather than a band -- the thin months drew as solid dark
+    # columns. The statistics are unchanged and the width is real; only its visual
+    # weight came down, and the one edge that can actually be crossed is now the one you
+    # can see.
+    fig.add_scatter(x=x, y=list(months["Lower"]), mode="lines",
+                    line=dict(color=CAT_SLATE, width=1.5, dash="dash"),
+                    fill="tonexty", fillcolor=_rgba(CAT_SLATE, 0.07),
+                    name="Normal variation", hoverinfo="skip")
+    fig.add_scatter(x=x, y=[trend["centre"]] * len(x), mode="lines",
+                    line=dict(color=CAT_SLATE, width=1, dash="dot"),
+                    name=f"Average {trend['centre']:.0f}%", hoverinfo="skip")
+    fig.add_scatter(
+        x=x, y=list(months["Rate"]), mode="lines+markers+text",
+        line=dict(color=BLUE_RAMP[4], width=2.5),
+        marker=dict(size=[13 if o else 8 for o in months["Outside"]],
+                    color=[ROOT_COLOURS["People"] if o else BLUE_RAMP[4]
+                           for o in months["Outside"]],
+                    line=dict(color="#1b1f26", width=2)),
+        text=[f"{r:.0f}%" for r in months["Rate"]], textposition="top center",
+        textfont=dict(size=11, color="#b6beca"),
+        customdata=[[int(m), int(e)] for m, e in zip(months["Misses"], months["Emails"])],
+        name="Miss rate",
+        hovertemplate="%{y:.0f}% — %{customdata[0]} of %{customdata[1]} emails<extra></extra>")
+    fig.update_layout(
+        template="plotly_dark", plot_bgcolor="#1b1f26", paper_bgcolor="#1b1f26",
+        font=dict(color="#f3f4f6", size=13), height=380, title=title,
+        margin=dict(l=20, r=30, t=52, b=28), hovermode="x unified",
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0, traceorder="normal"))
+    fig.update_xaxes(tickfont=dict(size=12, color="#f3f4f6"), gridcolor="#303846", title="")
+    fig.update_yaxes(tickfont=dict(size=12, color="#f3f4f6"), gridcolor="#303846",
+                     title="Miss rate", ticksuffix="%", range=[0, 112])
+    st.plotly_chart(fig, width="stretch")
+    return fig
 
 
 def _on_fill(colour):
     """`--panel` or `--ink` for a label sitting ON a fill, whichever has the contrast.
 
-    The house rule is that an in-bar label wears `--panel` rather than `--ink` -- white
-    on `--red` is 2.2:1 where dark is 6.9:1. That rule is right for every light fill and
-    exactly wrong for a dark one, and this chart carries both: a dark label on the
-    mid-blue stage measured about 2:1. Deciding per fill rather than per chart means a
-    palette edit cannot silently strand a label again.
+    The house rule is that an in-bar label wears `--panel` -- white on `--red` is 2.2:1
+    where dark is 6.9:1. That is right for every light fill and exactly wrong for a dark
+    one, and these charts carry both. Deciding per fill rather than per chart means a
+    palette edit cannot silently strand a label on a fill it no longer suits.
     """
     try:
         r, g, b = (int(colour[i:i + 2], 16) / 255 for i in (1, 3, 5))
@@ -752,86 +814,51 @@ def _on_fill(colour):
         return "#1b1f26"
     chan = [c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4 for c in (r, g, b)]
     lum = 0.2126 * chan[0] + 0.7152 * chan[1] + 0.0722 * chan[2]
-    # Contrast against #f3f4f6 (--ink) versus #1b1f26 (--panel), brighter wins.
     return "#f3f4f6" if (lum + 0.05) / 0.062 < 0.945 / (lum + 0.05) else "#1b1f26"
 
 
-def funnel_bars(levels):
-    """The three-level nest of the eight cards, as three bars on one shared scale.
+def flow_bar(frame, label_col, title="", x_title="Customer emails"):
+    """A horizontal bar split the way the month chart splits a month.
 
-    **A donut cannot draw this and that is why this is not one.** A ring shows one whole
-    split into parts; these are three wholes, each one the first segment of the one
-    above. Three rings would be three wholes with nothing joining them, and the reader
-    would still be carrying 103 from the first to the second -- which is the addition
-    this block exists to remove.
-
-    Here the join is geometric and needs no explaining: every row starts at zero on the
-    same axis, so row two's whole bar spans exactly row one's carried segment, and row
-    three's spans row two's. The narrowing IS the arithmetic. A reader who wants to check
-    it reads two bar ends against each other rather than adding three numbers.
-
-    Each trace carries zeros on the rows it does not belong to, which is what lets one
-    stacked figure hold rows with different segments. Trace order is therefore global:
-    the carried segments are added first so they sit leftmost on their own rows, and a
-    leaf's position among the other leaves is what orders it within its row.
+    Same five segments, same colours, same order, straight off `MONTH_PARTS` -- so a
+    Product miss is the same blue here, on the month chart and on the cards, and a
+    reader who has learned the month chart has already learned this one. It replaced
+    two bar charts of the same categories ranked two different ways, which is a block
+    that asks the reader to do the join the chart should have done.
     """
-    if not levels:
-        st.info("Chart cannot be rendered because required fields are missing: Issue Type.")
+    if frame is None or frame.empty:
+        st.info(f"Chart cannot be rendered because required fields are missing: {label_col}.")
         return None
-    rows = [l["row"] for l in levels]
-    # Floored at 1, not just defaulted: a filter that matches nothing makes every level
-    # zero, and `range=[0, 0]` is a degenerate axis plotly draws as a broken chart
-    # rather than an empty one. `filter_note()` has already said the page is empty.
-    top = max([l["carried"] + sum(v for _, v in l["leaves"]) for l in levels] + [1])
+    rows = list(frame[label_col].astype(str))
+    widest = max([int(v) for v in frame["Emails"]] or [1])
+    floor = max(widest * 0.045, 1.5)
     fig = go.Figure()
-
-    def add(name, colour, values, meaning, legend=True, group=None):
+    for part, colour, meaning in MONTH_PARTS:
+        if part not in frame.columns:
+            continue
+        values = [int(v) for v in frame[part]]
         if not any(values):
-            return
+            continue
         fig.add_bar(
-            y=rows, x=values, orientation="h", name=name,
-            marker=dict(color=colour,
-                        line=dict(width=1 if colour == FUNNEL_CARRY else 0,
-                                  color=FUNNEL_CARRY_EDGE)),
-            legendgroup=group or name, showlegend=legend,
-            # A segment under a twentieth of the widest bar cannot hold its own digits:
-            # plotly clips the text horizontally rather than dropping it, and a clipped
-            # "9" reads as a mark on the bar. The count stays on the hover either way.
-            text=[str(v) if v >= max(top * 0.05, 2) else "" for v in values],
+            y=rows, x=values, orientation="h", name=MONTH_NAMES.get(part, part),
+            marker=dict(color=colour, line=dict(width=0)),
+            text=[str(v) if v >= floor else "" for v in values],
             textposition="inside", insidetextanchor="middle",
-            textfont=dict(size=13,
-                          color="#b6beca" if colour == FUNNEL_CARRY else _on_fill(colour)),
-            hovertemplate="%{x} — " + esc(meaning) + "<extra></extra>")
-
-    # The carried segments first, so they sit at the left of their own rows and the row
-    # beneath starts under the same edge. One legend entry between them: they are the
-    # same idea twice, and two entries reading the same words is a legend nobody trusts.
-    for i, level in enumerate(levels):
-        add(FUNNEL_CARRY_NAME, FUNNEL_CARRY,
-            [level["carried"] if j == i else 0 for j in range(len(levels))],
-            "This is the bar on the row below",
-            legend=(i == 0), group="carry")
-    for i, level in enumerate(levels):
-        for name, value in level["leaves"]:
-            add(name, FUNNEL_COLOURS.get(name, "#b6beca"),
-                [value if j == i else 0 for j in range(len(levels))],
-                FUNNEL_MEANING.get(name, name))
-
+            textfont=dict(size=12, color=_on_fill(colour)),
+            hovertemplate="%{x} " + esc(MONTH_NAMES.get(part, part).lower())
+                          + f" — {esc(meaning)}<extra></extra>")
     fig.update_layout(
         barmode="stack", template="plotly_dark", plot_bgcolor="#1b1f26",
-        paper_bgcolor="#1b1f26", font=dict(color="#f3f4f6", size=13),
-        margin=dict(l=20, r=30, t=46, b=28), height=330, legend_title_text="",
-        # `traceorder="normal"` or a stacked chart lists its legend upside down against
-        # its own stack -- the same fact the month chart records.
+        paper_bgcolor="#1b1f26", font=dict(color="#f3f4f6", size=13), title=title,
+        margin=dict(l=20, r=40, t=54, b=28), legend_title_text="",
         legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0, traceorder="normal"),
-        uniformtext=dict(minsize=10, mode="hide"), bargap=0.42)
-    # Top row first. Plotly builds a category axis bottom-up, so the order is reversed
-    # here rather than in the payload, which reads in the order the page does.
+        uniformtext=dict(minsize=9, mode="hide"), hovermode="y unified",
+        height=max(340, min(760, len(rows) * 34 + 140)))
+    # Longest bar at the top. Plotly builds a category axis bottom-up, so the frame's
+    # own order (already sorted by misses) is reversed here rather than in the data.
     fig.update_yaxes(categoryorder="array", categoryarray=list(reversed(rows)),
-                     tickfont=dict(size=13, color="#f3f4f6"), gridcolor="#303846", title="")
-    # One scale on all three rows, pinned to the widest. Letting plotly autoscale each
-    # row would stretch every bar to the full panel, and the narrowing -- which is the
-    # whole point of the block -- would disappear.
-    fig.update_xaxes(range=[0, top], showticklabels=False, showgrid=False, title="")
+                     tickfont=dict(size=12, color="#f3f4f6"), gridcolor="#303846", title="")
+    fig.update_xaxes(tickfont=dict(size=12, color="#f3f4f6"), gridcolor="#303846",
+                     title=x_title)
     st.plotly_chart(fig, width="stretch")
     return fig

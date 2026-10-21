@@ -719,40 +719,6 @@ def customer_totals(df):
     return totals, overshoot
 
 
-def missed_event_types(df):
-    """What kinds of event we actually miss -- fires, insolvencies, port disruption.
-
-    Counted over the confirmed misses only. The block that used to sit here was titled
-    "Missed event types" and counted every email, misses and non-misses alike, so it
-    answered a different question from the one its own heading asked.
-    """
-    cols = ["Event type", "Records", "% of Total"]
-    if df.empty or not {"Event type", "Missed_Flag"} <= set(df.columns):
-        return pd.DataFrame(columns=cols)
-    missed = df[df["Missed_Flag"].astype(str).str.strip().eq("Yes")]
-    if missed.empty:
-        return pd.DataFrame(columns=cols)
-    out = missed["Event type"].fillna("Blank").astype(str).str.strip().value_counts().reset_index()
-    out.columns = ["Event type", "Records"]
-    out["% of Total"] = (out["Records"] / max(len(missed), 1) * 100).round(1).astype(str) + "%"
-    return out
-
-
-def all_event_types(df):
-    """Every email by event type, with the complaint/inquiry split on the row.
-
-    The miss table beside it answers "what do we fail to report"; this answers "what do
-    customers write to us about at all", and neither is readable without the other -- a
-    9-miss event type is a different fact depending on whether 10 emails named it or 40.
-    Same shape as `count_table`, so the Complaints and Inquiries columns are the ones
-    every other page carries.
-    """
-    cols = ["Event type", "Complaints", "Inquiries", "Records", "% of Total"]
-    if df.empty or "Event type" not in df.columns:
-        return pd.DataFrame(columns=cols)
-    return count_table(df, "Event type")
-
-
 def event_type_pairs(df):
     """Event type by emails AND confirmed misses on one row, with the miss rate.
 
@@ -1538,34 +1504,31 @@ def monthly_note(frame):
             "Product % and Analyst % are of its misses.")
 
 
-def funnel_levels(df):
-    """The three-level nest the eight cards print, as one payload.
+def flow_graph(df):
+    """The eight cards as a FLOW -- nodes and links for a Sankey, not bars.
 
-    The cards state eight figures and the relationships between them are arithmetic the
-    reader has to do standing up:
+    The cards are a three-level nest: 127 = 103 + 24, then 103 = 86 + 17, then
+    86 = 42 + 9 + 35. **A bar chart cannot draw that and neither can a ring.** A ring
+    shows one whole split into parts, so the nest takes three of them with nothing
+    joining them. Three left-aligned bars were tried and shipped here, and they were a
+    bar chart named after the thing it was meant to be: the reader still had to notice
+    that one bar's grey segment was the next bar's total. A Sankey draws the split
+    itself -- a band of 103 leaves the first node and arrives at the second, so the
+    join is the picture rather than something to be spotted.
 
-        127 emails     = 103 complaints + 24 inquiries
-        103 complaints =  86 misses     + 17 reported, but wrong
-         86 misses     =  42 never reached + 9 lost inside + 35 an analyst saw
+    It also deletes a colour problem by construction. The bars needed a "carried"
+    segment -- a grey box meaning "the row below explains this" -- which is a category
+    invented purely to make the form work. A flow has no such thing: a band either ends
+    at a node or carries on to the next.
 
-    That is a **nest, not one partition**, which is why no single donut can carry it and
-    why `funnel_bars()` draws three bars on one scale instead: each row spans exactly the
-    first segment of the row above it, so the narrowing is read off the geometry and
-    nothing has to be added.
-
-    **It is the one source for both the cards and the chart.** The Executive Summary used
-    to compute these eight numbers inline; a chart recomputing them beside the cards is a
-    second implementation waiting to disagree with the first, which is the fault
-    `card_details()` exists to avoid. The third stage comes from `_miss_parts()`, so all
-    three stages stay a partition by construction however the taxonomy grows.
-
-    Returns `{"emails", "complaints", "inquiries", "missed", "wrong", "never", "lost",
-    "seen", "levels"}` where `levels` is the drawing payload, biggest whole first.
+    Returns `{"nodes": [...], "links": [...], "totals": {...}}`. Every figure comes from
+    `_miss_parts()` and the same expressions the cards print, so a chart and the card
+    above it cannot disagree.
     """
     issue = df.get("Issue Type", pd.Series(dtype=str)).reindex(df.index).fillna("").astype(str).str.strip()
     flag = df.get("Missed_Flag", pd.Series(dtype=str)).reindex(df.index).fillna("").astype(str).str.strip()
     part = _miss_parts(df)
-    out = {
+    t = {
         "emails": len(df),
         "complaints": int(issue.eq("Complaint").sum()),
         "inquiries": int(issue.eq("Inquiry").sum()),
@@ -1575,16 +1538,174 @@ def funnel_levels(df):
         "lost": int(part["platform"].sum()),
         "seen": int(part["analyst"].sum()),
     }
-    # Each row names its own total, so the y axis carries "127 emails" rather than
-    # "Emails" and the whole each row splits is never a number to remember.
-    out["levels"] = [
-        {"row": f"{out['emails']} emails", "carried": out["complaints"],
-         "leaves": [("Inquiries", out["inquiries"])]},
-        {"row": f"{out['complaints']} complaints", "carried": out["missed"],
-         "leaves": [("Reported, but wrong", out["wrong"])]},
-        {"row": f"{out['missed']} confirmed misses", "carried": 0,
-         "leaves": [("Never reached us", out["never"]),
-                    ("Lost before an analyst", out["lost"]),
-                    ("An analyst saw it", out["seen"])]},
+    # (key, label, value, colour, the sentence its hover carries)
+    nodes = [
+        ("emails", "Customer emails", t["emails"], "stage",
+         "Every email a customer sent in"),
+        ("complaints", "Complaints", t["complaints"], "stage",
+         "They asserted we got something wrong"),
+        ("inquiries", "Inquiries", t["inquiries"], "teal",
+         "A question, not a complaint"),
+        ("missed", "Confirmed misses", t["missed"], "stage",
+         "The event did not reach them in time"),
+        ("wrong", "Reported, but wrong", t["wrong"], "slate",
+         "It reached them in time; something about it was wrong"),
+        ("never", "Never reached us", t["never"], "blue",
+         "No source carried it, or our keywords missed it"),
+        ("lost", "Lost before an analyst", t["lost"], "blue2",
+         "We had the story and no person ever saw it"),
+        ("seen", "An analyst saw it", t["seen"], "red",
+         "A person had it, and it still did not go out"),
     ]
-    return out
+    links = [("emails", "complaints"), ("emails", "inquiries"),
+             ("complaints", "missed"), ("complaints", "wrong"),
+             ("missed", "never"), ("missed", "lost"), ("missed", "seen")]
+    index = {key: i for i, (key, *_) in enumerate(nodes)}
+    return {
+        "nodes": nodes,
+        "links": [(index[a], index[b], t[b], b) for a, b in links],
+        "totals": t,
+    }
+
+
+# Below this many emails a month's own rate swings too far to read as a signal: Jan is
+# 3 of 4, where one record moves the figure 25 points.
+THIN_MONTH_TREND = 5
+
+
+def miss_trend(df):
+    """Monthly miss rate with 3-sigma control limits, and a verdict on the last month.
+
+    **There is no time-series chart anywhere else on this dashboard.** Every view of
+    "how are we doing" is a ranked bar or a stacked bar, and the one question a VP asks
+    monthly -- is this getting better -- was a percentage printed on top of a bar in the
+    month chart. A number annotated on a bar is not a trend: a reader has to hold ten of
+    them in their head and do the comparison themselves.
+
+    **It is a p-chart, and the control limits are the whole point.** The miss rate moves
+    every single month on this data, and almost none of that movement means anything:
+    the limits are +/- 3 sigma of the pooled rate, scaled by each month's own email
+    count, so a thin month gets a wide band and a fat month a narrow one. A point
+    inside its band is normal variation and the verdict reads flat however different the
+    percentage looks. **A reader asking for a more sensitive threshold is asking to be
+    told about noise** -- that is the rule `missed_verdict()` got right and this keeps.
+
+    Pooled, never the mean of monthly percentages: a month with 4 emails must not weigh
+    the same as one with 19.
+
+    Returns `{"months": frame, "centre": pooled rate, "latest": {...} or None}`.
+    """
+    cols = ["Month", "Emails", "Misses", "Rate", "Upper", "Lower", "Thin", "Outside"]
+    if df.empty or "Month Label" not in df.columns:
+        return {"months": pd.DataFrame(columns=cols), "centre": 0.0, "latest": None}
+    flag = df.get("Missed_Flag", pd.Series(dtype=str)).reindex(df.index).fillna("").astype(str).str.strip()
+    frame = pd.DataFrame({"Month": df["Month Label"].astype(str), "Miss": flag.eq("Yes")})
+    order = (pd.to_datetime(frame["Month"], format="%b %Y", errors="coerce")
+             .groupby(frame["Month"]).min().sort_values())
+    rows = []
+    centre = frame["Miss"].mean() * 100 if len(frame) else 0.0
+    p = centre / 100
+    for month in order.index:
+        part = frame[frame["Month"] == month]
+        n = len(part)
+        if not n:
+            continue
+        rate = part["Miss"].mean() * 100
+        # Each month's own band: sigma shrinks as that month's email count grows, so a
+        # 4-email month is not held to the same width as a 19-email one.
+        sigma = (p * (1 - p) / n) ** 0.5 * 100
+        upper, lower = min(centre + 3 * sigma, 100), max(centre - 3 * sigma, 0)
+        rows.append({"Month": month, "Emails": n, "Misses": int(part["Miss"].sum()),
+                     "Rate": round(rate, 1), "Upper": round(upper, 1),
+                     "Lower": round(lower, 1), "Thin": n < THIN_MONTH_TREND,
+                     "Outside": bool(rate > upper or rate < lower)})
+    months = pd.DataFrame(rows, columns=cols)
+    # How many months could never register as WORSE however bad they ran. At these
+    # volumes 3 sigma above a ~68% base rate lands past 100, so the upper limit is the
+    # ceiling and the test is one-sided in practice. That is a property of the sample
+    # size, not of the dashboard, and it is printed rather than left for a reader to
+    # work out why the arrow only ever points one way.
+    pinned = int((months["Upper"] >= 100).sum()) if not months.empty else 0
+    latest = None
+    if not months.empty:
+        last = months.iloc[-1]
+        # A thin month never moves the arrow. It is the month most likely to sit outside
+        # a band on one record, and the first email of a new month would otherwise swing
+        # the only indicator on the page.
+        signal = bool(last["Outside"]) and not bool(last["Thin"])
+        latest = {
+            "month": str(last["Month"]), "rate": float(last["Rate"]),
+            "centre": round(centre, 1), "emails": int(last["Emails"]),
+            "thin": bool(last["Thin"]), "signal": signal,
+            "direction": ("worse" if signal and last["Rate"] > centre
+                          else "better" if signal else "flat"),
+        }
+    return {"months": months, "centre": round(centre, 1), "latest": latest,
+            "pinned": pinned, "span": len(months)}
+
+
+def trend_note(trend):
+    """One computed sentence under the arrow, with every figure read off the frame."""
+    latest = trend.get("latest")
+    if not latest:
+        return "Not enough months in this filter to compare."
+    if latest["direction"] == "flat":
+        tail = (f" {latest['month']} has only {plural(latest['emails'], 'email', 'emails')} "
+                f"so far, so its rate is not yet worth reading."
+                if latest["thin"] else
+                " It sits inside the range this book normally varies over, so it is "
+                "noise rather than a change.")
+        return (f"**Flat.** {latest['month']} ran at {latest['rate']:.0f}% against a "
+                f"{latest['centre']:.0f}% average across every month.{tail}")
+    way = "above" if latest["direction"] == "worse" else "below"
+    return (f"**{'Worse' if latest['direction'] == 'worse' else 'Better'}.** "
+            f"{latest['month']} ran at {latest['rate']:.0f}%, which is {way} the range "
+            f"this book normally varies over -- the first month in this filter that is. "
+            f"The average across every month is {latest['centre']:.0f}%.")
+
+
+def event_type_flow(df, top=12):
+    """One row per event type, split the way the month chart splits a month.
+
+    **It replaces two near-identical bar charts of the same categories.** One ranked
+    every email by event type and the other ranked the confirmed misses, side by side --
+    the same twenty-odd labels down both axes, in two different orders, and the reader
+    left holding "nine misses" against "sixteen emails" with nothing on either chart
+    joining them. The page's owner said in terms that the block confused them, which is
+    the correct reading of two rankings of one population.
+
+    One chart, five segments, and the same grammar the month chart already taught:
+
+        Emails     = Complaints + Inquiries
+        Complaints = Misses + Reported, but wrong
+        Misses     = Product + Analyst + Process
+
+    So a row's length is how much arrived and its colour is where it failed, which is
+    the question the two charts were each answering half of. Sorted by misses, then by
+    emails, so the event types we are worst at sit at the top rather than the ones we
+    merely receive a lot of.
+    """
+    cols = ["Event type", "Emails", "Complaints", "Inquiries", "Misses",
+            "Product", "Analyst", "Process", "Wrong"]
+    if df.empty or not {"Event type", "Missed_Flag"} <= set(df.columns):
+        return pd.DataFrame(columns=cols)
+    kind = df["Event type"].fillna("Blank").astype(str).str.strip()
+    issue = df.get("Issue Type", pd.Series(dtype=str)).reindex(df.index).fillna("").astype(str).str.strip()
+    root = df.get("Root Cause", pd.Series(dtype=str)).reindex(df.index).fillna("").astype(str).str.strip()
+    part = _miss_parts(df)
+    rows = []
+    for value in kind.unique():
+        m = kind == value
+        emails = int(m.sum())
+        missed = int((m & part["missed"]).sum())
+        complaints = int((m & issue.eq("Complaint")).sum())
+        rows.append({
+            "Event type": value, "Emails": emails, "Complaints": complaints,
+            "Inquiries": int((m & issue.eq("Inquiry")).sum()), "Misses": missed,
+            "Product": int((m & part["missed"] & root.eq("Product")).sum()),
+            "Analyst": int((m & part["missed"] & root.eq("People")).sum()),
+            "Process": int((m & part["missed"] & root.eq("Process")).sum()),
+            "Wrong": complaints - missed})
+    out = (pd.DataFrame(rows, columns=cols)
+           .sort_values(["Misses", "Emails"], ascending=False).reset_index(drop=True))
+    return out.head(top) if top else out

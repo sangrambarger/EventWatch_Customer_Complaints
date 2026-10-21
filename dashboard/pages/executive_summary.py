@@ -33,9 +33,9 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from dashboard.filters import filter_note
-from dashboard.metrics import card_details, funnel_levels, trend_windows
-from dashboard.components import add_rule, add_section, clickable_kpis, detail_panel, funnel_bars, page_header
-from dashboard.sections import render_customers, render_event_types, render_monthly_breakdown, render_root_cause
+from dashboard.metrics import card_details, flow_graph, trend_windows
+from dashboard.components import add_rule, add_section, clickable_kpis, detail_panel, flow_chart, page_header
+from dashboard.sections import render_customers, render_event_types, render_monthly_breakdown, render_root_cause, render_trend
 
 
 
@@ -53,17 +53,18 @@ def _open_card(details, key):
 
 def render(df, filtered, selected_page):
     page_header(selected_page); page = filtered; filter_note()
-    # One call, and the cards below are drawn from it as well as the chart under them.
-    # These eight figures used to be computed inline here; a funnel chart recomputing
-    # them beside the cards would be a second implementation of the page's own headline
+    # One call, and the cards below are drawn from it as well as the Sankey under them.
+    # These eight figures used to be computed inline here; a chart recomputing them
+    # beside the cards would be a second implementation of the page's own headline
     # numbers, waiting to disagree with the first.
-    f = funnel_levels(page)
+    graph = flow_graph(page)
+    f = graph["totals"]
     complaints, inquiries = f["complaints"], f["inquiries"]
     total = max(f["emails"], 1)
     missed, not_a_miss = f["missed"], f["wrong"]
     # The three stages a missed event can stop at, from `_miss_parts()` by way of
-    # `funnel_levels()` -- the same function the popups use, so a card, the panel it
-    # opens and the funnel under it can never disagree.
+    # `flow_graph()` -- the same `_miss_parts()` the popups use, so a card, the panel
+    # it opens and the Sankey under it can never disagree.
     never, lost = f["never"], f["lost"]
     # Owner-based, NOT a bucket index. Reading one `MISS_BUCKETS` rule meant the card
     # counted only the sub-types that rule happens to name, so a People miss whose
@@ -124,25 +125,26 @@ def render(df, filtered, selected_page):
         _open_card(details, opened)
 
     # The eight cards above are three nested splits, and the nesting is the part they
-    # cannot show: a reader meeting 127, 103, 86 and then 42 / 9 / 35 has to add
-    # numbers standing up to see how they join. Here every row starts at the same left
-    # edge, so row two's whole bar spans row one's grey segment and row three's spans
-    # row two's -- the narrowing is the arithmetic, read off two bar ends rather than
-    # done in the reader's head.
+    # cannot show. **This is a Sankey and the two things it is not are both deliberate.**
+    # Not a donut: a ring draws one whole split into parts, so a three-level nest takes
+    # three rings with nothing joining them and the reader still carries 103 from the
+    # first to the second. And not the three stacked bars that shipped here before it,
+    # which were a bar chart named after the funnel they were meant to be -- the join
+    # was real but implicit, something to be noticed rather than drawn.
     #
-    # It is NOT a donut, and that was asked for. A ring draws one whole split into
-    # parts; this is three wholes, each nested in the one before, so it would take three
-    # rings with nothing joining them and the carry from ring to ring would still be the
-    # reader's job. The shape has to show the nest or it has not answered the question.
+    # A flow draws the split itself: a band of 103 leaves the emails node and arrives at
+    # complaints, and the 24 that do not go with it peel off where the eye already is.
+    # It also deletes the "carried" segment the bars needed -- a category invented only
+    # to make that form work -- and two of the three greys that were on it.
     add_section("How the numbers above fit together", "", "#8ab4f8")
-    funnel_bars(f["levels"])
+    flow_chart(graph)
     st.caption(
-        f"**Each bar is the grey segment of the bar above it.** "
-        f"{f['emails']} emails = {complaints} complaints + {inquiries} inquiries. "
-        f"{complaints} complaints = {missed} confirmed misses + {not_a_miss} reported, "
-        f"but wrong. {missed} misses = {never} never reached us + {lost} lost before an "
-        f"analyst + {seen} an analyst saw. Every figure here is the one on the card "
-        f"above it, from the same function, so the two cannot disagree.")
+        f"**Every band is the figure on the card above it.** "
+        f"{f['emails']} emails split into {complaints} complaints and {inquiries} "
+        f"inquiries; the {complaints} complaints split into {missed} confirmed misses "
+        f"and {not_a_miss} reported, but wrong; the {missed} misses split into "
+        f"{never} never reached us, {lost} lost before an analyst and {seen} an analyst "
+        f"saw. Read along a band to follow where those emails ended up.")
 
     add_rule()
     # Section 2 on the owner's call, and the block this page is read for. "Is it
@@ -161,6 +163,12 @@ def render(df, filtered, selected_page):
     # under the failure analysis it belongs to. `render_deeper_root_cause` is NOT on this page --
     # it is the taxonomy at full depth and lives on Root cause, which already renders
     # the same function beneath this page's own root-cause block.
+    add_rule()
+    # The one question a VP asks monthly, and until now the only view of it was a
+    # percentage printed on top of each bar of the chart above -- ten numbers for the
+    # reader to compare in their head. It is the dashboard's first time-series chart.
+    render_trend(page)
+
     add_rule()
     render_root_cause(page)
 
