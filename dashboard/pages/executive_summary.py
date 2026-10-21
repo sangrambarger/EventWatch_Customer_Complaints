@@ -1,4 +1,4 @@
-"""Executive Summary -- the story in five sections, in reading order.
+"""Executive Summary -- the story in seven sections, in reading order.
 
 Two sections left on the owner's call and neither was replaced, because both were
 saying something the page already said:
@@ -33,8 +33,8 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from dashboard.filters import filter_note
-from dashboard.metrics import card_details, flow_graph, trend_windows
-from dashboard.components import add_rule, add_section, clickable_kpis, detail_panel, flow_chart, page_header
+from dashboard.metrics import card_details, inbox_rings, inbox_totals, trend_windows
+from dashboard.components import add_rule, add_section, clickable_kpis, detail_panel, nested_donut, page_header
 from dashboard.sections import render_customers, render_event_types, render_monthly_breakdown, render_root_cause, render_trend
 
 
@@ -53,18 +53,18 @@ def _open_card(details, key):
 
 def render(df, filtered, selected_page):
     page_header(selected_page); page = filtered; filter_note()
-    # One call, and the cards below are drawn from it as well as the Sankey under them.
+    # One call, and the cards below are drawn from it as well as the two rings under
+    # them.
     # These eight figures used to be computed inline here; a chart recomputing them
     # beside the cards would be a second implementation of the page's own headline
     # numbers, waiting to disagree with the first.
-    graph = flow_graph(page)
-    f = graph["totals"]
+    f = inbox_totals(page)
     complaints, inquiries = f["complaints"], f["inquiries"]
     total = max(f["emails"], 1)
     missed, not_a_miss = f["missed"], f["wrong"]
     # The three stages a missed event can stop at, from `_miss_parts()` by way of
-    # `flow_graph()` -- the same `_miss_parts()` the popups use, so a card, the panel
-    # it opens and the Sankey under it can never disagree.
+    # `inbox_totals()` -- the same `_miss_parts()` the popups use, so a card, the panel
+    # it opens and the rings under it can never disagree.
     never, lost = f["never"], f["lost"]
     # Owner-based, NOT a bucket index. Reading one `MISS_BUCKETS` rule meant the card
     # counted only the sub-types that rule happens to name, so a People miss whose
@@ -125,27 +125,33 @@ def render(df, filtered, selected_page):
         _open_card(details, opened)
 
     # The eight cards above are three nested splits, and the nesting is the part they
-    # cannot show. **This is a Sankey and the two things it is not are both deliberate.**
-    # Not a donut: a ring draws one whole split into parts, so a three-level nest takes
-    # three rings with nothing joining them and the reader still carries 103 from the
-    # first to the second. And not the three stacked bars that shipped here before it,
-    # which were a bar chart named after the funnel they were meant to be -- the join
-    # was real but implicit, something to be noticed rather than drawn.
+    # cannot show. **Two nested rings, side by side, and the three forms tried before
+    # them are all recorded because each failed differently.** Three left-aligned
+    # stacked bars were called a funnel and were a bar chart named after one: the join
+    # between levels was real but implicit, something to be noticed rather than drawn.
+    # A Sankey drew the join honestly and the owner's verdict, twice, was that it was
+    # not worth looking at. A SINGLE donut was rejected on the arithmetic -- a ring
+    # draws one whole split into parts, and this is three wholes nested inside each
+    # other.
     #
-    # A flow draws the split itself: a band of 103 leaves the emails node and arrives at
-    # complaints, and the 24 that do not go with it peel off where the eye already is.
-    # It also deletes the "carried" segment the bars needed -- a category invented only
-    # to make that form work -- and two of the three greys that were on it.
+    # **Two rings of two levels each is what covers the three levels.** Containment is
+    # the join: 86 and 17 sit bodily inside the 103 beneath them, so nothing has to be
+    # added up and nothing has to be spotted. The one join a reader still makes by hand
+    # is between the rings, which is why the second ring's centre prints the first
+    # ring's outer slice in words.
+    rings = inbox_rings(f)
     add_section("How the numbers above fit together", "", "#8ab4f8")
-    flow_chart(graph)
-    st.caption(
-        f"**Every band is the figure on the card above it.** "
-        f"{f['emails']} emails split into {complaints} complaints and {inquiries} "
-        f"inquiries; the {complaints} complaints split into {missed} confirmed misses "
-        f"and {not_a_miss} reported, but wrong; the {missed} misses split into "
-        f"{never} never reached us, {lost} lost before an analyst and {seen} an analyst "
-        f"saw. Read along a band to follow where those emails ended up.")
-
+    left, right = st.columns(2)
+    with left:
+        nested_donut(rings[0])
+    with right:
+        nested_donut(rings[1])
+    # The equations are a caption and not a chart label, for the reason the card row's
+    # own `42 + 9 + 35 = 86` line was removed: a line of bare arithmetic restating the
+    # picture is the thing the picture failed to be. Here it is the receipt -- the rings
+    # are what a reader reads, and this is what `audit_pages.py` checks them against.
+    st.caption(f"**Every slice is a figure on a card above.** {rings[0]['equation']} "
+               f"{rings[1]['equation']}")
     add_rule()
     # Section 2 on the owner's call, and the block this page is read for. "Is it
     # getting better?" (`render_trend`) left for Monthly trend and was deleted with it;

@@ -18,7 +18,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 
-from dashboard.styles import ROOT_COLOURS, esc
+from dashboard.styles import BLUE_RAMP, CAT_SLATE, ROOT_COLOURS, esc
 from dashboard.taxonomy import CATEGORY_MEANING, NEEDS_REVIEW, ROOT_OWNERSHIP, driver_of, failure_label, labels_for, owner_pills, plural, reason_category, shorten
 from dashboard.filters import customer_names, names_match
 
@@ -1438,31 +1438,21 @@ def monthly_note(frame, unit="month"):
             "Product % and Analyst % are of its misses.")
 
 
-def flow_graph(df):
-    """The eight cards as a FLOW -- nodes and links for a Sankey, not bars.
+def inbox_totals(df):
+    """The eight cards' own eight figures, computed once.
 
-    The cards are a three-level nest: 127 = 103 + 24, then 103 = 86 + 17, then
-    86 = 42 + 9 + 35. **A bar chart cannot draw that and neither can a ring.** A ring
-    shows one whole split into parts, so the nest takes three of them with nothing
-    joining them. Three left-aligned bars were tried and shipped here, and they were a
-    bar chart named after the thing it was meant to be: the reader still had to notice
-    that one bar's grey segment was the next bar's total. A Sankey draws the split
-    itself -- a band of 103 leaves the first node and arrives at the second, so the
-    join is the picture rather than something to be spotted.
+    Every block in the top third of the Executive Summary reads this: the cards print
+    it, the two rings draw it and the caption under them recites it. A chart that
+    recomputed these beside the cards would be a second implementation of the page's
+    headline numbers waiting to disagree with the first.
 
-    It also deletes a colour problem by construction. The bars needed a "carried"
-    segment -- a grey box meaning "the row below explains this" -- which is a category
-    invented purely to make the form work. A flow has no such thing: a band either ends
-    at a node or carries on to the next.
-
-    Returns `{"nodes": [...], "links": [...], "totals": {...}}`. Every figure comes from
-    `_miss_parts()` and the same expressions the cards print, so a chart and the card
-    above it cannot disagree.
+    `never` / `lost` / `seen` come from `_miss_parts()`, which is a partition by
+    construction, so the three always sum to the miss count however the taxonomy grows.
     """
     issue = df.get("Issue Type", pd.Series(dtype=str)).reindex(df.index).fillna("").astype(str).str.strip()
     flag = df.get("Missed_Flag", pd.Series(dtype=str)).reindex(df.index).fillna("").astype(str).str.strip()
     part = _miss_parts(df)
-    t = {
+    return {
         "emails": len(df),
         "complaints": int(issue.eq("Complaint").sum()),
         "inquiries": int(issue.eq("Inquiry").sum()),
@@ -1472,34 +1462,73 @@ def flow_graph(df):
         "lost": int(part["platform"].sum()),
         "seen": int(part["analyst"].sum()),
     }
-    # (key, label, value, colour, the sentence its hover carries)
-    nodes = [
-        ("emails", "Customer emails", t["emails"], "stage",
-         "Every email a customer sent in"),
-        ("complaints", "Complaints", t["complaints"], "stage",
-         "They asserted we got something wrong"),
-        ("inquiries", "Inquiries", t["inquiries"], "teal",
-         "A question, not a complaint"),
-        ("missed", "Confirmed misses", t["missed"], "stage",
-         "The event did not reach them in time"),
-        ("wrong", "Reported, but wrong", t["wrong"], "slate",
-         "It reached them in time; something about it was wrong"),
-        ("never", "Never reached us", t["never"], "blue",
-         "No source carried it, or our keywords missed it"),
-        ("lost", "Lost before an analyst", t["lost"], "blue2",
-         "We had the story and no person ever saw it"),
-        ("seen", "An analyst saw it", t["seen"], "red",
-         "A person had it, and it still did not go out"),
+
+
+# The ring colours, and every one of them is a token this dashboard already uses or a
+# muted step of one. **The inner ring is the parent and the outer ring is the meaning**,
+# so the inner slices are deep, quiet versions of the family their children wear: the
+# eye reads the outer band as the content and the inner band as what it belongs to.
+#
+# `Reported, but wrong` keeps `CAT_SLATE` and `Inquiries` keeps the month chart's teal,
+# because those are the colours those two categories wear everywhere else on the page.
+# `Confirmed misses` takes the channel colour rather than a hue of its own: it is not a
+# category, it is the whole of the second ring, and the two owner hues that would
+# otherwise be free -- blue and red -- are already spoken for one ring to its right.
+RING_CHANNEL = "#3f4f6b"
+RING_CHANNEL_LIGHT = "#5b7097"
+RING_TEAL_DEEP = "#3e6360"
+RING_TEAL = "#80cbc4"
+RING_ANALYST_DEEP = "#8a4e4a"
+
+
+def inbox_rings(t):
+    """The three-level nest as TWO nested rings, inner parent and outer parts.
+
+    **A ring draws one whole split into parts, and the cards are three wholes nested
+    inside each other** -- which is why a single donut was wrong here twice, and why
+    three stacked bars called a funnel were wrong a third time. Two rings, each drawing
+    two levels at once, is what covers it: the first ring carries 127 = 103 + 24 on the
+    inside and 103 = 86 + 17 on the outside, the second carries 86 = 51 + 35 inside and
+    51 = 42 + 9 outside. Between them every figure on the eight cards is drawn, each one
+    sitting inside the number it is part of, and nothing has to be added by the reader.
+
+    The inner ring of the second is the one join a reader has to make -- its 86 is the
+    first ring's outer slice -- so the second ring's centre prints that 86 in words.
+
+    Each ring is `{"title", "centre", "inner", "outer", "equation"}` and a slice is
+    `(label, value, colour)`. Nothing is computed here: it is `inbox_totals()` arranged,
+    so a ring cannot disagree with the card above it.
+    """
+    return [
+        {
+            "key": "inbox",
+            "title": "What customers sent us",
+            "centre": (t["emails"], "emails"),
+            "inner": [("Complaints", t["complaints"], RING_CHANNEL),
+                      ("Inquiries", t["inquiries"], RING_TEAL_DEEP)],
+            "outer": [("Confirmed misses", t["missed"], RING_CHANNEL_LIGHT),
+                      ("Reported, but wrong", t["wrong"], CAT_SLATE),
+                      ("Inquiries, not a complaint", t["inquiries"], RING_TEAL)],
+            "equation": (f"{t['emails']} emails = {t['complaints']} complaints + "
+                         f"{t['inquiries']} inquiries, and the {t['complaints']} "
+                         f"complaints = {t['missed']} confirmed misses + {t['wrong']} "
+                         f"reported, but wrong."),
+        },
+        {
+            "key": "misses",
+            "title": "Where those misses stopped",
+            "centre": (t["missed"], "misses"),
+            "inner": [("No person saw it", t["never"] + t["lost"], BLUE_RAMP[2]),
+                      ("A person had it", t["seen"], RING_ANALYST_DEEP)],
+            "outer": [("Never reached us", t["never"], BLUE_RAMP[4]),
+                      ("Lost before an analyst", t["lost"], BLUE_RAMP[3]),
+                      ("An analyst saw it", t["seen"], ROOT_COLOURS["People"])],
+            "equation": (f"{t['missed']} misses = {t['never'] + t['lost']} no person "
+                         f"ever saw + {t['seen']} a person had it, and the "
+                         f"{t['never'] + t['lost']} = {t['never']} never reached us + "
+                         f"{t['lost']} lost before an analyst."),
+        },
     ]
-    links = [("emails", "complaints"), ("emails", "inquiries"),
-             ("complaints", "missed"), ("complaints", "wrong"),
-             ("missed", "never"), ("missed", "lost"), ("missed", "seen")]
-    index = {key: i for i, (key, *_) in enumerate(nodes)}
-    return {
-        "nodes": nodes,
-        "links": [(index[a], index[b], t[b], b) for a, b in links],
-        "totals": t,
-    }
 
 
 # Below this many emails a month's own rate swings too far to read as a signal: Jan is

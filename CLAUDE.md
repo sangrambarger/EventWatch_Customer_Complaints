@@ -865,7 +865,7 @@ the question being asked. It is back at **fourth**, directly under the failure a
 it belongs to.
 
 The order now is **seven sections**: what came in (the cards), **how those figures
-join** (the Sankey), **when it arrived and where it failed** (the monthly breakdown,
+join** (the two nested rings), **when it arrived and where it failed** (the monthly breakdown,
 moved to second on the owner's call), **whether it is moving** (the trend line and its
 arrow), **why we missed** (the root causes and their drivers), **who it hit** (Customers
 impacted), and **what kind of event** it was. Two sections left on the owner's call and neither
@@ -922,36 +922,63 @@ built from, not the sum of the strings in it.
    **No label says "Product fixes it".** The owner asked what that meant, and the
    question is the right one -- it names no team a reader could take the number to.
    The two values of `Routed To` do: `Product & Platform` and `EventWatch Ops`.
-2. **How the numbers above fit together** -- `flow_chart()`, a **Sankey**, directly
-   under the cards because it explains them. `flow_graph()` builds the nodes and links
-   and is the one source for the cards as well, so a band and the card above it cannot
-   disagree.
+2. **How the numbers above fit together** -- `nested_donut()` twice, **two nested
+   rings side by side**, directly under the cards because they explain them.
+   `inbox_totals()` is the one source for the cards as well, so a slice and the card
+   above it cannot disagree, and `inbox_rings()` only arranges those figures -- it
+   computes nothing.
 
-   **Two forms were tried here before this one and both were wrong.** A donut was asked
-   for twice: a ring draws ONE whole split into parts, and these are three wholes nested
-   inside each other, so it takes three rings with nothing joining them and the reader
-   still carries 103 from the first to the second. Then three left-aligned stacked bars
-   shipped, called a funnel -- **and they were a bar chart named after the thing they
-   were meant to be.** The join between levels was real but implicit: a reader had to
-   notice that one bar's grey segment was the next bar's total. The owner's verdict was
-   "nowhere close to it", and that was right.
+   **Four forms have now been tried here and the first three each failed differently.**
+   A single donut was asked for twice and refused on the arithmetic: a ring draws ONE
+   whole split into parts, and these are three wholes nested inside each other. Then
+   three left-aligned stacked bars shipped, called a funnel -- **a bar chart named after
+   the thing it was meant to be**, where the join between levels was real but implicit
+   and a reader had to notice that one bar's grey segment was the next bar's total.
+   The owner's verdict was "nowhere close to it". Then a **Sankey**, which drew the
+   join honestly and correctly, and the owner's verdict -- twice, the second time after
+   a palette rework -- was that it was not worth looking at. `FLOW_COLOURS`,
+   `FLOW_SPINE`, `flow_chart()` and `flow_graph()`'s nodes and links all went with it;
+   `flow_graph()` itself became `inbox_totals()`, which is the half every caller used.
 
-   A flow draws the split itself. A band of 103 leaves the emails node and arrives at
-   complaints; the 24 that do not go with it peel off where the eye already is. Nothing
-   has to be added and nothing has to be spotted.
+   **Two rings of two levels each is what covers three levels, and containment is the
+   join.** Ring one carries 127 = 103 + 24 on the inside and 103 = 86 + 17 on the
+   outside; ring two carries 86 = 51 + 35 inside and 51 = 42 + 9 outside. An outer band
+   sits bodily inside the inner slice it belongs to, so nothing has to be added and
+   nothing has to be spotted. **The one join a reader still makes by hand is between
+   the two rings**, which is why ring two's centre prints ring one's outer slice -- 86,
+   in words -- rather than leaving it to be carried across.
 
-   **It also deleted a colour problem by construction.** The bars needed a "carried"
-   segment -- a grey box meaning "the row below explains this" -- which is a category
-   invented purely to make that form work, and it brought two more greys onto a chart
-   that already had one. A flow has no such thing: a band either ends at a node or
-   carries on. `FUNNEL_CARRY`, `FUNNEL_CARRY_EDGE`, `FUNNEL_COLOURS` and
-   `funnel_levels()` all went with it.
+   **That also answers the objection that killed the single donut.** The reason three
+   rings were refused was that nothing joined them and the reader carried 103 from the
+   first to the second. Two rings carry one join, not two, and that join is named on
+   the second ring's own face.
 
-   **Colour: a `stage` node is scaffolding, everything that ENDS takes a real hue.** The
-   spine (emails, complaints, misses) is the quietest surface the stylesheet owns,
-   because each one is split further on. A band is a translucent wash of the node it
-   ARRIVES at, so the eye follows it to where those emails ended up rather than to
-   where they came from.
+   **Colour: the inner ring is the parent and the outer ring is the meaning.** Every
+   value is a token this dashboard already uses or a deep step of one. `Reported, but
+   wrong` keeps `CAT_SLATE` and `Inquiries` keeps the month chart's teal, because those
+   are the colours those two categories wear everywhere else. **`Confirmed misses`
+   takes the channel colour rather than a hue of its own** -- it is not a category, it
+   is the whole of the second ring, and the two owner hues that would otherwise be free
+   (blue, red) are already spoken for one ring to its right.
+
+   **Three layout facts, each found by screenshotting rather than reasoned about.**
+   Plotly merges slices that share a label inside one trace, which silently added two
+   into one the first time this was built: the rings are separate traces and no two
+   slices within either repeat a label. The centre total and the inner ring's own
+   labels collided at `hole=0.42`, so the inner ring is fat (`hole=0.30`) and the unit
+   rides in the title rather than under the number. And an inner label is **wrapped at
+   ten characters, not rotated**: left horizontal it was dropped outright by
+   `uniformtext` -- a sixteen-character label does not fit a 65px band -- and set to
+   `auto` plotly ran it tangentially, which is read at an angle on the one ring a VP
+   reads first. `uniformtext` is `mode="hide"`, never plotly's default shrink, which
+   scaled a label to 6px: present, unreadable, and worse than absent because it looks
+   like a rendering fault.
+
+   The four equations ride in one computed caption under the pair, for the reason the
+   card row's own `42 + 9 + 35 = 86` line was removed: a line of bare arithmetic
+   restating the picture is the thing the picture failed to be. Here it is the receipt,
+   not the chart.
+
 
 3. **Month by month: what came in, and where it failed** -- `render_monthly_breakdown()`,
    moved here from sixth on the owner's call. It is the view a VP comes to this page
@@ -1141,20 +1168,30 @@ with more of it visible.
 
 `donut()`, `overview_split()`, `miss_owner_split()`, `MISS_COLOURS`, `SPLIT_COLOURS`,
 `SPLIT_MEANING` and the `.donut-pair` CSS all went with it -- no caller remained for
-any of them. **No donut is drawn anywhere on this dashboard now**, so a reader
-wanting one back is asking for `components.donut()` restored from history, not for a
-new chart type.
+any of them. **The two rings on the page now are `nested_donut()`, a different
+function and a different chart**: `donut()` drew one flat ring and is still only in
+history, so a reader asking for one of those back is asking for it to be restored, not
+for a variant of what section 2 draws.
 
-**And a donut was then asked for again, and the answer was the funnel bars below.**
-The owner's reason was the right one -- *"just by looking at the cards a user might
-have to sit and do the additions"* -- and a ring still cannot serve it. **The eight
-cards are a three-level NEST, not one partition**: 127 = 103 + 24, then 103 = 86 + 17,
-then 86 = 42 + 9 + 35. A donut draws one whole split into parts, so covering this takes
-three rings -- one more than had just been removed -- with nothing joining them, and
-the reader is still carrying 103 from the first ring to the second, which is the
-addition the block exists to remove. **Reach for a funnel, a nest or a cascade when the
-parts of one level are the whole of the next; reach for a ring only when there is
-exactly one whole.**
+**And a donut was then asked for again, three times, and the third answer is the one
+that stands: two NESTED rings, side by side.** The owner's reason was right throughout
+-- *"just by looking at the cards a user might have to sit and do the additions"* --
+and what was wrong was the form each time. **The eight cards are a three-level NEST,
+not one partition**: 127 = 103 + 24, then 103 = 86 + 17, then 86 = 42 + 9 + 35. A flat
+ring draws one whole split into parts, so covering that takes three of them with
+nothing joining them, and the reader still carries 103 from the first to the second --
+which is the addition the block exists to remove. A **nested** ring draws two levels at
+once by containment, so two of them cover three levels with exactly one join left, and
+that join is printed in the second ring's centre.
+
+**The rule, corrected:** reach for a flat ring only when there is exactly one whole;
+reach for nested rings, a funnel or a cascade when the parts of one level are the whole
+of the next -- and when you do, say on the chart where the levels join.
+
+The two donuts removed above are not these two. Those were `overview_split()` and
+`miss_owner_split()`, two flat rings telling the same split the cards and the month
+chart already told. These draw the nest the cards cannot show, which is the thing
+neither of those did.
 
 4. **Is it getting better** -- `render_trend()`: an arrow, the dashboard's only
    time-series chart, and the months behind it. Set out in full below, with the two
