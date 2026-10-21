@@ -399,6 +399,33 @@ the only six lines that moved are the two discarded page headings, replaced by o
 `(4, 12)` and Top customer complaints' `(5, 5)`, which is what proves nothing was
 dropped in the merge rather than quietly lost.
 
+**The `PAGES` / `RENDERERS` check is `st.error` + `st.stop()`, never a bare `assert`,
+and the cut is what proved why.** `app.py` is the main script, so Streamlit re-reads it
+from disk on every rerun -- but the modules it imports are **not** re-imported. After
+the Cloud hot update that pulled this commit, `app.py` was new and `dashboard.config`
+was the old one still in `sys.modules`: `RENDERERS` held the three current pages while
+`PAGES` still listed the seven they replaced, the `assert` fired, and the deployed app
+died with `AssertionError` and a line number -- Cloud redacts exception messages, so
+that was the whole of what a reader got.
+
+**And it raised ABOVE `load_data()`, which is where the build stamp draws**, so the one
+diagnostic built for exactly this situation could not reach the screen. A guard that
+kills the page before the explanation renders is a guard that costs more than it saves.
+
+`st.error` renders as an element rather than an exception, so Cloud shows the text; the
+message names which side is missing which page, prints the build stamp, and says to
+reboot. The string **"could not be loaded" is already in `smoke_app.ERROR_TEXT`**, so a
+genuine mismatch still fails the gate -- this is not the check being softened into a
+warning nobody reads. Proved by seeding a page with no renderer and watching the gate
+fail, then removing it and watching it pass. `build_note()` is imported inside the
+branch and wrapped, because a process stale enough to cause this may predate
+`build_note()` itself and an `ImportError` there would swap a legible message for a
+redacted one -- the one place a function-local import earns its keep.
+
+**`smoke_app` now reports what the page says before reporting a failed click.** With
+`st.stop()` nothing draws, so every page reported "nav item not found" and the real
+message sitting on screen went unread. A missing nav item is usually a symptom.
+
 **`source_page()` grew a `header` flag, and it closed a real defect.** Analysis calls it
 twice -- once for the Root Cause blocks, once for the Customer blocks -- and a page may
 carry only one heading. The old Root cause page called `render_root_cause()` *before*
