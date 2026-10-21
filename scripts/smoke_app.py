@@ -167,7 +167,16 @@ def run_checks(url: str) -> int:
             try:
                 page.get_by_text(name, exact=True).first.click()
             except Exception as exc:
-                problems.append(f"{name}: nav item not found ({type(exc).__name__})")
+                # A missing nav item is usually a symptom, not the fault. `app.py` stops
+                # before drawing the sidebar when PAGES and RENDERERS disagree, so every
+                # page then reports "nav item not found" and the real message -- which is
+                # sitting on the screen -- goes unread. Report what the page actually
+                # says before falling back to the click failure.
+                said = sorted({t for t in ERROR_TEXT if t in page.inner_text("body")})
+                if said:
+                    problems.append(f"{name}: page is showing {said}, nav never rendered")
+                else:
+                    problems.append(f"{name}: nav item not found ({type(exc).__name__})")
                 continue
             # Poll until the page has drawn what it owes, rather than sleeping a fixed
             # 1800ms and counting whatever happened to exist. That fixed wait was a
