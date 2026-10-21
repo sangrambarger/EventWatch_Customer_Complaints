@@ -71,7 +71,7 @@ not prove a layout or a wording survived.
 **The tracker read is cached; the sidebar lines around it are not.**
 `read_tracker(src, fingerprint)` carries `@st.cache_data` and is deliberately free of
 Streamlit calls -- a cached function replays the elements written inside it, so caching
-`load_data()` whole would have made the cache responsible for the four sidebar lines as
+`load_data()` whole would have made the cache responsible for the five sidebar lines as
 well as the data. Streamlit reruns the whole script on every click, so before this every
 interaction re-read and re-parsed the file: ~10ms against a local checkout, and a full
 HTTP round trip on a deploy whose source is a URL, paid on every filter change, every
@@ -82,6 +82,27 @@ The source path alone never changes, so without it a tracker edited on disk woul
 serving whatever the process first read -- and `audit_pages.py` and `smoke_app.py` would
 check a stale frame. A URL has nothing cheap to fingerprint and caches for the life of
 the process, which is what a Cloud deploy wants: a redeploy restarts it.
+
+**The sidebar's fifth line is the build stamp, and `BUILD_SHA` is read once at import
+on purpose.** Streamlit Cloud's hot update path (`Pulling code changes -> Updated app!`)
+pulls the new files but does not reliably re-import package modules, so the process can
+serve code days behind the repository: three merges landed, the files were on the
+server, and the page went on drawing the commit the process had loaded. Nothing on
+screen said so, and it cost an hour to establish from the outside -- diffing rendered
+strings against `git log -S` -- because the sidebar said which *data* was loaded and
+nothing said which *code* was.
+
+Reading the sha when the sidebar draws would read the **disk**, which after a hot pull
+is the new commit while the running modules are old, so the stamp would be freshest
+exactly when it is lying. `config.BUILD_SHA` is therefore what this process loaded and
+`head_sha()` is what the checkout holds now; `build_note()` compares them and the
+sidebar prints a **warning** rather than a caption when they disagree, because at that
+point no amount of reloading the tab helps and only a restart does. Its one limit,
+stated rather than papered over: `config` is the module whose import time is recorded,
+so a reload that refreshed it while leaving `sections` stale would read current and
+still be wrong -- in the failure actually seen nothing reloaded at all, which is the
+case it catches. Two plain-text reads of files git maintains, no subprocess and no
+network: `app.py` makes neither and a build stamp is not the place to start.
 
 ## Run these before exploring by hand
 

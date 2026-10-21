@@ -17,7 +17,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 
-from dashboard.config import APP_DIR, CSV_NAME, WORKBOOK_NAME
+from dashboard.config import APP_DIR, CSV_NAME, WORKBOOK_NAME, build_note
 
 
 
@@ -89,7 +89,7 @@ def source_fingerprint(src):
 def read_tracker(src, fingerprint):
     """Fetch one source and normalise it. Cached, and deliberately free of Streamlit calls.
 
-    `load_data()` writes four lines into the sidebar, and a cached function replays the
+    `load_data()` writes five lines into the sidebar, and a cached function replays the
     elements written inside it rather than re-running them -- which works, but makes the
     cache responsible for the chrome as well as the data. Keeping the read pure means the
     cache holds a frame and nothing else, and the sidebar is drawn fresh on every run.
@@ -109,7 +109,7 @@ def read_tracker(src, fingerprint):
 
 
 def load_data():
-    """The tracker, plus the four sidebar lines that say where it came from.
+    """The tracker, plus the five sidebar lines that say where it came from.
 
     Streamlit reruns this whole script on every click, so before the cache every
     interaction re-read and re-parsed the file: ~10ms against a local checkout, and a
@@ -132,6 +132,14 @@ def load_data():
             stamp = f" · newest {newest:%d-%b-%Y}" if pd.notna(newest) else ""
             st.sidebar.caption(f"**{len(df)} customer emails**{stamp}")
             st.sidebar.caption("Workbook upload is disabled; data comes from the deployed files.")
+            # Which commit is on screen, under the line that says which data is. The
+            # two answer the same question about different halves of the deploy, and
+            # only the data half had an answer -- a stale process looked identical to
+            # a current one. A warning rather than a caption when the process and the
+            # checkout disagree, because at that point the page is showing code that
+            # was replaced and no amount of reloading the tab will change it.
+            note, stale = build_note()
+            (st.sidebar.warning if stale else st.sidebar.caption)(note)
             break
         except Exception as exc:
             errors.append(f"{src}: {exc}")
