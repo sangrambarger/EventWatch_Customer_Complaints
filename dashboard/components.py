@@ -683,60 +683,89 @@ def monthly_stack(frame, key=None):
     return fig, (str(points[0]["x"]) if points else None)
 
 
-# Band and node colours, by the one thing colour carries here: where the email stopped.
-# A `stage` node is a total that is itself split further on, so it takes the quietest
-# surface the stylesheet owns -- it is scaffolding, not a category. Everything that
-# ENDS somewhere takes a real colour, and the same colour that email wears everywhere
-# else on this page.
-FLOW_COLOURS = {"stage": "#39414f", "teal": "#80cbc4", "slate": CAT_SLATE,
-                "blue": BLUE_RAMP[4], "blue2": BLUE_RAMP[3], "red": ROOT_COLOURS["People"]}
-
-
 def _rgba(colour, alpha):
     r, g, b = (int(colour[i:i + 2], 16) for i in (1, 3, 5))
     return f"rgba({r},{g},{b},{alpha})"
 
 
-def flow_chart(graph):
-    """The eight cards as a Sankey: bands that split, not bars that get shorter.
+def nested_donut(ring):
+    """One ring of the inbox nest: the parent split on the inside, its parts outside.
 
-    **This replaces three left-aligned stacked bars that were called a funnel.** They
-    were a bar chart named after the thing they were meant to be -- the join between
-    levels was real but implicit, a reader had to notice that one bar's grey segment
-    was the next bar's total. Here the split is drawn: a band of 103 leaves the emails
-    node and arrives at complaints, and the 24 that do not go with it peel off where
-    the eye already is. Nothing has to be added and nothing has to be spotted.
+    **This replaces a Sankey, which replaced three stacked bars called a funnel.** The
+    thing all three were trying to draw is the same: the eight cards are three wholes
+    nested inside each other, and a reader should not have to add 42 and 9 and 35 to
+    check they make 86. The bars left the join implicit. The Sankey drew the join
+    honestly and the owner's verdict, twice, was that it was not worth looking at.
 
-    It also removes the "carried" segment, which was a category invented only to make
-    the bar form work, and with it two of the three greys that were on that chart.
+    Two nested rings draw the join by containment instead: the outer band sits bodily
+    inside the inner slice it belongs to, so 86 and 17 are visibly the two parts of the
+    103 beneath them. `inbox_rings()` is what guarantees the arithmetic; this only draws
+    it, and the equation is printed under the pair so the guarantee is checkable rather
+    than claimed.
+
+    **Plotly merges slices that share a label inside one trace**, which silently added
+    two slices into one the first time this was built. The inner and outer rings are
+    separate traces, and no two slices within either carry the same label.
     """
-    if not graph or not graph["nodes"]:
+    if not ring or not sum(v for _, v, _ in ring["outer"]):
         st.info("Chart cannot be rendered because required fields are missing: Issue Type.")
         return None
-    labels = [f"{label}  {value}" for _, label, value, _, _ in graph["nodes"]]
-    colours = [FLOW_COLOURS.get(n[3], UNKNOWN_OWNER) for n in graph["nodes"]]
-    meanings = [n[4] for n in graph["nodes"]]
-    fig = go.Figure(go.Sankey(
-        arrangement="snap",
-        node=dict(
-            label=labels, pad=26, thickness=22,
-            color=colours, line=dict(color="#1b1f26", width=1),
-            customdata=meanings,
-            hovertemplate="<b>%{label}</b><br>%{customdata}<extra></extra>"),
-        link=dict(
-            source=[a for a, *_ in graph["links"]],
-            target=[b for _, b, *_ in graph["links"]],
-            value=[v for *_, v, _ in graph["links"]],
-            # A band is a translucent wash of the node it ARRIVES at, so the eye follows
-            # it to where that email ended up rather than to where it came from.
-            color=[_rgba(FLOW_COLOURS.get(
-                next(n[3] for n in graph["nodes"] if n[0] == key), UNKNOWN_OWNER), 0.42)
-                for *_, key in graph["links"]],
-            hovertemplate="%{value} of %{source.label}<extra></extra>")))
+    base = max(sum(v for _, v, _ in ring["outer"]), 1)
+    fig = go.Figure()
+    # The OUTER ring is drawn first so the inner one lands on top of it; plotly draws
+    # traces in order and the inner ring's slice borders should sit above the outer.
+    fig.add_trace(go.Pie(
+        labels=[label for label, _, _ in ring["outer"]],
+        values=[value for _, value, _ in ring["outer"]],
+        marker=dict(colors=[colour for *_, colour in ring["outer"]],
+                    line=dict(color="#1b1f26", width=2)),
+        # A thin outer band -- it is the ring that carries the meaning, and a fat one
+        # would swallow the parent it is supposed to sit outside of.
+        hole=0.78, sort=False, direction="clockwise", rotation=0,
+        text=[f"{label}<br>{value} · {value / base * 100:.0f}%"
+              for label, value, _ in ring["outer"]],
+        textinfo="text", textposition="outside",
+        textfont=dict(size=12, color="#f3f4f6"),
+        hovertemplate="<b>%{label}</b><br>%{value} of " + str(base) + "<extra></extra>",
+        showlegend=False, domain=dict(x=[0, 1], y=[0, 1])))
+    fig.add_trace(go.Pie(
+        labels=[label for label, _, _ in ring["inner"]],
+        values=[value for _, value, _ in ring["inner"]],
+        marker=dict(colors=[colour for *_, colour in ring["inner"]],
+                    line=dict(color="#1b1f26", width=2)),
+        # A fat inner ring with a small hole: the first cut left 0.42 and the two
+        # labels collided with the centre total, which is the one figure on the chart
+        # that must be legible from across a room.
+        hole=0.30, sort=False, direction="clockwise", rotation=0,
+        # Wrapped at ten characters rather than rotated. Tangential text fits and is
+        # read at an angle, which is a cost paid on the one ring a VP reads first; a
+        # short label broken over two lines fits horizontally in the band's own
+        # thickness and is read straight.
+        text=[f"{'<br>'.join(textwrap.wrap(label, 10))}<br><b>{value}</b>"
+              for label, value, _ in ring["inner"]],
+        textinfo="text", textposition="inside", insidetextorientation="horizontal",
+        # Per fill rather than per chart: the inner slices are deep and the outer ones
+        # are not, and a label colour chosen once for the figure strands one of them.
+        textfont=dict(size=12, color="#f3f4f6"),
+        hovertemplate="<b>%{label}</b><br>%{value}<extra></extra>",
+        showlegend=False, domain=dict(x=[0.17, 0.83], y=[0.17, 0.83])))
+    total, unit = ring["centre"]
+    # The unit rides in the title, not under the number. Two lines of centre text in a
+    # hole this size pushed the inner ring's own labels out onto the slice borders.
+    fig.add_annotation(text=f"<b>{total}</b>", x=0.5, y=0.5, showarrow=False,
+                       font=dict(size=24, color="#f3f4f6"))
     fig.update_layout(
         template="plotly_dark", plot_bgcolor="#1b1f26", paper_bgcolor="#1b1f26",
-        font=dict(color="#f3f4f6", size=13), height=360,
-        margin=dict(l=10, r=10, t=30, b=10))
+        font=dict(color="#f3f4f6", size=12), height=400,
+        # Room on all four sides for the outer ring's labels, which sit outside the arc.
+        margin=dict(l=96, r=96, t=58, b=58),
+        # **`mode="hide"`, not plotly's default shrink.** Left to itself plotly scales a
+        # label down until it fits its slice, which on the 35-slice produced 6px text --
+        # present, unreadable, and worse than absent because it looks like a rendering
+        # fault. A label that will not fit is dropped and its hover still carries it.
+        uniformtext=dict(minsize=10, mode="hide"),
+        title=dict(text=f"{ring['title']} · {total} {unit}", x=0.5, xanchor="center",
+                   font=dict(size=14, color="#b6beca")))
     st.plotly_chart(fig, width="stretch")
     return fig
 

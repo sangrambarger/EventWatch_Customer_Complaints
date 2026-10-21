@@ -52,7 +52,11 @@ EXPECTED: dict[str, tuple[int, int]] = {
     # months. The Sankey replaced the funnel bars one-for-one and draws no table: its
     # splits are a computed caption, because a table of them would be the cards a third
     # time in a fourth place.
-    "Executive Summary": (7, 5),
+    #
+    # 8 now: the Sankey became TWO nested rings side by side, so one chart became two.
+    # Tables are unchanged at 5 -- the rings draw none either, and their four equations
+    # ride in one computed caption for the same reason the Sankey's did.
+    "Executive Summary": (8, 5),
     "All customer emails": (0, 6),
     # Analysis is the merge of Root cause (4 charts, 12 tables) and Top customer
     # complaints (5, 5), plus Nature of complaints (1, 1) off the Executive Summary.
