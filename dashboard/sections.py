@@ -340,8 +340,27 @@ def render_monthly_breakdown(page, clickable=False):
                  styles={"Month": "nowrap"})
     st.caption(monthly_note(frame))
     downloads(table, "monthly_breakdown", fig)
-    if month:
-        _open_month(page, frame, month)
+    # Open only on the run where the selection CHANGES, and never on a rerun that
+    # merely inherits it.
+    #
+    # A plotly selection is sticky: `st.plotly_chart(on_select="rerun")` goes on
+    # reporting the clicked month on every later rerun, for the life of the session.
+    # So a month clicked once and then any card clicked afterwards opened two dialogs
+    # in a single script run -- and Streamlit permits exactly one, raising
+    # `StreamlitInvalidLayoutContextError: Only one dialog is allowed to be opened at
+    # the same time`. That took the whole Executive Summary down, because the raise
+    # happens inside `render()` and nothing below it draws.
+    #
+    # Remembering the month we last acted on fixes both halves: at most one dialog per
+    # run (one widget reports one interaction, so the card and the chart can no longer
+    # both fire), and a dismissed dialog stays dismissed instead of re-opening on the
+    # next filter change. `None` is stored too, so clearing the selection re-arms the
+    # same month for a second click.
+    shown = "monthly-stack-opened"
+    if clickable and month != st.session_state.get(shown):
+        st.session_state[shown] = month
+        if month:
+            _open_month(page, frame, month)
 
 
 def render_root_tier(page):
