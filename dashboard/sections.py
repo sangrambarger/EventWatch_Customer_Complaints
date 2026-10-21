@@ -551,7 +551,7 @@ def render_nature(page):
                 "darker part is the emails in that category that turned out to be a confirmed "
                 "miss, the lighter part the ones where the event did reach them. That split is "
                 "the answer to the question this block always raised — why the Event missed row "
-                "does not equal the miss count at the top of the page.", "#8ab4f8")
+                "does not equal the headline miss count.", "#8ab4f8")
     nature = nature_table(page)
     if nature.empty:
         st.info("No email in the current filter carries a reason.")
@@ -582,8 +582,8 @@ def render_nature(page):
                           for _, r in others[others["Misses"] > 0].iterrows())
         here = int(top.loc[top["Category"] == "Event missed", "Misses"].sum())
         st.caption(
-            f"**Event missed carries {here} confirmed misses, not the {missed} on the cards "
-            f"above, and that is not an error.** This column counts what the customer wrote "
+            f"**Event missed carries {here} confirmed misses, not the {missed} in this filter, "
+            f"and that is not an error.** This column counts what the customer wrote "
             f"about; the miss count counts whether the event reached them in time. The other "
             f"{elsewhere} confirmed miss(es) sit in categories where the event was reported and "
             f"something else went wrong — {named}. "

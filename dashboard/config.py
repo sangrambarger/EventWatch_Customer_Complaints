@@ -52,7 +52,7 @@ PAGES = [
 DESCRIPTIONS = {
     "Executive Summary": "What customers sent in, how much of it we got wrong, why, who it hit, and whether it is moving.",
     "All customer emails": "Every complaint and inquiry a customer sent in, with the category behind each one, downloads, and controlled manual-entry staging.",
-    "Analysis": "Where the summary's figures come from: the full failure taxonomy, the sub-type heatmap, the per-owner drill-downs, and one account at a time.",
+    "Analysis": "Where the summary's figures come from: the full failure taxonomy, the sub-type heatmap, the per-owner drill-downs, one account at a time, and the customer's own words for what went wrong.",
 }
 
 # The pages fall into jobs, and the job -- not the page -- is what a colour can usefully

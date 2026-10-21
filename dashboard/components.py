@@ -20,7 +20,6 @@ import streamlit as st
 from dashboard.config import DESCRIPTIONS, PAGE_KICKERS
 from dashboard.styles import BLUE_RAMP, RED_BLUE, ROOT_COLOURS, TAGS, esc
 from dashboard.taxonomy import plural
-from dashboard.metrics import MISS_COLOURS
 
 
 
@@ -266,47 +265,6 @@ def chart(df, label_col, value_col="Records", title="", x_title="Records"):
     fig.update_traces(opacity=.92, cliponaxis=False, marker_line_width=0)
     if not parts: fig.update_traces(textposition="outside")
     fig.update_layout(template="plotly_dark", plot_bgcolor="#1b1f26", paper_bgcolor="#1b1f26", font=dict(color="#f3f4f6", size=13), margin=dict(l=20, r=60, t=64 if parts else 44, b=28), height=max(360, min(760, len(data) * 38 + 150)), showlegend=bool(parts))
-    st.plotly_chart(fig, width="stretch")
-    return fig
-
-
-def donut(t, label_col="Category", value_col="Records", colours=None, centre="", title="",
-          meanings=None):
-    """Parts of one whole, labelled on the slice.
-
-    A pie is usually the wrong answer, but this is the one shape it is right for: four
-    mutually exclusive buckets that sum to a stated total, where the question is "which
-    one is the biggest share of the misses". Labels sit outside the ring with the count
-    and the share on them, so the ring is the shape and the text is the number.
-    """
-    if t is None or t.empty or value_col not in t.columns:
-        st.info(f"Chart cannot be rendered because required fields are missing: {label_col}.")
-        return None
-    total = int(t[value_col].sum())
-    # Each slice explains itself on hover, wrapped before it reaches plotly -- plotly's
-    # hover label neither wraps nor is clipped to the panel, so an unwrapped sentence
-    # runs off both edges of a half-width column and loses its own ends.
-    note = [("<br>".join(textwrap.wrap((meanings or {}).get(str(label), ""), 44)))
-            for label in t[label_col]]
-    fig = go.Figure(go.Pie(
-        labels=list(t[label_col]), values=list(t[value_col]), hole=0.58, sort=False,
-        direction="clockwise", marker=dict(colors=colours or MISS_COLOURS,
-                                           line=dict(color="#1b1f26", width=2)),
-        # One decimal on the share, like the table under it. Plotly's default gives two
-        # significant figures, so a 3-miss slice printed 3.85% beside a table saying 3.8%.
-        texttemplate="%{label}<br><b>%{percent:.1%}</b> · %{value}", textposition="outside",
-        textfont=dict(size=13, color="#f3f4f6"), customdata=note,
-        hovertemplate="<b>%{label}</b> — %{value} of " + str(total) +
-                      ", %{percent:.1%}<br>%{customdata}<extra></extra>"))
-    fig.update_layout(
-        template="plotly_dark", plot_bgcolor="#1b1f26", paper_bgcolor="#1b1f26",
-        font=dict(color="#f3f4f6", size=13), showlegend=False, title=title,
-        hoverlabel=dict(bgcolor="#11151b", align="left",
-                        font=dict(color="#f3f4f6", size=12)),
-        margin=dict(l=90, r=90, t=70 if title else 40, b=40), height=440,
-        annotations=[dict(text=f"<b style='font-size:30px'>{total}</b><br>{centre}",
-                          x=0.5, y=0.5, showarrow=False,
-                          font=dict(size=13, color="#b6beca"))])
     st.plotly_chart(fig, width="stretch")
     return fig
 

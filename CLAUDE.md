@@ -395,9 +395,14 @@ already ran the summary's own renderers, so the merge moved code nowhere.
 all seven pages was captured first. After: Executive Summary and All customer emails
 are **byte-identical**, and Analysis carries every content line of both merged pages --
 the only six lines that moved are the two discarded page headings, replaced by one.
-`smoke_app.EXPECTED` for Analysis is `(9, 17)`, the exact **sum** of Root cause's
-`(4, 12)` and Top customer complaints' `(5, 5)`, which is what proves nothing was
-dropped in the merge rather than quietly lost.
+`smoke_app.EXPECTED` for Analysis was `(9, 17)` at that point, the exact **sum** of
+Root cause's `(4, 12)` and Top customer complaints' `(5, 5)`, which is what proves
+nothing was dropped in the merge rather than quietly lost. It is `(10, 18)` now, and
+the Executive Summary is `(6, 4)` against `(9, 7)`: Analysis is up by exactly Nature
+of complaints' one chart and one table, the summary down by that pair plus the two
+donuts and their two tables. **A block that moved shows as a matched pair across two
+entries; a block that was lost shows as a lone decrement.** That is what these numbers
+are for, so change both sides in the one commit.
 
 **The `PAGES` / `RENDERERS` check is `st.error` + `st.stop()`, never a bare `assert`,
 and the cut is what proved why.** `app.py` is the main script, so Streamlit re-reads it
@@ -834,7 +839,7 @@ spill cache on the Dashboard, which carried the old value.
 
 ## The Executive Summary, section by section
 
-The page is a story in eight parts, separated by `add_rule()` -- a full-width hairline,
+The page is a story in five parts, separated by `add_rule()` -- a full-width hairline,
 because the heading card alone was not enough and two adjacent sections read as one.
 Every section is chart-then-table, in that order, so the eye learns the shape once.
 
@@ -847,14 +852,14 @@ under five blocks because its table has seventeen columns optimises for layout a
 the question being asked. It is back at **fourth**, directly under the failure analysis
 it belongs to.
 
-The order now is: what came in (the cards), **when it arrived and where it failed**
-(the monthly breakdown, moved to second on the owner's call), **how much of it was
-ours** (the rings), **why we missed** (the root causes and their drivers), **who it
-hit** (Customers impacted), **what kind of event**, and last **what the customer
-themselves called it** (Nature of complaints,
-moved to the foot on the owner's call -- it is the customer's own vocabulary and reads
-as the coda to the story rather than the opening of it). **Do not re-sort this page by
-table width.**
+The order now is **five sections**: what came in (the cards), **when it arrived and
+where it failed** (the monthly breakdown, moved to second on the owner's call), **why
+we missed** (the root causes and their drivers), **who it hit** (Customers impacted),
+and **what kind of event** it was. Two sections left on the owner's call and neither
+was replaced -- the rings that were "how much of it was ours", and Nature of
+complaints, "what the customer themselves called it", which moved to Analysis.
+**Do not re-sort this page by table width**, and do not read a shorter page as licence
+to add a block back: both cuts were made because the page already said the thing.
 
 **Every table on the page carries a Total row** (`excel_bar_table(..., total_row=True)`,
 which is the default). It is summed inside the table function rather than by a generic
@@ -1041,34 +1046,35 @@ built from, not the sum of the strings in it.
 
    It is shared with **Monthly trend**, for the same reason every other shared block
    is: two pages drawing the same months from two copies is how they end up disagreeing.
-3. **What customers sent us** -- two donuts, side by side. `overview_split()` is all 115
-   in three mutually exclusive parts (78 misses / 17 complaints that were not / 20
-   inquiries); `miss_owner_split()` is the 78 by who fixes them. Three slices each, which
-   is what a donut is for.
+**What customers sent us is GONE, and so is the rule that said not to remove it.**
+Two donuts sat here -- `overview_split()`, the inbox in three mutually exclusive
+parts, and `miss_owner_split()`, the misses by who fixes them. The owner removed
+both, in the owner's own words: *"I liked the donut view actually, so I am still confused.
+But you are right it is not adding any value. So remove it."*
 
-   **The second ring was briefly deleted here on the reasoning that the three cards in
-   section 3 say the same 46 / 29 / 3. Nobody asked for that, and it was restored.** The
-   overlap is real but it is not a reason to remove a view the page's owner wanted: the
-   rings answer "what came in and how much of it was ours", the cards answer "and what do
-   we do about each". Do not remove it again.
+**This file previously said "Do not remove it again", and that line was written
+about a different event.** The second ring had been deleted here once on my own
+reasoning, with nobody asking -- which is what the prohibition was for. It does not
+bind the owner's own instruction, and a rule that cannot tell those two apart is a
+rule that freezes a page against its owner. The record of why it stood is kept
+because the argument is still sound where nobody has asked: the rings answered
+"what came in and how much of it was ours", the cards answer "and what do we do
+about each".
 
-   Both rings name the tracker's own values -- `Product` / `People` / `Process` -- so the
-   ring and the cards below speak one vocabulary. It read "The platform / Our analysts /
-   How we work" here and the tracker's names in the section underneath, which is two
-   words for one thing on one page; `PLAIN_ROOT` went, and the ownership line moved to
-   each slice's hover, which is where the plain English belongs.
+**What makes the removal defensible on the merits, not just on instruction:** the
+left ring's three slices are the first row of cards, which prints all four figures
+with their bases, and the right ring's two are the month chart's own segments and
+the root-cause cards' own shares. Three tellings of one split, which is the test
+`insights()` failed. The 127 / 103 / 86 / 17 on the cards is the same arithmetic
+with more of it visible.
 
-   **Every slice explains itself on hover** (`SPLIT_MEANING`, `ROOT_OWNERSHIP`), wrapped
-   at 44 characters before it reaches plotly for the same reason the driver bars are --
-   plotly's hover label neither wraps nor is clipped to the panel. The share is formatted
-   `%{percent:.1%}`: plotly's default gives two significant figures, so the 3-miss slice
-   printed `3.85%` beside a table saying `3.8%`.
+`donut()`, `overview_split()`, `miss_owner_split()`, `MISS_COLOURS`, `SPLIT_COLOURS`,
+`SPLIT_MEANING` and the `.donut-pair` CSS all went with it -- no caller remained for
+any of them. **No donut is drawn anywhere on this dashboard now**, so a reader
+wanting one back is asking for `components.donut()` restored from history, not for a
+new chart type.
 
-   **Driving a pie's hover needs a real mouseover on the slice, not `Plotly.Fx.hover`.**
-   `Fx.hover` silently does nothing for a pie trace -- it returned empty text for all six
-   slices. Dispatching `mouseover` then `mousemove` on the slice's own `g.slice` element
-   works, and is how the six tooltips above were read back.
-4. **Why the events were missed** -- two tiers, and the page's headline above both:
+3. **Why the events were missed** -- two tiers, and the page's headline above both:
    *N of 78 misses never entered our system*, computed from the source and keyword
    buckets so it cannot go stale. That sentence is the number Product sizes the
    source-and-keyword problem with; what to buy against it is deliberately not on the
@@ -1145,7 +1151,7 @@ built from, not the sum of the strings in it.
    reads `g.hoverlayer`'s text back. That tests the hovertemplate and its customdata,
    which is the part that can actually be wrong. The clipping was only visible in a
    screenshot taken while the label was up.
-5. **Customers impacted** -- `miss_by_customer()`, the eight worst as a stacked bar and
+4. **Customers impacted** -- `miss_by_customer()`, the eight worst as a stacked bar and
    **every** account in a scrolling table. The row carries **both bases**: `Emails` with
    `Complaints` and `Inquiries` beside it (every email that named the account), then the
    failure columns and `Misses` (confirmed misses only, a smaller number from a different
@@ -1174,7 +1180,7 @@ built from, not the sum of the strings in it.
    **The general rule: a total row is a reconciliation, not a sum.** Where the rows
    double-count on purpose, the foot has to carry the figure the rest of the dashboard
    uses, and the caption has to say why they differ.
-6. **Complaints by event type** -- two charts and one table. `all_event_types()` is
+5. **Complaints by event type** -- two charts and one table. `all_event_types()` is
    every email by the kind of event it was about; `missed_event_types()` is the confirmed
    misses only. Neither is readable alone: nine misses is a different fact depending on
    whether ten emails named that event type or forty.
@@ -1204,7 +1210,7 @@ built from, not the sum of the strings in it.
    selection* says we reported the fire and the Automotive tag was missing, which is a
    different complaint from not reporting it. Three wordings at most, then "and N other
    reasons", and it follows the filter so it cannot go stale.
-7. **Is it getting better** is on NO page. It left the summary for Monthly trend, and
+**Is it getting better** is on NO page. It left the summary for Monthly trend, and
    was deleted with it when seven tabs became three -- `render_trend`,
    `missed_verdict`, `trend_chart` and `trend_table` are all gone. A trend indicator is
    coming back as **an arrow above the month chart that moves only when the month is
@@ -1219,16 +1225,26 @@ built from, not the sum of the strings in it.
    above the chart instead of drawn into it, and `trend_table()` puts the months
    underneath with a total whose rate is **pooled, not averaged**.
 
-8. **Nature of complaints** -- the eight `REASON_CATEGORIES`, the same vocabulary the
-   All customer emails tab defines and lists the wordings behind. **The bar is stacked
-   on the miss split**, darker for the emails in that category that were a confirmed
-   miss and grey for the ones where the event did reach the customer, and a computed
-   caption states the arithmetic: `Event missed` carries 63 misses against 78 on the
-   cards, and the other 15 sit in categories where the event *was* reported and
-   something else went wrong. That gap reads as an error every time somebody meets it,
-   and it is not one -- the category is what the customer wrote about, the flag is
-   whether the event reached them in time. Showing the split on the bar, and printing
-   `63 + 15 = 78` under the table, is what stops it being asked a third time.
+**Nature of complaints is NOT on this page either**, and it left the same way the
+deeper root cause did: the owner's call that it is the customer's own vocabulary and
+belongs where a reader goes to look a figure up. `render_nature()` is now the last
+block on **Analysis**, unchanged -- the same function, moved rather than rewritten, so
+the two pages cannot have drifted. Two lines of its own prose did change, and only
+because they pointed at furniture that is not on Analysis: it said "the miss count at
+the top of the page" and "the {n} on the cards above", and there are no cards above it
+there. It now says "the headline miss count" and "the {n} in this filter", which is
+true on any page that ever renders it.
+
+What it does, unchanged: the eight `REASON_CATEGORIES`, the same vocabulary the All
+customer emails tab defines and lists the wordings behind. **The bar is stacked on the
+miss split**, darker for the emails in that category that were a confirmed miss and
+grey for the ones where the event did reach the customer, and a computed caption states
+the arithmetic: `Event missed` carries 63 misses against 78 on the cards, and the other
+15 sit in categories where the event *was* reported and something else went wrong. That
+gap reads as an error every time somebody meets it, and it is not one -- the category is
+what the customer wrote about, the flag is whether the event reached them in time.
+Showing the split on the bar, and printing `63 + 15 = 78` under the table, is what stops
+it being asked a third time.
 
 **The deeper root cause is NOT on this page.** `render_deeper_root_cause()` was the
 seventh section here and the owner moved it to the internal page, where it already

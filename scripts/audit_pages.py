@@ -123,19 +123,15 @@ def expectations(df: pd.DataFrame) -> dict[str, dict[str, int]]:
     miss_types = {str(k).strip(): int(v)
                   for k, v in missed["Event type"].astype(str).str.strip().value_counts().items()}
 
-    # The three-way split of the inbox, as the first ring draws it.
-    flag = df["Missed_Flag"].astype(str).str.strip()
-    issue = df["Issue Type"].astype(str).str.strip()
-    inbox = {
-        "Confirmed misses": int(flag.eq("Yes").sum()),
-        "Complaints, not a miss": int((issue.eq("Complaint") & flag.ne("Yes")).sum()),
-        "Inquiries": int(issue.eq("Inquiry").sum()),
-    }
-
     # Every page counts every record the customer sent in -- complaints and inquiries.
     return {
-        "Executive Summary": {**split_all, **dict(drivers), **miss_types, **inbox,
-                              **reason_category_counts(df)},
+        # The inbox's three-way split and the reason categories both left this page:
+        # the first with the two donuts, which restated the top row of cards, and the
+        # second with Nature of complaints, which moved to Analysis. Neither is checked
+        # here any more because neither is rendered here -- an expectation for a label a
+        # page no longer draws is recorded as "not rendered", which is silence where the
+        # gate should be saying something.
+        "Executive Summary": {**split_all, **dict(drivers), **miss_types},
         # Analysis is the merge of what were Root cause and Top customer complaints, so
         # it is checked against BOTH sets: the root-cause and driver counts from the
         # first half, the per-account counts from the second. Both halves run the
@@ -144,7 +140,12 @@ def expectations(df: pd.DataFrame) -> dict[str, dict[str, int]]:
         #
         # Root Cause values and account names cannot collide, so the merge is safe --
         # check that again if either vocabulary ever grows a shared word.
-        "Analysis": {**counts(df, "Root Cause"), **dict(drivers), **split_all},
+        # Nature of complaints came here off the Executive Summary, so its eight reason
+        # categories are checked here now. Reason categories, Root Cause values and
+        # account names cannot collide either -- check that again if any of the three
+        # vocabularies grows a shared word.
+        "Analysis": {**counts(df, "Root Cause"), **dict(drivers), **split_all,
+                     **reason_category_counts(df)},
         # The reason categories on All customer emails. Imported from app.py rather
         # than restated, because a second copy of the fold would drift and the whole point
         # of the map is that one wording maps one way everywhere.
