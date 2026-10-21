@@ -71,3 +71,67 @@ PAGE_KICKERS = {
     "Dynamic Source Discovery": ("Coverage gap", "#f6c177"),
     "All customer emails": ("The records", "#f28b82"),
 }
+
+
+# ---------------------------------------------------------------------------
+# The build stamp
+#
+# Streamlit Cloud's hot update path ("Pulling code changes -> Updated app!") pulls
+# the new files but does not reliably re-import package modules, so the process can
+# go on serving code that is days behind the repository. That happened here: three
+# merges landed, the files were on the server, and the page kept drawing the commit
+# the process had loaded. It cost an hour to diagnose, from the outside, by diffing
+# rendered strings against `git log -S`.
+#
+# **The sha is read ONCE, at import, and that is the whole point.** Reading it when
+# the sidebar draws would read the *disk*, which after a hot pull is the NEW commit
+# while the running modules are old -- the stamp would then be freshest exactly when
+# it is lying. `BUILD_SHA` is what this process loaded; `head_sha()` is what the
+# checkout holds now; the two disagreeing is the fault, and that is what gets shown.
+#
+# Its one limit, stated rather than papered over: this module is the one whose import
+# time is recorded, so a reload that refreshed `config` while leaving `sections` stale
+# would read current and still be wrong. In the failure actually seen, nothing
+# reloaded at all, which is the case it catches.
+#
+# No subprocess and no network -- `app.py` makes neither, and a build stamp is not the
+# place to start. These are two small plain-text reads of files git maintains.
+def head_sha():
+    """The commit the checkout on disk points at now, or "" if there is no git dir."""
+    git = APP_DIR / ".git"
+    try:
+        head = (git / "HEAD").read_text(encoding="utf-8").strip()
+        if not head.startswith("ref:"):          # detached HEAD holds the sha itself
+            return head[:40]
+        ref = head.split(" ", 1)[1].strip()
+        loose = git / ref
+        if loose.exists():
+            return loose.read_text(encoding="utf-8").strip()[:40]
+        # A clone can keep its refs packed instead of as loose files.
+        packed = git / "packed-refs"
+        if packed.exists():
+            for line in packed.read_text(encoding="utf-8").splitlines():
+                if line.endswith(" " + ref):
+                    return line.split(" ", 1)[0][:40]
+    except OSError:
+        pass
+    return ""
+
+
+BUILD_SHA = head_sha()
+
+
+def build_note():
+    """`(text, stale)` for the sidebar's build line.
+
+    `stale` is True only when the process and the checkout disagree, which is the
+    state a reader needs told: the page they are looking at is not the code that was
+    merged, and only a restart fixes it.
+    """
+    if not BUILD_SHA:
+        return ("Build unknown -- no git metadata in this checkout.", False)
+    on_disk = head_sha()
+    if on_disk and on_disk != BUILD_SHA:
+        return (f"Showing build {BUILD_SHA[:7]}, but the repository is at "
+                f"{on_disk[:7]}. Reboot the app to load it.", True)
+    return (f"Build {BUILD_SHA[:7]}", False)
