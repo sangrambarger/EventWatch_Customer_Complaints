@@ -1536,3 +1536,55 @@ def monthly_note(frame):
             f"misses {w['Misses']} = Product {w['Product']} + Analyst {w['Analyst']} + "
             f"Process {w['Process']}. Miss rate is of that month's emails; "
             "Product % and Analyst % are of its misses.")
+
+
+def funnel_levels(df):
+    """The three-level nest the eight cards print, as one payload.
+
+    The cards state eight figures and the relationships between them are arithmetic the
+    reader has to do standing up:
+
+        127 emails     = 103 complaints + 24 inquiries
+        103 complaints =  86 misses     + 17 reported, but wrong
+         86 misses     =  42 never reached + 9 lost inside + 35 an analyst saw
+
+    That is a **nest, not one partition**, which is why no single donut can carry it and
+    why `funnel_bars()` draws three bars on one scale instead: each row spans exactly the
+    first segment of the row above it, so the narrowing is read off the geometry and
+    nothing has to be added.
+
+    **It is the one source for both the cards and the chart.** The Executive Summary used
+    to compute these eight numbers inline; a chart recomputing them beside the cards is a
+    second implementation waiting to disagree with the first, which is the fault
+    `card_details()` exists to avoid. The third stage comes from `_miss_parts()`, so all
+    three stages stay a partition by construction however the taxonomy grows.
+
+    Returns `{"emails", "complaints", "inquiries", "missed", "wrong", "never", "lost",
+    "seen", "levels"}` where `levels` is the drawing payload, biggest whole first.
+    """
+    issue = df.get("Issue Type", pd.Series(dtype=str)).reindex(df.index).fillna("").astype(str).str.strip()
+    flag = df.get("Missed_Flag", pd.Series(dtype=str)).reindex(df.index).fillna("").astype(str).str.strip()
+    part = _miss_parts(df)
+    out = {
+        "emails": len(df),
+        "complaints": int(issue.eq("Complaint").sum()),
+        "inquiries": int(issue.eq("Inquiry").sum()),
+        "missed": int(flag.eq("Yes").sum()),
+        "wrong": int((issue.eq("Complaint") & flag.ne("Yes")).sum()),
+        "never": int((part["source"] | part["keyword"]).sum()),
+        "lost": int(part["platform"].sum()),
+        "seen": int(part["analyst"].sum()),
+    }
+    # Each row names its own total, so the y axis carries "127 emails" rather than
+    # "Emails" and the whole each row splits is never a number to remember.
+    out["levels"] = [
+        {"row": f"{out['emails']} emails", "carried": out["complaints"],
+         "leaves": [("Inquiries", out["inquiries"])]},
+        {"row": f"{out['complaints']} complaints", "carried": out["missed"],
+         "leaves": [("Reported, but wrong", out["wrong"])]},
+        {"row": f"{out['missed']} confirmed misses", "carried": 0,
+         "leaves": [("Never reached us", out["never"]),
+                    ("Lost before an analyst", out["lost"]),
+                    ("An analyst saw it", out["seen"])]},
+    ]
+    return out

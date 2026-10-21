@@ -398,9 +398,12 @@ the only six lines that moved are the two discarded page headings, replaced by o
 `smoke_app.EXPECTED` for Analysis was `(9, 17)` at that point, the exact **sum** of
 Root cause's `(4, 12)` and Top customer complaints' `(5, 5)`, which is what proves
 nothing was dropped in the merge rather than quietly lost. It is `(10, 18)` now, and
-the Executive Summary is `(6, 4)` against `(9, 7)`: Analysis is up by exactly Nature
-of complaints' one chart and one table, the summary down by that pair plus the two
-donuts and their two tables. **A block that moved shows as a matched pair across two
+the Executive Summary is `(7, 4)`: it went to `(6, 4)` from `(9, 7)` when Nature of
+complaints and the two donuts left -- Analysis up by exactly Nature's one chart and one
+table, the summary down by that pair plus the two donuts and their two tables -- and
+back to 7 charts when the funnel bars landed under the cards. The funnel draws no table;
+its three equations are a computed caption, because a table of them would be the cards a
+third time in a fourth place. **A block that moved shows as a matched pair across two
 entries; a block that was lost shows as a lone decrement.** That is what these numbers
 are for, so change both sides in the one commit.
 
@@ -839,7 +842,7 @@ spill cache on the Dashboard, which carried the old value.
 
 ## The Executive Summary, section by section
 
-The page is a story in five parts, separated by `add_rule()` -- a full-width hairline,
+The page is a story in six parts, separated by `add_rule()` -- a full-width hairline,
 because the heading card alone was not enough and two adjacent sections read as one.
 Every section is chart-then-table, in that order, so the eye learns the shape once.
 
@@ -852,8 +855,8 @@ under five blocks because its table has seventeen columns optimises for layout a
 the question being asked. It is back at **fourth**, directly under the failure analysis
 it belongs to.
 
-The order now is **five sections**: what came in (the cards), **when it arrived and
-where it failed** (the monthly breakdown, moved to second on the owner's call), **why
+The order now is **six sections**: what came in (the cards), **how those figures
+join** (the funnel bars), **when it arrived and where it failed** (the monthly breakdown, moved to second on the owner's call), **why
 we missed** (the root causes and their drivers), **who it hit** (Customers impacted),
 and **what kind of event** it was. Two sections left on the owner's call and neither
 was replaced -- the rings that were "how much of it was ours", and Nature of
@@ -884,11 +887,14 @@ built from, not the sum of the strings in it.
    three stages come from `_miss_parts()`, the same function the popups use, so they
    are a partition by construction.
 
-   **A line under the row printed `42 + 9 + 35 = 86` and the owner removed it.** What
-   went is the restatement, not the guarantee: `_miss_parts()` is what makes the three
-   a partition, and each card's own panel still prints the equation for the split it
-   shows. Do not read its absence as licence to put a stage on this row that is not
-   part of that partition.
+   **A line under the row printed `42 + 9 + 35 = 86` and the owner removed it, then
+   asked for the joins back and got section 2.** What was objected to was a bare line of
+   arithmetic restating the row; what answers it is a chart that shows how the levels
+   nest, carrying the equations as its caption. The guarantee never depended on either:
+   `_miss_parts()` is what makes the three a partition, and each card's own panel still
+   prints the equation for the split it shows. **Do not put a stage on this row that is
+   not part of that partition** -- the funnel under it would stop reconciling, which is
+   now a visible failure rather than a silent one.
 
    **The account card went to make room, and it was the right one to lose.** Ford's
    share was on card one's own panel, on this page's Customers impacted section and on
@@ -906,7 +912,46 @@ built from, not the sum of the strings in it.
    **No label says "Product fixes it".** The owner asked what that meant, and the
    question is the right one -- it names no team a reader could take the number to.
    The two values of `Routed To` do: `Product & Platform` and `EventWatch Ops`.
-2. **Month by month: what came in, and where it failed** -- `render_monthly_breakdown()`,
+2. **How the numbers above fit together** -- `funnel_bars()`, three bars on one shared
+   scale, directly under the cards because it explains them. Each row starts at the same
+   left edge and spans exactly the carried segment of the row above it, so **the
+   narrowing is the arithmetic**: a reader checks it by reading two bar ends against
+   each other rather than adding three numbers. Verified in pixels, not by eye -- row
+   two's bar ends at 1230 where row one's carry ends at 1230, row three's at 1117 where
+   row two's carry ends at 1117.
+
+   **`funnel_levels()` is the one source for the cards AND the chart.** The eight card
+   figures were computed inline in the page; a chart recomputing them a few lines below
+   is a second implementation of the page's own headline numbers, which is exactly the
+   fault `card_details()` exists to avoid. The third level comes from `_miss_parts()`,
+   so the three stages stay a partition by construction however the taxonomy grows.
+
+   **Colour says one thing: did this email stop here, or carry on.** The carried segment
+   is an **outlined box** (`--panel2` fill, `--line2` edge), not a filled one -- it is
+   not a category, it is the part of the bar the next row explains. That is a
+   correction a screenshot forced: it was a solid `#2d3542` sitting beside the `#515a68`
+   of `Reported, but wrong` on the same row, and the 17 read as a lighter continuation
+   of the carry rather than as the thing that stopped there. **Two greys adjacent cannot
+   both mean something.** Every leaf keeps the colour that email already wears on this
+   page -- `--teal` and `#515a68` straight off `MONTH_PARTS`, and `--blue` / `BLUE_RAMP`
+   / `--red` for the three stages, the same blue/blue/red the cards print.
+
+   **`_on_fill()` picks each label's colour from its own fill's luminance.** The house
+   rule is that an in-bar label wears `--panel` -- right for every light fill and exactly
+   wrong for a dark one, and this chart carries both: the 9 sat on `BLUE_RAMP[2]` at
+   about 2:1. Deciding per fill means a palette edit cannot silently strand a label.
+   One cost is measured and accepted: `#4e7bb8` is 3.8:1 against dark and 3.9:1 against
+   light, under the floor either way, and `BLUE_RAMP` holds no third blue both readable
+   and distinguishable from `--blue`. Legal on secondary encoding only -- hover, legend
+   and a caption printing all three stages. **Do not instead merge the two Product
+   stages**; that throws away the part of the number that says who acts on it.
+
+   **This is also where `42 + 9 + 35 = 86` came back**, in the caption, having been
+   removed from under the cards on the owner's earlier call. That is the owner reversing
+   their own call and is recorded as such. What was objected to then was a bare line of
+   arithmetic restating the row; what is here is a chart that shows the joins, with the
+   equations as its reconciliation caption.
+3. **Month by month: what came in, and where it failed** -- `render_monthly_breakdown()`,
    moved here from sixth on the owner's call. It is the view a VP comes to this page
    for, and it sat behind five other blocks.
 
@@ -993,6 +1038,21 @@ built from, not the sum of the strings in it.
    piece of session state; two pages sharing it would have a month opened here open
    again on Monthly trend.
 
+   **That guard was broken for as long as it existed, by a shadowed loop variable.**
+   `monthly_stack(frame, key=None)` built its traces with `for key, colour, meaning in
+   MONTH_PARTS`, which rebinds the parameter: after the loop `key` was always
+   `"Inquiries"`, the last entry in `MONTH_PARTS`, whatever the caller passed. So
+   `if not key` could never fire and the plain non-clickable chart was **unreachable
+   code** -- every caller got a click handler -- and the chart's widget key was the
+   literal string `"Inquiries"`, so the one piece of session state documented as
+   belonging to exactly one page was filed under a name no page chose. Neither had a
+   visible symptom, because only one page draws the chart. The loop variable is `part`
+   now. **A parameter named for what a loop iterates over is a parameter a loop will
+   eat** -- and nothing on screen says so.
+
+   It was found by probing the live DOM for `st-key-monthly-stack` and getting zero
+   elements while `st-key-Inquiries` returned one.
+
    The dialog is **`width="large"`**, the one departure from `medium` on this dashboard.
    `large` was rejected for the card popups because a line of prose stretches past
    1200px and nobody tracks it back to its start -- cards and bars have no such problem,
@@ -1074,7 +1134,18 @@ any of them. **No donut is drawn anywhere on this dashboard now**, so a reader
 wanting one back is asking for `components.donut()` restored from history, not for a
 new chart type.
 
-3. **Why the events were missed** -- two tiers, and the page's headline above both:
+**And a donut was then asked for again, and the answer was the funnel bars below.**
+The owner's reason was the right one -- *"just by looking at the cards a user might
+have to sit and do the additions"* -- and a ring still cannot serve it. **The eight
+cards are a three-level NEST, not one partition**: 127 = 103 + 24, then 103 = 86 + 17,
+then 86 = 42 + 9 + 35. A donut draws one whole split into parts, so covering this takes
+three rings -- one more than had just been removed -- with nothing joining them, and
+the reader is still carrying 103 from the first ring to the second, which is the
+addition the block exists to remove. **Reach for a funnel, a nest or a cascade when the
+parts of one level are the whole of the next; reach for a ring only when there is
+exactly one whole.**
+
+4. **Why the events were missed** -- two tiers, and the page's headline above both:
    *N of 78 misses never entered our system*, computed from the source and keyword
    buckets so it cannot go stale. That sentence is the number Product sizes the
    source-and-keyword problem with; what to buy against it is deliberately not on the
@@ -1151,7 +1222,7 @@ new chart type.
    reads `g.hoverlayer`'s text back. That tests the hovertemplate and its customdata,
    which is the part that can actually be wrong. The clipping was only visible in a
    screenshot taken while the label was up.
-4. **Customers impacted** -- `miss_by_customer()`, the eight worst as a stacked bar and
+5. **Customers impacted** -- `miss_by_customer()`, the eight worst as a stacked bar and
    **every** account in a scrolling table. The row carries **both bases**: `Emails` with
    `Complaints` and `Inquiries` beside it (every email that named the account), then the
    failure columns and `Misses` (confirmed misses only, a smaller number from a different
@@ -1180,7 +1251,7 @@ new chart type.
    **The general rule: a total row is a reconciliation, not a sum.** Where the rows
    double-count on purpose, the foot has to carry the figure the rest of the dashboard
    uses, and the caption has to say why they differ.
-5. **Complaints by event type** -- two charts and one table. `all_event_types()` is
+6. **Complaints by event type** -- two charts and one table. `all_event_types()` is
    every email by the kind of event it was about; `missed_event_types()` is the confirmed
    misses only. Neither is readable alone: nine misses is a different fact depending on
    whether ten emails named that event type or forty.

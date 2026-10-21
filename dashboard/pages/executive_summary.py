@@ -33,8 +33,8 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from dashboard.filters import filter_note
-from dashboard.metrics import _miss_parts, card_details, trend_windows
-from dashboard.components import add_rule, clickable_kpis, detail_panel, page_header
+from dashboard.metrics import card_details, funnel_levels, trend_windows
+from dashboard.components import add_rule, add_section, clickable_kpis, detail_panel, funnel_bars, page_header
 from dashboard.sections import render_customers, render_event_types, render_monthly_breakdown, render_root_cause
 
 
@@ -53,17 +53,18 @@ def _open_card(details, key):
 
 def render(df, filtered, selected_page):
     page_header(selected_page); page = filtered; filter_note()
-    issue = page.get("Issue Type", pd.Series(dtype=str)).astype(str).str.strip()
-    flag = page.get("Missed_Flag", pd.Series(dtype=str)).astype(str).str.strip()
-    complaints = int(issue.eq("Complaint").sum()); inquiries = int(issue.eq("Inquiry").sum())
-    total = max(len(page), 1)
-    missed = int(flag.eq("Yes").sum())
-    not_a_miss = int((issue.eq("Complaint") & flag.ne("Yes")).sum())
-    # The three stages a missed event can stop at, from `_miss_parts()` -- the same
-    # function the popups use, so a card and the panel it opens can never disagree.
-    part = _miss_parts(page)
-    never = int((part["source"] | part["keyword"]).sum())
-    lost = int(part["platform"].sum())
+    # One call, and the cards below are drawn from it as well as the chart under them.
+    # These eight figures used to be computed inline here; a funnel chart recomputing
+    # them beside the cards would be a second implementation of the page's own headline
+    # numbers, waiting to disagree with the first.
+    f = funnel_levels(page)
+    complaints, inquiries = f["complaints"], f["inquiries"]
+    total = max(f["emails"], 1)
+    missed, not_a_miss = f["missed"], f["wrong"]
+    # The three stages a missed event can stop at, from `_miss_parts()` by way of
+    # `funnel_levels()` -- the same function the popups use, so a card, the panel it
+    # opens and the funnel under it can never disagree.
+    never, lost = f["never"], f["lost"]
     # Owner-based, NOT a bucket index. Reading one `MISS_BUCKETS` rule meant the card
     # counted only the sub-types that rule happens to name, so a People miss whose
     # sub-type moved out of it -- `Prioritization` becoming `Published Late`, `Review`
@@ -71,7 +72,7 @@ def render(df, filtered, selected_page):
     # miss on every other page. Every People-rooted miss is one an analyst had, by
     # definition, which is both the honest reading and the one a new sub-type cannot
     # go stale against.
-    seen = int(part["analyst"].sum())
+    seen = f["seen"]
     rate, band = trend_windows(page)
     # Eight cards in two rows of four, not eight across: eight in one row is 180px each
     # at the width this is read at, and the number -- the only part anyone reads from
@@ -95,10 +96,10 @@ def render(df, filtered, selected_page):
     # The whole card opens its own breakdown; there is no separate control. See
     # `clickable_kpis()` for why that is an overlaid button and not a link.
     details = {c["key"]: c for c in card_details(page)}
-    opened = clickable_kpis([("Customer emails", len(page), f"{complaints} complaints · {inquiries} inquiries", "#8ab4f8"),
-          ("Complaints", f"{complaints} of {len(page)}",
+    opened = clickable_kpis([("Customer emails", f["emails"], f"{complaints} complaints · {inquiries} inquiries", "#8ab4f8"),
+          ("Complaints", f"{complaints} of {f['emails']}",
            f"{complaints / total * 100:.0f}% of what customers sent us", "#f6c177"),
-          ("Confirmed misses", f"{missed} of {len(page)}",
+          ("Confirmed misses", f"{missed} of {f['emails']}",
            "we did not get the event to them in time", "#f28b82"),
           ("Complaints, not a miss", f"{not_a_miss} of {max(complaints, 1)}",
            "we did report it; something else was wrong", "#80cbc4")],
@@ -121,6 +122,27 @@ def render(df, filtered, selected_page):
     opened = opened or second
     if opened:
         _open_card(details, opened)
+
+    # The eight cards above are three nested splits, and the nesting is the part they
+    # cannot show: a reader meeting 127, 103, 86 and then 42 / 9 / 35 has to add
+    # numbers standing up to see how they join. Here every row starts at the same left
+    # edge, so row two's whole bar spans row one's grey segment and row three's spans
+    # row two's -- the narrowing is the arithmetic, read off two bar ends rather than
+    # done in the reader's head.
+    #
+    # It is NOT a donut, and that was asked for. A ring draws one whole split into
+    # parts; this is three wholes, each nested in the one before, so it would take three
+    # rings with nothing joining them and the carry from ring to ring would still be the
+    # reader's job. The shape has to show the nest or it has not answered the question.
+    add_section("How the numbers above fit together", "", "#8ab4f8")
+    funnel_bars(f["levels"])
+    st.caption(
+        f"**Each bar is the grey segment of the bar above it.** "
+        f"{f['emails']} emails = {complaints} complaints + {inquiries} inquiries. "
+        f"{complaints} complaints = {missed} confirmed misses + {not_a_miss} reported, "
+        f"but wrong. {missed} misses = {never} never reached us + {lost} lost before an "
+        f"analyst + {seen} an analyst saw. Every figure here is the one on the card "
+        f"above it, from the same function, so the two cannot disagree.")
 
     add_rule()
     # Section 2 on the owner's call, and the block this page is read for. "Is it
