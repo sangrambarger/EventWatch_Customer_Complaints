@@ -98,6 +98,56 @@ def main() -> int:
                 proc.kill()
 
 
+def dialog_problems(page) -> list[str]:
+    """Open a month panel, dismiss it, then open a card panel, on one page load.
+
+    Every check above this one loads a page and counts what it drew. Nothing clicked
+    anything, so the two `st.dialog` panels on the Executive Summary -- which exist
+    only after a click -- were outside the gate entirely, and a crash in them reached
+    the deployed dashboard: a plotly selection is sticky, so a month clicked once went
+    on being reported on every later rerun, and the next card click opened a second
+    dialog in the same script run. Streamlit permits one and raises
+    `StreamlitInvalidLayoutContextError`, which took the whole page down.
+
+    The sequence is the point, not either click on its own. Each opens cleanly in
+    isolation; only month-then-card reproduces it, so the check has to carry both in
+    that order against one session's state.
+    """
+    out: list[str] = []
+    try:
+        page.get_by_text("Executive Summary", exact=True).first.click()
+    except Exception as exc:
+        return [f"dialogs: Executive Summary not reachable ({type(exc).__name__})"]
+    page.wait_for_timeout(2500)
+
+    bars = page.locator(".js-plotly-plot .barlayer .point")
+    if not bars.count():
+        return ["dialogs: no month bars to click on Executive Summary"]
+    bars.nth(2).click(force=True)
+    page.wait_for_timeout(3000)
+    if not page.locator('[role="dialog"]').count():
+        out.append("dialogs: clicking a month opened no panel")
+    page.keyboard.press("Escape")
+    page.wait_for_timeout(2000)
+
+    cards = page.locator('[class*="st-key-kpi"] button')
+    if not cards.count():
+        return out + ["dialogs: no KPI card buttons on Executive Summary"]
+    cards.first.click()
+    page.wait_for_timeout(3000)
+
+    if page.locator('[data-testid="stException"]').count():
+        line = next((l for l in page.inner_text("body").split("\n")
+                     if "Error" in l), "exception container")
+        out.append(f"dialogs: month-then-card raised -- {line[:140]}")
+    elif not page.locator('[role="dialog"]').count():
+        out.append("dialogs: clicking a card after a month opened no panel")
+
+    status = "ok" if not out else "; ".join(s.split(": ", 1)[1] for s in out)
+    print(f"{'Card and month dialogs':34s} {'':16s}{status}")
+    return out
+
+
 def run_checks(url: str) -> int:
     try:
         from playwright.sync_api import sync_playwright
@@ -162,6 +212,7 @@ def run_checks(url: str) -> int:
             if issues:
                 problems.append(f"{name}: {status}")
 
+        problems += dialog_problems(page)
         browser.close()
 
     if problems:

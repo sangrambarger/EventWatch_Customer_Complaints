@@ -926,6 +926,28 @@ built from, not the sum of the strings in it.
    hovertemplate carrying `%{x}` reads "May 2026 · 9 product miss" under a heading that
    says May 2026.
 
+   **Only one `st.dialog` may open per script run, and a plotly selection is sticky.**
+   `st.plotly_chart(on_select="rerun")` goes on reporting the clicked month on every
+   later rerun for the life of the session, so a month clicked once and then any card
+   clicked afterwards opened two dialogs in one run. Streamlit raises
+   `StreamlitInvalidLayoutContextError: Only one dialog is allowed to be opened at the
+   same time`, and because the raise happens inside `render()` nothing below it draws
+   -- the whole Executive Summary goes down, on the deployed app, after one ordinary
+   pair of clicks. `render_monthly_breakdown()` therefore remembers the month it last
+   acted on in `st.session_state["monthly-stack-opened"]` and opens only on the run
+   where the selection **changes**; `None` is stored too, so clearing the selection
+   re-arms the same month. That also stops a dismissed panel re-opening on the next
+   filter change. **Any new dialog on a page that already has one has to answer the
+   same question: can both fire in a single run.**
+
+   **`smoke_app.dialog_problems()` is why that cannot ship again.** Every other check
+   in that script loads a page and counts what it drew, so a panel that exists only
+   after a click was outside the gate entirely -- which is exactly how this reached the
+   dashboard. It clicks a month, dismisses it, then clicks a card, in that order
+   against one session's state: **the sequence is the bug**, each click is clean on its
+   own. Verified the way `selftest.py` verifies a rule -- reverted the fix and watched
+   the gate fail with the real error, then restored it and watched it pass.
+
    **`audit_pages.month_panel_problems()` is what keeps the dialogs honest.** A month
    panel is only in the DOM once a reader clicks, so the scrape never sees it -- the
    same hole `card_detail_problems()` closed for the eight cards. The panel reuses the
