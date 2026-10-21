@@ -772,10 +772,10 @@ def trend_line(trend, title=""):
     fig.add_scatter(x=x, y=list(months["Lower"]), mode="lines",
                     line=dict(color=CAT_SLATE, width=1.5, dash="dash"),
                     fill="tonexty", fillcolor=_rgba(CAT_SLATE, 0.07),
-                    name="Normal variation", hoverinfo="skip")
+                    name="Usual swing", hoverinfo="skip")
     fig.add_scatter(x=x, y=[trend["centre"]] * len(x), mode="lines",
                     line=dict(color=CAT_SLATE, width=1, dash="dot"),
-                    name=f"Average {trend['centre']:.0f}%", hoverinfo="skip")
+                    name=f"Year average {trend['centre']:.0f}%", hoverinfo="skip")
     fig.add_scatter(
         x=x, y=list(months["Rate"]), mode="lines+markers+text",
         line=dict(color=BLUE_RAMP[4], width=2.5),
@@ -786,7 +786,7 @@ def trend_line(trend, title=""):
         text=[f"{r:.0f}%" for r in months["Rate"]], textposition="top center",
         textfont=dict(size=11, color="#b6beca"),
         customdata=[[int(m), int(e)] for m, e in zip(months["Misses"], months["Emails"])],
-        name="Miss rate",
+        name="Miss rate each month",
         hovertemplate="%{y:.0f}% — %{customdata[0]} of %{customdata[1]} emails<extra></extra>")
     fig.update_layout(
         template="plotly_dark", plot_bgcolor="#1b1f26", paper_bgcolor="#1b1f26",

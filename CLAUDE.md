@@ -844,7 +844,16 @@ spill cache on the Dashboard, which carried the old value.
 
 The page is a story in seven parts, separated by `add_rule()` -- a full-width hairline,
 because the heading card alone was not enough and two adjacent sections read as one.
-Every section is chart-then-table, in that order, so the eye learns the shape once.
+Every section is chart-then-table, in that order, so the eye learns the shape once --
+and **the table is collapsed**, behind a `Show the numbers` expander, so a reader meets
+the picture first and the grid only if they want it.
+
+**The prose between them was cut on the owner's instruction**, and the cut was broad:
+every `add_section` description on this page is now empty, the way the month chart's
+already was. What survives is the one computed caption under each block, because those
+reconcile figures rather than commenting on them. **A paragraph explaining a chart is a
+paragraph the chart has failed to be** -- write the chart better before writing another
+sentence under it.
 
 **The order is a reading order, not a granularity one, and that is a correction.** A
 coarse-to-fine sort was tried -- cards, rings, months, categories, event types, root
@@ -1091,11 +1100,20 @@ built from, not the sum of the strings in it.
    does, because a check that silently found no months would pass on every tracker. Ten
    panels, thirty assertions; seeding one wrong owner count fires all three levels.
 
-   **The table is a scroll box, not an expander.** A collapsed expander lays out at zero
-   height, so `innerText` reads empty and `audit_pages.py` silently stops reconciling
-   every row it hides -- eleven rows and the Total among them. `stickytotal` keeps the
-   foot on screen. If it ever does need to collapse, the expander has to come with a
-   line in the audit that opens it before scraping.
+   **The tables ARE expanders now, and the condition this file set was met in the same
+   commit.** On the owner's call every big table sits in a collapsed
+   `st.expander("Show the numbers")`, with its chart above it. A collapsed expander lays
+   out at zero height, so `innerText` reads empty and a gate goes on passing while
+   checking none of the rows it hides. `OPEN_EXPANDERS` in both `smoke_app.py` and
+   `audit_pages.py` sets `open` on every `<details>` before counting and again before
+   scraping -- re-run after each poll, because a Streamlit rerun rebuilds the element
+   and loses the flag.
+
+   **Proved, not assumed.** Measured on the live page: 6 expanders, 0 open by default,
+   and every table's `innerText` reads **0 characters** while collapsed against
+   544 / 260 / 955 / 2060 / 896 after the opener runs. That is exactly the blindness
+   this note warned about, now closed rather than merely described. `stickytotal` keeps
+   the monthly foot on screen inside its box.
 
    It is shared with **Monthly trend**, for the same reason every other shared block
    is: two pages drawing the same months from two copies is how they end up disagreeing.
@@ -1139,10 +1157,21 @@ parts of one level are the whole of the next; reach for a ring only when there i
 exactly one whole.**
 
 4. **Is it getting better** -- `render_trend()`: an arrow, the dashboard's only
-   time-series chart, and the months underneath. Set out in full under **"Is it getting
-   better"** below, with the two things that make it honest -- three-sigma control
-   limits so it reads flat on noise, and `_volume_caveat()` saying out loud that at
-   these monthly volumes the test can only ever detect an improvement.
+   time-series chart, and the months behind it. Set out in full below, with the two
+   things that make it honest -- three-sigma control limits so it reads flat on noise,
+   and `_volume_caveat()` saying out loud that at these volumes the test can only ever
+   detect an improvement.
+
+   **It is written for a VP, and the first cut was not.** The owner said they did not
+   understand the timeline, and that was a verdict on the wording rather than on the
+   statistics. A control chart is unreadable to anyone who has not met one, so: the
+   legend says **Usual swing** and **Year average**, not "Normal variation" and
+   "Average"; `trend_note()` answers in one sentence beginning **No change** / **Worse**
+   / **Better** rather than describing what a band is; and **one caption teaches the
+   whole chart** -- *"The shaded band is how much this number normally bounces about. A
+   month inside it means nothing changed; only a month outside is news."* Nothing on
+   screen says sigma, pooled or p-chart. That reasoning lives here, where the next
+   person to move the threshold will look for it.
 5. **Why the events were missed** -- two tiers, and the page's headline above both:
    *N of 78 misses never entered our system*, computed from the source and keyword
    buckets so it cannot go stale. That sentence is the number Product sizes the
@@ -1187,22 +1216,32 @@ exactly one whole.**
    text, in the column a VP actually looks for. `downloads()` strips the tags on the way
    out, so the CSV reads "Product 12 People 3" rather than a span.
 
-   **Bottom tier**: `root_drivers()` under each card, the top four drivers biggest first,
-   then one `Other` row -- unless the tail holds exactly one driver, which is shown by
-   name instead: "Other: 1 smaller driver: Industry Selection (1)" is longer than
-   "Industry Selection" and hides a name to save no space. All three charts pad their
-   axis to the longest list (`slots`)
+   **Bottom tier**: `root_drivers()` under each card -- **every driver, no `Other`**.
+   It used to name the top four and fold the tail into one `Other` whose hover listed
+   what was inside, and the owner asked where `Other` was still coming from. It is a
+   residue bucket, the exact thing `miss_categories()` refuses to have for the reason
+   given there: nobody can act on it, and a driver added tomorrow lands in it and is
+   never seen. The owners carry six and five drivers on the current data, which fits
+   without folding anything. `top` survives for a caller that wants a head and defaults
+   to the whole list. All three charts pad their axis to the longest list (`slots`)
    rather than stretching their bars to fill the panel: equal panel height with three
    different bar thicknesses compares shapes, not numbers. `takeaway()` states the
    finding underneath in one computed sentence, and `driver_table()` lists every driver
    with its meaning and a Total row -- it calls `root_drivers(top=99)`, so nothing is
    folded there and the chart's `Other` can always be looked up in full.
 
-   **`Other` names itself on hover.** An `Other` row on a leadership chart is only honest
-   if the reader can find out what is in it without leaving the chart, so its tooltip
-   lists every driver it swallowed with each one's count -- "2 smaller drivers: Portal
-   Visibility Issue (1), System Limitation (1)". Three things had to be true for that to
-   work, and two of them were not:
+   **`root_drivers()` groups on the Driver alone, never on the driver AND its meaning
+   text** -- and that was a live defect a VP would have met. Keyed on both, two
+   `(Root Cause, Sub-type)` pairs sharing a driver but carrying different plain-English
+   wording split into two bars with the same name: the People chart drew
+   **`People / Analyst Miss` twice, 26 and 2**, which is one label in two places and the
+   same fault the owner caught on `Event Identification`. It is one bar of 28 now. The
+   meaning shown is the biggest contributor's, because the bar is labelled by driver and
+   the sentence has to describe the rows actually in it. **Anything that aggregates on a
+   label groups on the label and nothing else** -- the rule this file already states for
+   `root_frame()`, `account_failures()` and `audit_pages.miss_buckets()`.
+
+   **The hover rules below were written for the `Other` row and still bind every bar:**
 
    * **`hovermode="y"`**, so the tooltip fires anywhere along the row rather than only on
      the bar. A one-miss bar is fourteen pixels wide, and `Other` and `Needs Review` are

@@ -153,6 +153,14 @@ def expectations(df: pd.DataFrame) -> dict[str, dict[str, int]]:
     }
 
 
+# Streamlit renders an expander as <details>; collapsed, its contents lay out at zero
+# height and `innerText` reads empty, so a gate would go on passing while silently
+# checking none of the rows inside. CLAUDE.md records that as the reason the monthly
+# table was a scroll box rather than an expander -- the tables are expanders now, so
+# this is the line that condition always required. Re-run after each poll, because a
+# Streamlit rerun rebuilds the element and loses the flag.
+OPEN_EXPANDERS = "document.querySelectorAll('details').forEach(d => {d.open = true})"
+
 SETTLE_MS = 1800          # Streamlit swaps the page body a beat after the click
 POLL_MS = 300
 POLL_DEADLINE_S = 25
@@ -206,6 +214,7 @@ def scrape(url: str, pages: list[str]) -> tuple[dict[str, list[list[list[str]]]]
         for name in pages:
             page.get_by_text(name, exact=True).first.click()
             page.wait_for_timeout(SETTLE_MS)
+            page.evaluate(OPEN_EXPANDERS)
             owed, last, stable = owed_tables(name), -1, 0
             deadline = time.time() + POLL_DEADLINE_S
             while True:
@@ -214,12 +223,15 @@ def scrape(url: str, pages: list[str]) -> tuple[dict[str, list[list[list[str]]]]
                 last = seen
                 if seen >= owed and stable >= STABLE_READS:
                     break
+                page.evaluate(OPEN_EXPANDERS)
                 if time.time() > deadline:
                     short.append(f"{name}: scraped {seen} table(s), the page owes {owed} -- "
                                  f"it never finished rendering, so this page was audited "
                                  f"on a fraction of what it draws")
                     break
                 page.wait_for_timeout(POLL_MS)
+            page.evaluate(OPEN_EXPANDERS)
+            page.wait_for_timeout(400)
             out[name] = page.eval_on_selector_all(
                 "table.excel-table",
                 "ts => ts.map(t => Array.from(t.querySelectorAll('tr'))"
@@ -415,7 +427,7 @@ def month_panel_problems(df: pd.DataFrame) -> tuple[list[str], int]:
                 problems.append(f"month panel {month!r}: {owner} card shows {got}, "
                                 f"the table says {want}")
         for owner, n in owners.items():
-            bars = root_drivers(part, owner, top=99)
+            bars = root_drivers(part, owner)
             total = int(bars["Misses"].sum()) if not bars.empty else 0
             if total != n:
                 problems.append(f"month panel {month!r}: {owner} driver bars sum to {total} "

@@ -415,8 +415,11 @@ DRIVERS = {
     ("Product", "Model Classification Defect"): ("Model Miss", "The model classified the story wrongly"),
 }
 
+# No `DRIVER_OTHER`. The driver charts used to fold their tail into one `Other`
+# row; they show every driver now, for the reason `miss_categories()` has no
+# residue bucket either -- nobody can act on `Other`, and a driver added
+# tomorrow would land in it and never be seen.
 NEEDS_REVIEW = "Needs Review"
-DRIVER_OTHER = "Other"
 
 # Who owns each root cause, in one line, as leadership reads it.
 ROOT_OWNERSHIP = {

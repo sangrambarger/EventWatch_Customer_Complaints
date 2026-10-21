@@ -62,6 +62,14 @@ EXPECTED: dict[str, tuple[int, int]] = {
     "Analysis": (10, 18),
 }
 
+# Streamlit renders an expander as <details>; collapsed, its contents lay out at zero
+# height and `innerText` reads empty, so a gate would go on passing while silently
+# checking none of the rows inside. CLAUDE.md records that as the reason the monthly
+# table was a scroll box rather than an expander -- the tables are expanders now, so
+# this is the line that condition always required. Re-run after each poll, because a
+# Streamlit rerun rebuilds the element and loses the flag.
+OPEN_EXPANDERS = "document.querySelectorAll('details').forEach(d => {d.open = true})"
+
 ERROR_TEXT = [
     "Traceback", "StreamlitAPIException", "KeyError", "ValueError", "AttributeError",
     "cannot be rendered", "required fields are missing",
@@ -211,6 +219,7 @@ def run_checks(url: str) -> int:
             # gate that passes on stale content, strictly worse than the short wait it
             # replaced. Settle first, then poll for the render to finish.
             page.wait_for_timeout(1800)
+            page.evaluate(OPEN_EXPANDERS)
             charts = tables = 0
             deadline = time.time() + 12
             while True:
@@ -219,6 +228,7 @@ def run_checks(url: str) -> int:
                 if (charts >= min_charts and tables >= min_tables) or time.time() > deadline:
                     break
                 page.wait_for_timeout(300)
+                page.evaluate(OPEN_EXPANDERS)
 
             exceptions = page.locator('[data-testid="stException"]').count()
             body = page.inner_text("body")
