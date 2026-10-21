@@ -620,19 +620,28 @@ def monthly_stack(frame, key=None):
     # text fits horizontally. The count is still on the hover and in the table.
     floor = max(top * 0.06, 2)
     fig = go.Figure()
-    for key, colour, meaning in MONTH_PARTS:
-        values = [int(v) for v in frame[key]]
+    # `part`, not `key`. This loop variable was named `key` and shadowed the parameter
+    # of the same name on the line above: after it ran, `key` was always "Inquiries" --
+    # the last entry in MONTH_PARTS -- whatever the caller passed. Two things broke
+    # silently. The `if not key` guard below could never fire, so the plain
+    # non-clickable chart was unreachable code and every caller got a click handler;
+    # and the chart's widget key was the literal string "Inquiries" rather than the
+    # caller's, so the one piece of session state this function documents as belonging
+    # to exactly one page was filed under a name no page chose. Only one page draws the
+    # chart today, which is why neither had a visible symptom yet.
+    for part, colour, meaning in MONTH_PARTS:
+        values = [int(v) for v in frame[part]]
         if not any(values):
             continue
         fig.add_bar(
-            x=months, y=values, name=MONTH_NAMES.get(key, key),
+            x=months, y=values, name=MONTH_NAMES.get(part, part),
             marker=dict(color=colour, line=dict(width=0)),
             text=[str(v) if v >= floor else "" for v in values], textposition="inside",
             insidetextanchor="middle", textfont=dict(size=12, color="#1b1f26"),
             # `hovermode="x unified"` already prints the month as the box's header, so a
             # row that repeats it reads "May 2026 · 9 product miss" under a heading that
             # says May 2026.
-            hovertemplate="%{y} " + esc(MONTH_NAMES.get(key, key).lower())
+            hovertemplate="%{y} " + esc(MONTH_NAMES.get(part, part).lower())
                           + f" — {esc(meaning)}<extra></extra>")
     for _, r in frame.iterrows():
         fig.add_annotation(
@@ -672,3 +681,157 @@ def monthly_stack(frame, key=None):
                             selection_mode="points")
     points = (event or {}).get("selection", {}).get("points", []) if event else []
     return fig, (str(points[0]["x"]) if points else None)
+
+
+# The funnel's palette, and every value is a token this stylesheet already owns.
+#
+# **Colour says one thing here: did this email stop at this row, or carry on.** A
+# segment that is opened up on the row below takes `--carry`, the structural grey the
+# table headers wear -- it is deliberately NOT a categorical hue, because it is not a
+# category: it is the part of the bar the next row explains. Everything that stops gets
+# a real colour, and each one is the colour that email already wears elsewhere on this
+# page: `--teal` for an inquiry and `#515a68` for a bulletin that landed and was wrong,
+# both straight off `MONTH_PARTS`, and the three stages in the capture family's two
+# steps of `BLUE_RAMP` and `--red` -- the same blue/blue/red the cards themselves print.
+#
+# The two capture stages are one family in two steps rather than two hues because both
+# mean "it never reached a person"; drawn in one blue they would be indistinguishable
+# where they sit adjacent, and in two unrelated hues they would claim to be unrelated.
+# The carry segment is `--panel2` with a `--line2` outline, which is an OUTLINED BOX
+# rather than a filled one -- and that is a correction a screenshot forced. It was a
+# solid `#2d3542`, one grey sitting beside the `#515a68` of `Reported, but wrong` on the
+# very same row, and the 17 read as a lighter continuation of the carry rather than as
+# the thing that stopped there. Two greys adjacent cannot both mean something. Drawn as
+# an empty box the row below fills, it stops competing with any leaf at all, and the one
+# solid grey on the chart means exactly one thing again.
+FUNNEL_CARRY = "#202631"
+FUNNEL_CARRY_EDGE = "#515a68"
+FUNNEL_COLOURS = {
+    "Inquiries": "#80cbc4",
+    "Reported, but wrong": "#515a68",
+    # `--blue` then one step down, not two steps in the middle of the ramp. The darker
+    # pair put the "9" on `BLUE_RAMP[2]` at about 2:1 against its own label -- and the
+    # lighter of the two is now exactly the `#8ab4f8` its card prints, so the stage and
+    # the card that opens it are the same blue rather than merely a related one.
+    "Never reached us": BLUE_RAMP[4],
+    "Lost before an analyst": BLUE_RAMP[3],
+    "An analyst saw it": ROOT_COLOURS["People"],
+}
+# **One cost, measured and accepted rather than waved through.** Every fill here clears
+# 4.5:1 against the label `_on_fill()` picks for it -- 7.8, 8.9, 6.9 and 6.3 -- except
+# `#4e7bb8`, which is 3.8 against dark and 3.9 against light and therefore under the
+# floor whichever way it is labelled. `BLUE_RAMP` holds no third blue that is both
+# readable and distinguishable from `#8ab4f8`, and the two Product stages have to be one
+# family in two steps, so the pair is forced. It is legal only on secondary encoding:
+# the segment carries its count on the hover, the legend names it, and the caption under
+# the chart prints all three stages in full. **If a third usable blue ever exists, this
+# is the first place to spend it** -- do not instead merge the two stages, which throws
+# away the only part of the number that says who acts on it.
+FUNNEL_MEANING = {
+    "Inquiries": "A question, not a complaint",
+    "Reported, but wrong": "It reached them in time; something about it was wrong",
+    "Never reached us": "No source carried it, or our keywords missed it",
+    "Lost before an analyst": "We had the story and no person ever saw it",
+    "An analyst saw it": "A person had it, and it still did not go out",
+}
+FUNNEL_CARRY_NAME = "Opened up on the row below"
+
+
+def _on_fill(colour):
+    """`--panel` or `--ink` for a label sitting ON a fill, whichever has the contrast.
+
+    The house rule is that an in-bar label wears `--panel` rather than `--ink` -- white
+    on `--red` is 2.2:1 where dark is 6.9:1. That rule is right for every light fill and
+    exactly wrong for a dark one, and this chart carries both: a dark label on the
+    mid-blue stage measured about 2:1. Deciding per fill rather than per chart means a
+    palette edit cannot silently strand a label again.
+    """
+    try:
+        r, g, b = (int(colour[i:i + 2], 16) / 255 for i in (1, 3, 5))
+    except (ValueError, IndexError):
+        return "#1b1f26"
+    chan = [c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4 for c in (r, g, b)]
+    lum = 0.2126 * chan[0] + 0.7152 * chan[1] + 0.0722 * chan[2]
+    # Contrast against #f3f4f6 (--ink) versus #1b1f26 (--panel), brighter wins.
+    return "#f3f4f6" if (lum + 0.05) / 0.062 < 0.945 / (lum + 0.05) else "#1b1f26"
+
+
+def funnel_bars(levels):
+    """The three-level nest of the eight cards, as three bars on one shared scale.
+
+    **A donut cannot draw this and that is why this is not one.** A ring shows one whole
+    split into parts; these are three wholes, each one the first segment of the one
+    above. Three rings would be three wholes with nothing joining them, and the reader
+    would still be carrying 103 from the first to the second -- which is the addition
+    this block exists to remove.
+
+    Here the join is geometric and needs no explaining: every row starts at zero on the
+    same axis, so row two's whole bar spans exactly row one's carried segment, and row
+    three's spans row two's. The narrowing IS the arithmetic. A reader who wants to check
+    it reads two bar ends against each other rather than adding three numbers.
+
+    Each trace carries zeros on the rows it does not belong to, which is what lets one
+    stacked figure hold rows with different segments. Trace order is therefore global:
+    the carried segments are added first so they sit leftmost on their own rows, and a
+    leaf's position among the other leaves is what orders it within its row.
+    """
+    if not levels:
+        st.info("Chart cannot be rendered because required fields are missing: Issue Type.")
+        return None
+    rows = [l["row"] for l in levels]
+    # Floored at 1, not just defaulted: a filter that matches nothing makes every level
+    # zero, and `range=[0, 0]` is a degenerate axis plotly draws as a broken chart
+    # rather than an empty one. `filter_note()` has already said the page is empty.
+    top = max([l["carried"] + sum(v for _, v in l["leaves"]) for l in levels] + [1])
+    fig = go.Figure()
+
+    def add(name, colour, values, meaning, legend=True, group=None):
+        if not any(values):
+            return
+        fig.add_bar(
+            y=rows, x=values, orientation="h", name=name,
+            marker=dict(color=colour,
+                        line=dict(width=1 if colour == FUNNEL_CARRY else 0,
+                                  color=FUNNEL_CARRY_EDGE)),
+            legendgroup=group or name, showlegend=legend,
+            # A segment under a twentieth of the widest bar cannot hold its own digits:
+            # plotly clips the text horizontally rather than dropping it, and a clipped
+            # "9" reads as a mark on the bar. The count stays on the hover either way.
+            text=[str(v) if v >= max(top * 0.05, 2) else "" for v in values],
+            textposition="inside", insidetextanchor="middle",
+            textfont=dict(size=13,
+                          color="#b6beca" if colour == FUNNEL_CARRY else _on_fill(colour)),
+            hovertemplate="%{x} — " + esc(meaning) + "<extra></extra>")
+
+    # The carried segments first, so they sit at the left of their own rows and the row
+    # beneath starts under the same edge. One legend entry between them: they are the
+    # same idea twice, and two entries reading the same words is a legend nobody trusts.
+    for i, level in enumerate(levels):
+        add(FUNNEL_CARRY_NAME, FUNNEL_CARRY,
+            [level["carried"] if j == i else 0 for j in range(len(levels))],
+            "This is the bar on the row below",
+            legend=(i == 0), group="carry")
+    for i, level in enumerate(levels):
+        for name, value in level["leaves"]:
+            add(name, FUNNEL_COLOURS.get(name, "#b6beca"),
+                [value if j == i else 0 for j in range(len(levels))],
+                FUNNEL_MEANING.get(name, name))
+
+    fig.update_layout(
+        barmode="stack", template="plotly_dark", plot_bgcolor="#1b1f26",
+        paper_bgcolor="#1b1f26", font=dict(color="#f3f4f6", size=13),
+        margin=dict(l=20, r=30, t=46, b=28), height=330, legend_title_text="",
+        # `traceorder="normal"` or a stacked chart lists its legend upside down against
+        # its own stack -- the same fact the month chart records.
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0, traceorder="normal"),
+        uniformtext=dict(minsize=10, mode="hide"), bargap=0.42)
+    # Top row first. Plotly builds a category axis bottom-up, so the order is reversed
+    # here rather than in the payload, which reads in the order the page does.
+    fig.update_yaxes(categoryorder="array", categoryarray=list(reversed(rows)),
+                     tickfont=dict(size=13, color="#f3f4f6"), gridcolor="#303846", title="")
+    # One scale on all three rows, pinned to the widest. Letting plotly autoscale each
+    # row would stretch every bar to the full panel, and the narrowing -- which is the
+    # whole point of the block -- would disappear.
+    fig.update_xaxes(range=[0, top], showticklabels=False, showgrid=False, title="")
+    st.plotly_chart(fig, width="stretch")
+    return fig

@@ -46,7 +46,10 @@ EXPECTED: dict[str, tuple[int, int]] = {
     # two blocks drew, and one of those blocks moved rather than went -- Analysis is up
     # by Nature's 1 and 1 in the same commit, which is what says it was moved and not
     # lost.
-    "Executive Summary": (6, 4),
+    # 7 not 6 since the funnel bars landed under the eight cards. It draws no table:
+    # its three equations are a computed caption, because a table of them would be the
+    # cards a third time in a fourth place.
+    "Executive Summary": (7, 4),
     "All customer emails": (0, 6),
     # Analysis is the merge of Root cause (4 charts, 12 tables) and Top customer
     # complaints (5, 5), plus Nature of complaints (1, 1) off the Executive Summary.
@@ -126,7 +129,13 @@ def dialog_problems(page) -> list[str]:
         return [f"dialogs: Executive Summary not reachable ({type(exc).__name__})"]
     page.wait_for_timeout(2500)
 
-    bars = page.locator(".js-plotly-plot .barlayer .point")
+    # Scoped to the month chart's own widget key, NOT to "the third bar on the page".
+    # It was the latter, and the funnel bars landing above it silently re-pointed this
+    # check at a segment that opens no dialog -- the click timed out and took the whole
+    # gate down with it. An index into every bar on a page is a selector that any new
+    # chart breaks; `st-key-monthly-stack` is the container Streamlit builds from the
+    # chart's own key, so only renaming that key can move it.
+    bars = page.locator('[class*="st-key-monthly-stack"] .js-plotly-plot .barlayer .point')
     if not bars.count():
         return ["dialogs: no month bars to click on Executive Summary"]
     bars.nth(2).click(force=True)
