@@ -41,13 +41,19 @@ CHROMIUM = "/opt/pw-browsers/chromium"
 # Lowering a minimum here is only correct once you have confirmed the missing chart is
 # a real absence in the data -- otherwise it is a gate being filed down to pass.
 EXPECTED: dict[str, tuple[int, int]] = {
-    "Executive Summary": (9, 7),
+    # 9/7 before the donuts and Nature of complaints left: the two rings and their two
+    # tables, and Nature's chart and table. Both numbers came DOWN by exactly what the
+    # two blocks drew, and one of those blocks moved rather than went -- Analysis is up
+    # by Nature's 1 and 1 in the same commit, which is what says it was moved and not
+    # lost.
+    "Executive Summary": (6, 4),
     "All customer emails": (0, 6),
     # Analysis is the merge of Root cause (4 charts, 12 tables) and Top customer
-    # complaints (5, 5). The minimum is their sum, because nothing was dropped in the
-    # merge -- only the duplicate page heading. If this number ever has to come DOWN,
-    # confirm the missing block is a real absence before lowering it.
-    "Analysis": (9, 17),
+    # complaints (5, 5), plus Nature of complaints (1, 1) off the Executive Summary.
+    # The minimum is their sum, because nothing was dropped in either move -- only the
+    # duplicate page heading. If this number ever has to come DOWN, confirm the missing
+    # block is a real absence before lowering it.
+    "Analysis": (10, 18),
 }
 
 ERROR_TEXT = [

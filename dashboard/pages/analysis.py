@@ -1,4 +1,4 @@
-"""Analysis -- the one drill-down tab: why we missed, and who it happened to.
+"""Analysis -- the one drill-down tab: why we missed, who it happened to, what they called it.
 
 Seven tabs became three on the owner's call. This page is the merge of what were Root
 cause and Top customer complaints, in that order and with their blocks unchanged. It
@@ -25,7 +25,7 @@ from dashboard.filters import filter_note
 from dashboard.metrics import count_table, customer_exposure
 from dashboard.components import add_rule, add_section, downloads, page_header, styled_table
 from dashboard.sections import (render_customers, render_deeper_root_cause,
-                                render_root_cause, source_page)
+                                render_nature, render_root_cause, source_page)
 
 
 def render(df, filtered, selected_page):
@@ -58,3 +58,11 @@ def render(df, filtered, selected_page):
                 f"account. Kept here so the two artefacts can be reconciled. The table above is the one that "
                 f"answers how many emails and questions a customer sent in.", "#b6beca")
     styled_table(exact, height=420); downloads(exact, "top_customers_exact")
+
+    # ---- off the Executive Summary, on the owner's call ---------------------------
+    # The customer's own vocabulary, folded onto the reason categories. It closed the
+    # summary and it is the coda to a different story here: the reader who met a figure
+    # they did not expect and wants the words behind it. Moved, not rewritten -- it is
+    # the same `render_nature()` the summary ran, so the two cannot have drifted.
+    add_rule()
+    render_nature(page)

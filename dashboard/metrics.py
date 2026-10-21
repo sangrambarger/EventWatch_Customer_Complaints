@@ -188,7 +188,6 @@ MISS_BUCKETS = (
     ("The model did not spot it", ("Review", "Model Classification Defect", "Analyst Review Miss"), ("Product",), "#f6c177",
      "The model had this event and did not flag it as reportable · Product"),
 )
-MISS_COLOURS = [c for _, _, _, c, _ in MISS_BUCKETS]
 
 
 def miss_bucket_series(df):
@@ -530,27 +529,6 @@ def account_headline(name, frame, page):
     return ". ".join(out) + "."
 
 
-def overview_split(df):
-    """Every email in three mutually exclusive parts: a failure, a complaint that was
-    not one, and a question.
-
-    This is the first thing a reader needs and no chart said it: not every complaint is
-    a miss, and not every email is a complaint.
-    """
-    cols = ["Category", "Records", "% of Total"]
-    if df.empty or not {"Issue Type", "Missed_Flag"} <= set(df.columns):
-        return pd.DataFrame(columns=cols)
-    issue = df["Issue Type"].astype(str).str.strip()
-    missed = df["Missed_Flag"].astype(str).str.strip().eq("Yes")
-    out = pd.DataFrame([
-        {"Category": "Confirmed misses", "Records": int(missed.sum())},
-        {"Category": "Complaints, not a miss", "Records": int((issue.eq("Complaint") & ~missed).sum())},
-        {"Category": "Inquiries", "Records": int(issue.eq("Inquiry").sum())},
-    ])
-    out["% of Total"] = (out["Records"] / max(len(df), 1) * 100).round(1).astype(str) + "%"
-    return out
-
-
 def root_summary(df):
     """Confirmed misses per root cause, biggest first, with each one's share.
 
@@ -671,27 +649,6 @@ def takeaway(df):
     return (f"Most confirmed misses are concentrated in <b>{esc(root)}</b> — "
             f"{misses} of {total}, {share:.0f}% — primarily driven by <b>{esc(named)}</b>.",
             colour)
-
-
-def miss_owner_split(df):
-    """The confirmed misses by who has to fix them, as the second ring.
-
-    Named `Product` / `People` / `Process`, the tracker's own values, so the ring and the
-    three cards below it speak one vocabulary -- it briefly read "The platform / Our
-    analysts / How we work" here and the tracker's names in the section underneath, which
-    is two words for one thing on one page. The ownership line rides on each slice's
-    hover instead, which is where the plain English belongs.
-    """
-    cols = ["Category", "Records", "% of Total"]
-    if df.empty or not {"Missed_Flag", "Root Cause"} <= set(df.columns):
-        return pd.DataFrame(columns=cols)
-    missed = df[df["Missed_Flag"].astype(str).str.strip().eq("Yes")]
-    if missed.empty:
-        return pd.DataFrame(columns=cols)
-    out = missed["Root Cause"].fillna("Blank").astype(str).str.strip().value_counts().reset_index()
-    out.columns = ["Category", "Records"]
-    out["% of Total"] = (out["Records"] / max(len(missed), 1) * 100).round(1).astype(str) + "%"
-    return out
 
 
 def miss_by_customer(df):

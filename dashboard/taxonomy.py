@@ -312,15 +312,6 @@ def labels_for(frame, subtype_col="Sub-type", root_col="Root Cause"):
     subs = frame[subtype_col].fillna("Blank").astype(str)
     return pd.Series([failure_label(r, s) for r, s in zip(roots, subs)], index=frame.index)
 
-# What each slice of the left ring means, for its hover.
-SPLIT_MEANING = {
-    "Confirmed misses": "The event did not reach the customer in time, and the "
-                        "investigation agreed it was our failure",
-    "Complaints, not a miss": "The customer asserted we failed; we did report it, and the "
-                              "issue turned out to be something else",
-    "Inquiries": "The customer asked how something works rather than asserting we failed",
-}
-
 
 def plain(value, mapping):
     """A taxonomy value in English, or the value itself if nothing maps it.
@@ -464,7 +455,7 @@ def owner_pills(counts):
     the reader parse two names and two numbers out of one run of text -- on the widest
     table on the page, where the owner is the column a VP actually looks for. One pill
     each, name and count set apart, coloured with the same three hues the root-cause
-    cards and both donuts use, so the owner is recognised before it is read.
+    cards and the month chart use, so the owner is recognised before it is read.
 
     This is the one place in `excel_bar_table` that writes HTML into a cell, and the
     strings are built here from `ROOT_COLOURS` keys -- never from anything a customer or

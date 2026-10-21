@@ -1,4 +1,23 @@
-"""Executive Summary -- The whole story in seven sections, in reading order."""
+"""Executive Summary -- the story in five sections, in reading order.
+
+Two sections left on the owner's call and neither was replaced, because both were
+saying something the page already said:
+
+* **The two donuts** ("What customers sent us"). The left ring was the three-way
+  split of the inbox, which the first row of cards prints as four figures with their
+  bases; the right ring was the misses by owner, which the month chart below segments
+  month by month and the root-cause cards state with their shares. Three tellings of
+  one split. `overview_split()`, `miss_owner_split()`, `donut()`, `SPLIT_COLOURS` and
+  `SPLIT_MEANING` went with it.
+* **Nature of complaints** moved to Analysis, unchanged. It is the customer's own
+  vocabulary folded onto the reason categories -- the thing a reader looks up when a
+  figure surprises them, which is what Analysis is for, and not a thing a VP reads
+  month by month.
+
+Nothing was deleted to make the page shorter. The test applied to both was the one
+`insights()` failed: a block that restates the page in different words is a block a
+reader has to reconcile against the one above it.
+"""
 from __future__ import annotations
 
 import html
@@ -13,12 +32,10 @@ import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 
-from dashboard.styles import ROOT_COLOURS, SPLIT_COLOURS
-from dashboard.taxonomy import ROOT_OWNERSHIP, SPLIT_MEANING
 from dashboard.filters import filter_note
-from dashboard.metrics import _miss_parts, card_details, miss_owner_split, overview_split, trend_windows
-from dashboard.components import add_rule, add_section, clickable_kpis, detail_panel, donut, downloads, excel_bar_table, kpis, page_header
-from dashboard.sections import render_customers, render_event_types, render_monthly_breakdown, render_nature, render_root_cause
+from dashboard.metrics import _miss_parts, card_details, trend_windows
+from dashboard.components import add_rule, clickable_kpis, detail_panel, page_header
+from dashboard.sections import render_customers, render_event_types, render_monthly_breakdown, render_root_cause
 
 
 
@@ -114,33 +131,9 @@ def render(df, filtered, selected_page):
     # key is one piece of session state and exactly one page may own it.
     render_monthly_breakdown(page, clickable=True)
 
-    add_rule()
-    add_section("What customers sent us", "Two rings over the same filter. The left one is every "
-                "email, split into the three things an email can be. The right one takes only the "
-                "confirmed misses and splits them by who has to fix it — so the first answers "
-                "\u201cis every complaint a failure\u201d and the second \u201cwhen we do fail, whose "
-                "problem is it\u201d. Hover any slice for what it means.", "#8ab4f8")
-    split, owners = overview_split(page), miss_owner_split(page)
-    left, right = st.columns(2)
-    with left:
-        st.markdown("**Every email we received**")
-        f_split = donut(split, colours=SPLIT_COLOURS, centre="customer<br>emails",
-                        meanings=SPLIT_MEANING)
-    with right:
-        st.markdown("**Only the confirmed misses**")
-        f_owner = donut(owners, colours=[ROOT_COLOURS.get(c, "#b6beca") for c in owners["Category"]],
-                        centre="confirmed<br>misses",
-                        meanings=ROOT_OWNERSHIP) if not owners.empty else None
-    if not split.empty:
-        excel_bar_table(split, "Category", label_head="Every email", value_head="Emails")
-        downloads(split, "email_split", f_split)
-    if not owners.empty:
-        excel_bar_table(owners, "Category", label_head="Who fixes the miss", value_head="Misses")
-        downloads(owners, "miss_owner_split", f_owner)
-
     # The order is the owner's, and it is a reading order rather than a granularity one:
-    # why we missed, who it hit, what kind of event, when it arrived, and last what the
-    # customer themselves called it. A pure coarse-to-fine sort was tried and put
+    # what arrived and when it failed, why we missed, who it hit, and what kind of event
+    # it was. A pure coarse-to-fine sort was tried and put
     # Customers impacted at the foot of the page on the width of its table; the owner's
     # call is that it is the section a reader comes here for, so it sits fourth, directly
     # under the failure analysis it belongs to. `render_deeper_root_cause` is NOT on this page --
@@ -154,6 +147,3 @@ def render(df, filtered, selected_page):
 
     add_rule()
     render_event_types(page)
-
-    add_rule()
-    render_nature(page)
