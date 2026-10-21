@@ -23,7 +23,7 @@ import streamlit as st
 from dashboard.styles import esc
 from dashboard.taxonomy import ROOT_OWNERSHIP, name_subtypes, plural
 from dashboard.filters import customer_names, filter_note, names_match
-from dashboard.metrics import MISS_BUCKETS, account_failures, account_headline, count_table, customer_totals, driver_table, event_type_flow, event_type_note, event_type_pairs, miss_by_customer, miss_categories, miss_colours, miss_trend, monthly_breakdown, monthly_note, monthly_table, nature_table, owner_accounts, owner_insight, root_drivers, root_frame, root_recent_note, root_summary, subtype_matrix, takeaway, trend_note, trend_windows
+from dashboard.metrics import MISS_BUCKETS, account_failures, account_headline, count_table, customer_totals, driver_table, event_type_flow, miss_by_customer, miss_categories, miss_colours, miss_trend, monthly_breakdown, monthly_note, monthly_table, nature_table, owner_accounts, owner_insight, root_drivers, root_frame, root_recent_note, root_summary, subtype_matrix, takeaway, trend_note, trend_windows
 from dashboard.components import add_section, chart, downloads, driver_bar, excel_bar_table, flow_bar, grouped_bar, heatmap, kpis, monthly_stack, page_header, proportion_bar, stacked_bar, styled_table, trend_line
 
 
@@ -509,16 +509,21 @@ def render_event_types(page):
         # reading of two rankings of one population drawn as though they were a
         # comparison.
         f_flow = flow_bar(flow, "Event type", x_title="Customer emails")
-        pairs = event_type_pairs(page)
-        if not pairs.empty:
+        # The table is the SAME columns the month table prints, from the same function.
+        # It used to carry `Complaints / Inquiries / Emails / Misses` under a chart split
+        # `Product / Analyst / Process / Wrong / Inquiry` -- a chart and the table beneath
+        # one heading saying two different things, which is the fault this file keeps
+        # recording. A reader who has learned the month block has now learned this one.
+        table = monthly_table(flow, label_col="Event type")
+        if not table.empty:
             with st.expander("Show the numbers"):
-                excel_bar_table(pairs, "Event type", value_col="Misses",
-                                extras=["Complaints", "Inquiries", "Emails"],
+                excel_bar_table(table, "Event type", value_col="Misses",
+                                extras=[c for c in table.columns
+                                        if c not in ("Event type", "Misses")],
                                 label_head="Event type", value_head="Confirmed misses",
-                                variant="roomy",
-                                caption="**Emails = Complaints + Inquiries.** Confirmed misses is "
-                                        "a subset of the complaints, not a third part of the split.")
-            downloads(pairs, "event_types", f_flow)
+                                variant="roomy", total_row=False, classes={"Event type": "nowrap"},
+                                caption=monthly_note(flow, unit="event type"))
+            downloads(table, "event_types", f_flow)
 
 
 def _volume_caveat(trend):

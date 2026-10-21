@@ -1288,53 +1288,43 @@ exactly one whole.**
    **The general rule: a total row is a reconciliation, not a sum.** Where the rows
    double-count on purpose, the foot has to carry the figure the rest of the dashboard
    uses, and the caption has to say why they differ.
-7. **Complaints by event type** -- **one** chart and one table. `event_type_flow()` and
-   `flow_bar()`: a row per event type, split the way the month chart splits a month --
-   Product / Analyst / Process / Reported, but wrong / Inquiry, same five segments, same
-   colours, same order, straight off `MONTH_PARTS`. A row's length is how much arrived
-   and its colour is where it failed. Ranked by misses, so the event types we are worst
-   at sit at the top rather than the ones we merely receive a lot of.
+7. **Complaints by event type** -- **one** chart and one table, and they now print the
+   same columns. `event_type_flow()` and `flow_bar()`: a row per event type, split the
+   way the month chart splits a month -- Product / Analyst / Process / Reported, but
+   wrong / Inquiry, same five segments, same colours, same order, straight off
+   `MONTH_PARTS`. A row's length is how much arrived and its colour is where it failed.
+   Ranked by misses, so the event types we are worst at sit at the top rather than the
+   ones we merely receive a lot of.
 
    **It replaced two near-identical ranked bars and the owner said the block confused
    them.** One charted every email by event type, the other the confirmed misses, side
    by side: the same twenty-odd labels down both axes, in two different orders, leaving
    the reader to join "nine misses" to "sixteen emails" themselves. That is the correct
    reaction to two rankings of one population drawn as though they were a comparison.
-   `all_event_types()` and `missed_event_types()` went with them -- no caller left.
+   `all_event_types()` and `missed_event_types()` went with them.
 
    It immediately showed something both old charts hid: **Extreme Weather is 3 analyst
    misses against 5 delivered-but-wrong**, a shape no ranking of either population alone
    could have said.
 
-   The reasoning the two charts rested on is kept because it is still true and is now
-   served better: nine misses is a different fact depending on whether ten emails named
-   that event type or forty. One stacked row carries both.
+   **Every event type is drawn, and the head it replaced was a silent residue.** The
+   first cut took `top=12` of twenty-six, which dropped **24 emails and 10 of the 86
+   misses** with nothing on screen saying so -- `Other` in another costume, and worse,
+   because a folded `Other` at least prints its own total. Eight of the fourteen hidden
+   types carried a confirmed miss. The plot cap went 760px to 1180px to hold the list;
+   at 760 the twenty-six rows squeezed to 24px and the labels collided. **A long ranked
+   list is the honest shape** -- the alternative is the head that hid a tenth of the
+   misses.
 
-   **One split per table.** `event_type_pairs()` briefly carried `Reported timely` and a
-   `Miss rate` as well, which put **two different partitions of the same 16 emails on one
-   row** -- 14 complaints + 2 inquiries, and 13 misses + 3 reported timely. A reader lands
-   on 14 against 13, tries to reconcile them, and cannot, because they are not the same
-   cut. The page's owner read that as broken arithmetic, which is the correct reading of
-   two partitions printed as one table. The columns are now
-   **Emails = Complaints + Inquiries**, and the caption names the misses column as a
-   **subset of the complaints** rather than a third part of the split, with the Factory
-   Fire row spelled out: 14 complaints of which 13 were misses, the fourteenth reported
-   and complained about for some other reason.
+   **The table is `monthly_table(flow, label_col="Event type")`, the month block's own
+   function.** It used to be `event_type_pairs()` printing `Complaints / Inquiries /
+   Emails / Misses` under a chart split `Product / Analyst / Process / Wrong /
+   Inquiry` -- a chart and the table beneath one heading saying two different things,
+   which is the fault this file keeps recording in other words. One function now, so a
+   reader who has learned the month table has learned this one, and the two cannot
+   drift. `monthly_note(flow, unit="event type")` prints the same three-line nest.
+   `event_type_pairs()` and `event_type_note()` are gone -- no caller left.
 
-   **The general rule: a table carries one partition.** A second one that happens to sum
-   to the same total is not extra information, it is an invitation to subtract two
-   numbers that do not belong to each other. Put it in its own table or name it as a
-   subset.
-
-   **`event_type_note()` works the biggest event type through, and every figure in it is
-   computed.** The caption used to end "the fourteenth was reported, and the customer
-   wrote in about something else on it", and the owner asked the obvious question: what
-   else. A caption that waves at a category without naming it is the fault it was written
-   to prevent. It now names the customer's **own `Reason` wording**, not the folded
-   category -- "Classified wrongly" is still a bucket name, where *Incorrect Industry
-   selection* says we reported the fire and the Automotive tag was missing, which is a
-   different complaint from not reporting it. Three wordings at most, then "and N other
-   reasons", and it follows the filter so it cannot go stale.
 **Is it getting better** is section 3 of the Executive Summary again, and it is the
 dashboard's **first and only time-series chart**. `miss_trend()` / `trend_line()` /
 `trend_note()`.
@@ -1629,6 +1619,13 @@ ever mean "nobody decided".
 Talking an unmapped pair into the nearest plausible heading is how a taxonomy stops
 meaning anything, and burying it in `Other` is how a mis-filed row stays mis-filed.
 `Needs Review` is a data-quality signal, so it is always its own row.
+
+**And a silent `top=N` is the same fault wearing a different hat.** `Other` at least
+prints its own total; a head prints nothing and the reader cannot tell the list ended
+early. Both have shipped here and both were removed in the same week -- the driver
+charts' `Other`, and the event-type chart's top twelve of twenty-six, which hid 24
+emails and 10 of the 86 misses. **Before capping a ranked chart, compute what the cap
+drops** -- if it carries a miss, it carries the reader's question.
 
 **It found three mis-filed rows on its first run.** All three were data faults rather
 than gaps in the map -- the `Sub-type` did not describe what had failed -- and **all three

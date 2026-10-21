@@ -853,7 +853,10 @@ def flow_bar(frame, label_col, title="", x_title="Customer emails"):
         margin=dict(l=20, r=40, t=54, b=28), legend_title_text="",
         legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0, traceorder="normal"),
         uniformtext=dict(minsize=9, mode="hide"), hovermode="y unified",
-        height=max(340, min(760, len(rows) * 34 + 140)))
+        # The cap was 760px when this drew a top twelve. It draws all twenty-six now,
+        # and 760 squeezed them to 24px a row with the labels colliding. A long ranked
+        # list is the honest shape -- the alternative was the silent head this replaced.
+        height=max(340, min(1180, len(rows) * 30 + 150)))
     # Longest bar at the top. Plotly builds a category axis bottom-up, so the frame's
     # own order (already sorted by misses) is reversed here rather than in the data.
     fig.update_yaxes(categoryorder="array", categoryarray=list(reversed(rows)),

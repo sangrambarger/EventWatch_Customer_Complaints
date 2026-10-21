@@ -723,40 +723,6 @@ def customer_totals(df):
     return totals, overshoot
 
 
-def event_type_pairs(df):
-    """Event type by emails AND confirmed misses on one row, with the miss rate.
-
-    The two tables on their own leave the reader subtracting: this is the column that
-    says which event types we are actually bad at, as against the ones we merely get a
-    lot of. The rate carries its own base, because 100% of one email is not a finding.
-    """
-    # ONE split per table. This carried `Reported timely` and a `Miss rate` as well, so
-    # a reader met two different partitions of the same 16 emails -- 14 complaints + 2
-    # inquiries, and 13 misses + 3 reported timely -- and tried to reconcile 14 against
-    # 13, which do not reconcile because they are not the same cut. The page owner read
-    # it as broken arithmetic, which is the correct reading of two partitions printed as
-    # one table. Emails = Complaints + Inquiries, and the misses column is named in the
-    # caption as a SUBSET of the complaints rather than a third part of the split.
-    cols = ["Event type", "Complaints", "Inquiries", "Emails", "Misses", "% of Total"]
-    if df.empty or not {"Event type", "Missed_Flag"} <= set(df.columns):
-        return pd.DataFrame(columns=cols)
-    frame = df.copy()
-    frame["Event type"] = frame["Event type"].fillna("Blank").astype(str).str.strip()
-    frame["_miss"] = frame.get("Missed_Flag", pd.Series(dtype=str)).astype(str).str.strip().eq("Yes")
-    issue = frame.get("Issue Type", pd.Series("", index=frame.index)).astype(str).str.strip()
-    rows = []
-    for value, group in frame.groupby("Event type"):
-        misses = int(group["_miss"].sum())
-        rows.append({"Event type": value, "Emails": len(group),
-                     "Complaints": int(issue.loc[group.index].eq("Complaint").sum()),
-                     "Inquiries": int(issue.loc[group.index].eq("Inquiry").sum()),
-                     "Misses": misses})
-    out = pd.DataFrame(rows).sort_values(["Misses", "Emails"], ascending=False).reset_index(drop=True)
-    total = max(int(out["Misses"].sum()), 1)
-    out["% of Total"] = (out["Misses"] / total * 100).round(1).astype(str) + "%"
-    return out[cols]
-
-
 def nature_table(df):
     """The reusable categories behind what customers actually wrote.
 
@@ -839,50 +805,6 @@ def root_frame(df):
     out = pd.DataFrame(rows)
     out["% of Total"] = (out["Misses"] / misses_total * 100).round(1).astype(str) + "%"
     return out[cols].sort_values(["Misses", "Emails"], ascending=False).reset_index(drop=True)
-
-
-def event_type_note(df):
-    """One worked example under the event-type table, every figure computed.
-
-    "The fourteenth was reported, and the customer wrote in about something else on it"
-    was the wording before, and the page's owner asked the obvious question: what else?
-    A caption that waves at a category without naming it is the thing it was written to
-    prevent. This takes the biggest event type, splits its complaints into the ones that
-    were confirmed misses and the ones that were not, and **names what the rest were
-    actually about** -- the reason category the customer's own wording folds onto.
-    Computed, so it follows the filter and cannot go stale.
-    """
-    if df.empty or not {"Event type", "Issue Type", "Missed_Flag"} <= set(df.columns):
-        return ""
-    pairs = event_type_pairs(df)
-    if pairs.empty:
-        return ""
-    top = pairs.sort_values("Emails", ascending=False).iloc[0]
-    name = top["Event type"]
-    block = df[df["Event type"].fillna("Blank").astype(str).str.strip().eq(name)]
-    complaints = int(top["Complaints"]); misses = int(top["Misses"])
-    rest = complaints - misses
-    line = (f"**{esc(name)}** reads {plural(int(top['Emails']), 'email')} — "
-            f"{plural(complaints, 'complaint')} and {plural(int(top['Inquiries']), 'inquiry', 'inquiries')}. "
-            f"{misses} of those complaints were confirmed misses")
-    if rest <= 0:
-        return line + ", and there were no others."
-    others = block[block["Issue Type"].astype(str).str.strip().eq("Complaint")
-                   & block["Missed_Flag"].astype(str).str.strip().ne("Yes")]
-    # The customer's OWN wording, not the folded category: "Classified wrongly" is still
-    # a bucket name, and the question asked of the old caption was what, specifically.
-    # Here that is "Incorrect Industry selection" -- we reported the fire and the
-    # Automotive tag was missing, which is a different complaint from not reporting it.
-    reasons = others["Reason"].fillna("").astype(str).str.strip()
-    reasons = reasons[reasons.ne("")].value_counts()
-    were = "is not a miss" if rest == 1 else "are not misses"
-    if reasons.empty:
-        return f"{line}, and the other {plural(rest, 'complaint')} we did report."
-    shown = [r if n == 1 else f"{r} ({n})" for r, n in list(reasons.items())[:3]]
-    more = len(reasons) - len(shown)
-    named = ", ".join(shown) + (f", and {plural(more, 'other reason')}" if more else "")
-    return (f"{line}. The other {plural(rest, 'complaint')} {were} — "
-            f"**we did report the event**, and what the customer raised was: {named}.")
 
 
 # ---------------------------------------------------------------------------------
@@ -1452,8 +1374,16 @@ def monthly_breakdown(df):
     return out.assign(_o=order).sort_values("_o").drop(columns="_o").reset_index(drop=True)
 
 
-def monthly_table(frame):
+def monthly_table(frame, label_col="Month"):
     """The breakdown as a display frame, with a Total row whose rates are pooled.
+
+    **`label_col` is what makes this one implementation rather than two.** The event
+    type block draws the same five segments in the same colours and had its own table
+    carrying a different cut entirely -- `Complaints / Inquiries / Emails / Misses`
+    against a chart split `Product / Analyst / Process / Wrong / Inquiry`. A chart and
+    the table under one heading saying two different things is the fault this file keeps
+    recording; both blocks now print the same columns from the same function, so a
+    reader who has learned the month table has learned this one too.
 
     The shares are formatted here rather than on the page, for the same reason
     `trend_table()` formats its own: the Total's rate is the pooled figure over the
@@ -1470,7 +1400,7 @@ def monthly_table(frame):
         return pd.DataFrame()
     pct = lambda n, d: f"{n / max(d, 1) * 100:.0f}%"
     rows = [{
-        "Month": r["Month"], "Emails": int(r["Emails"]), "Complaints": int(r["Complaints"]),
+        label_col: r[label_col], "Emails": int(r["Emails"]), "Complaints": int(r["Complaints"]),
         "Inquiries": int(r["Inquiries"]), "Misses": int(r["Misses"]),
         "Miss rate": pct(int(r["Misses"]), int(r["Emails"])),
         "Product": int(r["Product"]), "Product %": pct(int(r["Product"]), int(r["Misses"])),
@@ -1480,7 +1410,7 @@ def monthly_table(frame):
     whole = {c: int(frame[c].sum()) for c in ("Emails", "Complaints", "Inquiries", "Misses",
                                               "Product", "Analyst", "Process", "Wrong")}
     rows.append({
-        "Month": "Total", "Emails": whole["Emails"], "Complaints": whole["Complaints"],
+        label_col: "Total", "Emails": whole["Emails"], "Complaints": whole["Complaints"],
         "Inquiries": whole["Inquiries"], "Misses": whole["Misses"],
         "Miss rate": pct(whole["Misses"], whole["Emails"]),
         "Product": whole["Product"], "Product %": pct(whole["Product"], whole["Misses"]),
@@ -1490,7 +1420,7 @@ def monthly_table(frame):
     return pd.DataFrame(rows)
 
 
-def monthly_note(frame):
+def monthly_note(frame, unit="month"):
     """The one line under the table: the hierarchy, and which base each rate is of.
 
     Two different denominators sit on one row -- the miss rate is of emails, the owner
@@ -1504,7 +1434,7 @@ def monthly_note(frame):
     return (f"Emails {w['Emails']} = complaints {w['Complaints']} + inquiries {w['Inquiries']} · "
             f"complaints {w['Complaints']} = misses {w['Misses']} + reported but wrong {w['Wrong']} · "
             f"misses {w['Misses']} = Product {w['Product']} + Analyst {w['Analyst']} + "
-            f"Process {w['Process']}. Miss rate is of that month's emails; "
+            f"Process {w['Process']}. Miss rate is of that {unit}'s emails; "
             "Product % and Analyst % are of its misses.")
 
 
@@ -1673,7 +1603,7 @@ def trend_note(trend):
             f"the usual swing.")
 
 
-def event_type_flow(df, top=12):
+def event_type_flow(df, top=None):
     """One row per event type, split the way the month chart splits a month.
 
     **It replaces two near-identical bar charts of the same categories.** One ranked
