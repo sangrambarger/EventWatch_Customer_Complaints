@@ -19,7 +19,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from dashboard.styles import ROOT_COLOURS, esc
-from dashboard.taxonomy import CATEGORY_MEANING, DRIVER_OTHER, NEEDS_REVIEW, ROOT_OWNERSHIP, driver_of, failure_label, labels_for, owner_pills, plural, reason_category, shorten
+from dashboard.taxonomy import CATEGORY_MEANING, NEEDS_REVIEW, ROOT_OWNERSHIP, driver_of, failure_label, labels_for, owner_pills, plural, reason_category, shorten
 from dashboard.filters import customer_names, names_match
 
 
@@ -549,13 +549,28 @@ def root_summary(df):
             for root, n in counts.items()]
 
 
-def root_drivers(df, root, top=4):
-    """The failure drivers behind one root cause's confirmed misses, biggest first.
+def root_drivers(df, root, top=None):
+    """Every failure driver behind one root cause's confirmed misses, biggest first.
 
-    Only the top `top` are named; the rest collapse into one `Other` row whose own
-    hover lists what is in it, so the fold can be checked rather than trusted.
-    `Needs Review` never folds -- it is a data-quality signal, and burying it in Other
-    is how a mis-filed row stays mis-filed.
+    **No `Other` row, and that is a correction.** It used to name the top four and fold
+    the tail into one `Other` whose hover listed what was inside -- which is a residue
+    bucket, the exact thing `miss_categories()` refuses to have for the reason stated
+    there: a reader cannot act on it, and a driver added tomorrow lands in it and is
+    never seen. The owner asked where `Other` was still coming from. Nowhere now: the
+    owners carry six and five drivers on the current data, which fits on a chart
+    without folding anything. `top` survives for a caller that genuinely wants a head,
+    and defaults to the whole list.
+
+    **It groups on the Driver alone, never on the driver AND its meaning text.** Keyed
+    on both, two `(Root Cause, Sub-type)` pairs that share a driver but carry different
+    plain-English wording split into two bars with the same name -- the People chart
+    drew `People / Analyst Miss` twice, 26 and 2, which is a reader meeting one label
+    in two places and the fault the owner already caught on `Event Identification`. The
+    meaning shown is the biggest contributor's, because the bar is labelled by driver
+    and the sentence has to describe the rows actually in it.
+
+    `Needs Review` is always its own row at the foot: it is a data-quality signal, and
+    anything that hides it turns a signal into noise.
     """
     cols = ["Driver", "What it means", "Misses", "% of Total"]
     if df.empty or not {"Root Cause", "Sub-type", "Missed_Flag"} <= set(df.columns):
@@ -566,31 +581,20 @@ def root_drivers(df, root, top=4):
         return pd.DataFrame(columns=cols)
     named = [driver_of(root, v) for v in missed["Sub-type"].fillna("").astype(str)]
     frame = pd.DataFrame({"Driver": [t for t, _ in named], "What it means": [m for _, m in named]})
-    grouped = (frame.groupby(["Driver", "What it means"]).size()
-                    .reset_index(name="Misses").sort_values("Misses", ascending=False))
+    rows = []
+    for driver, group in frame.groupby("Driver"):
+        rows.append({"Driver": driver,
+                     "What it means": group["What it means"].mode().iat[0],
+                     "Misses": len(group)})
+    grouped = pd.DataFrame(rows).sort_values("Misses", ascending=False)
     review = grouped[grouped["Driver"] == NEEDS_REVIEW]
     rest = grouped[grouped["Driver"] != NEEDS_REVIEW]
-    keep, tail = rest.head(top), rest.iloc[top:]
-    # An `Other` holding one driver hides a name to save no space -- "Other: 1 smaller
-    # driver: Industry Selection (1)" is longer than "Industry Selection". Fold only when
-    # there are at least two to fold.
-    if len(tail) == 1:
-        keep, tail = rest.head(top + 1), rest.iloc[top + 1:]
-    rows = keep.to_dict("records")
-    if not tail.empty:
-        # The fold names itself. `Other` on a leadership chart is only honest if the
-        # reader can find out what is in it without leaving the chart, so the row carries
-        # every driver it swallowed, with each one's count, on its own hover.
-        inside = ", ".join(f"{r['Driver']} ({int(r['Misses'])})" for _, r in tail.iterrows())
-        rows.append({"Driver": DRIVER_OTHER,
-                     "What it means": f"{plural(len(tail), 'smaller driver')}: {inside}",
-                     "Misses": int(tail["Misses"].sum())})
-    rows += review.to_dict("records")
-    out = pd.DataFrame(rows)
+    if top:
+        rest = rest.head(top)
+    out = pd.concat([rest, review], ignore_index=True)
     total = max(int(out["Misses"].sum()), 1)
     out["% of Total"] = (out["Misses"] / total * 100).round(1).astype(str) + "%"
     return out[cols].reset_index(drop=True)
-
 
 def driver_table(df):
     """Every driver on one table, one row each, with the root causes that produced it.
@@ -604,7 +608,7 @@ def driver_table(df):
     cols = ["Driver", "Owner", "What it means", "Misses", "% of Total"]
     rows = []
     for root, _, _, _, _ in root_summary(df):
-        for _, r in root_drivers(df, root, top=99).iterrows():
+        for _, r in root_drivers(df, root).iterrows():
             rows.append({"Driver": r["Driver"], "Owner": root,
                          "What it means": r["What it means"], "Misses": int(r["Misses"])})
     if not rows:
@@ -638,8 +642,8 @@ def takeaway(df):
     if not summary:
         return None
     root, misses, share, _, colour = summary[0]
-    drivers = root_drivers(df, root, top=99)
-    drivers = drivers[~drivers["Driver"].isin([DRIVER_OTHER, NEEDS_REVIEW])]
+    drivers = root_drivers(df, root)
+    drivers = drivers[drivers["Driver"] != NEEDS_REVIEW]
     if drivers.empty:
         return (f"Most confirmed misses are concentrated in <b>{esc(root)}</b> "
                 f"({misses} of {int(sum(n for _, n, *_ in summary))}, {share:.0f}%).", colour)
@@ -1645,23 +1649,28 @@ def miss_trend(df):
 
 
 def trend_note(trend):
-    """One computed sentence under the arrow, with every figure read off the frame."""
+    """The verdict beside the arrow, in a VP's words and one sentence.
+
+    The first cut said "it sits inside the range this book normally varies over, so it
+    is noise rather than a change" -- which is a correct description of a control chart
+    and not a sentence anyone reads out in a meeting. The owner said they did not
+    understand the timeline, and that was the honest verdict on the wording rather than
+    on the statistics. **What goes here is the answer; the chart underneath is the
+    working.**
+    """
     latest = trend.get("latest")
     if not latest:
-        return "Not enough months in this filter to compare."
+        return "Not enough months here to compare."
     if latest["direction"] == "flat":
-        tail = (f" {latest['month']} has only {plural(latest['emails'], 'email', 'emails')} "
-                f"so far, so its rate is not yet worth reading."
-                if latest["thin"] else
-                " It sits inside the range this book normally varies over, so it is "
-                "noise rather than a change.")
-        return (f"**Flat.** {latest['month']} ran at {latest['rate']:.0f}% against a "
-                f"{latest['centre']:.0f}% average across every month.{tail}")
-    way = "above" if latest["direction"] == "worse" else "below"
-    return (f"**{'Worse' if latest['direction'] == 'worse' else 'Better'}.** "
-            f"{latest['month']} ran at {latest['rate']:.0f}%, which is {way} the range "
-            f"this book normally varies over -- the first month in this filter that is. "
-            f"The average across every month is {latest['centre']:.0f}%.")
+        if latest["thin"]:
+            return (f"**No change.** {latest['month']} has only "
+                    f"{plural(latest['emails'], 'email', 'emails')} so far — too few to read.")
+        return (f"**No change.** {latest['month']} ran at {latest['rate']:.0f}%, the year "
+                f"averages {latest['centre']:.0f}%. That gap is normal month-to-month swing.")
+    word = "Worse" if latest["direction"] == "worse" else "Better"
+    return (f"**{word}.** {latest['month']} ran at {latest['rate']:.0f}% against a "
+            f"{latest['centre']:.0f}% year average — the first month that is outside "
+            f"the usual swing.")
 
 
 def event_type_flow(df, top=12):

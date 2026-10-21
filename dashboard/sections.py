@@ -59,10 +59,7 @@ def render_owner_drilldown(root, root_df, page):
                         extras=["What it means", "Complaints", "Inquiries", "Misses",
                                 "Reported timely"],
                         wrap=["What it means"], variant="wide roomy",
-                        caption="Every row adds up: **Emails = Confirmed misses + Reported "
-                                "timely.** Tracker value is the Sub-type on the record; "
-                                "What it means is the same failure in the words the rest of "
-                                "the dashboard uses.")
+                        caption="**Emails = Confirmed misses + Reported timely** on every row.")
         downloads(failures, f"{root.lower()}_failures")
 
     if "Reason" in root_df.columns:
@@ -347,8 +344,9 @@ def render_monthly_breakdown(page, clickable=False):
     #
     # `nowrap` on Month: a full-width table wrapped "Jan 2026" onto two lines and
     # doubled the height of every row.
-    styled_table(table, variant="roomy stickytotal", height=420, total_row=True,
-                 styles={"Month": "nowrap"})
+    with st.expander("Show the numbers"):
+        styled_table(table, variant="roomy stickytotal", height=420, total_row=True,
+                     styles={"Month": "nowrap"})
     st.caption(monthly_note(frame))
     downloads(table, "monthly_breakdown", fig)
     # Open only on the run where the selection CHANGES, and never on a rerun that
@@ -425,13 +423,7 @@ def render_root_cause(page):
     bucket = lambda name: int(cats.loc[cats["Category"] == name, "Records"].iloc[0]) \
         if name in set(cats["Category"]) else 0
     never = bucket(MISS_BUCKETS[0][0]) + bucket(MISS_BUCKETS[1][0])
-    add_section("Why the events were missed", "Two tiers. The cards are the three root causes the "
-                "tracker records, with who owns each one; under each card sit that root cause's "
-                "biggest failure drivers, in EventWatch's own terms — hover any bar for what the "
-                "term means. Everything is keyed on the Root Cause and Sub-type fields on the "
-                "record, never on how the customer worded it, and a pair that does not map to a "
-                "known driver is shown as Needs Review rather than talked into the nearest "
-                "heading.", "#f28b82")
+    add_section("Why the events were missed", "", "#f28b82")
     roots = root_summary(page)
     if not roots:
         st.info("No email in the current filter is flagged as a confirmed miss.")
@@ -463,14 +455,12 @@ def render_root_cause(page):
         # 13px text with the sentence centred in its cell. The meaning now wraps inside
         # 340-640px, left-aligned, and the table takes the page width it has rather than
         # being squeezed to 100% of a narrower box.
-        excel_bar_table(drivers, "Driver", value_col="Misses",
-                        extras=["Owner", "What it means"], label_head="Failure driver",
-                        value_head="Confirmed misses", variant="wide roomy",
-                        wrap=["What it means"], raw=["Owner"], classes={"Owner": "owners"},
-                        caption="Every driver behind the three cards above, biggest first. "
-                                "Owner is the root cause on the record itself, so a driver "
-                                "that occurs under two owners shows both with their counts "
-                                "rather than being filed under whichever is larger.")
+        with st.expander("Show the numbers"):
+            excel_bar_table(drivers, "Driver", value_col="Misses",
+                            extras=["Owner", "What it means"], label_head="Failure driver",
+                            value_head="Confirmed misses", variant="wide roomy",
+                            wrap=["What it means"], raw=["Owner"], classes={"Owner": "owners"},
+                            caption="Every driver behind the cards above, biggest first.")
         downloads(drivers, "miss_drivers")
 
 
@@ -478,12 +468,7 @@ def render_customers(page):
     """Customers impacted: the stacked bar and every account, with reconciled totals."""
     accounts = miss_by_customer(page)
     cats = miss_categories(page)
-    add_section("Customers impacted", "Every account in the filter. Emails is every email that named "
-                "the account, complaints and inquiries together; the columns after it count only the "
-                "confirmed misses, split by what failed. Both bases sit on the row, because 44 on its "
-                "own does not say 44 of what. Accounts are split on the slash, so an email naming two "
-                "of them appears on both rows — the rows therefore add to more than the tracker holds, "
-                "and the Total row is the distinct count, not the column sum.", "#f6c177")
+    add_section("Customers impacted", "", "#f6c177")
     if accounts.empty:
         st.info("No customer recorded in the current filter.")
     else:
@@ -494,10 +479,11 @@ def render_customers(page):
                              title="Confirmed misses by account, and what failed",
                              x_title="Confirmed misses")
         totals, over = customer_totals(page)
-        excel_bar_table(accounts, "Customer", value_col="Misses",
-                        extras=["Emails", "Complaints", "Inquiries"] + bucket_names,
-                        label_head="Customer", value_head="Confirmed misses", height=460,
-                        variant="wide", totals=totals)
+        with st.expander("Show the numbers"):
+            excel_bar_table(accounts, "Customer", value_col="Misses",
+                            extras=["Emails", "Complaints", "Inquiries"] + bucket_names,
+                            label_head="Customer", value_head="Confirmed misses", height=460,
+                            variant="wide", totals=totals)
         rows_add = int(accounts["Emails"].sum())
         st.caption(
             f"All {len(accounts)} account(s) in the current filter, scrolling in place. "
@@ -511,11 +497,7 @@ def render_customers(page):
 
 def render_event_types(page):
     """Event types: one chart in the month chart's grammar, and one table under it."""
-    add_section("Complaints by event type", "What kind of event customers write to us about, "
-                "split the same way the month chart splits a month: the length of a row is how "
-                "many emails named that event type, and the colour is where it failed. The "
-                "event types we are worst at sit at the top, not the ones we merely receive a "
-                "lot of.", "#f28b82")
+    add_section("Complaints by event type", "", "#f28b82")
     flow = event_type_flow(page)
     if flow.empty:
         st.info("No email in the current filter carries an event type.")
@@ -529,15 +511,13 @@ def render_event_types(page):
         f_flow = flow_bar(flow, "Event type", x_title="Customer emails")
         pairs = event_type_pairs(page)
         if not pairs.empty:
-            excel_bar_table(pairs, "Event type", value_col="Misses",
-                            extras=["Complaints", "Inquiries", "Emails"],
-                            label_head="Event type", value_head="Confirmed misses",
-                            variant="roomy",
-                            caption="**Emails = Complaints + Inquiries** on every row. "
-                                    "**Confirmed misses counts only the complaints where the "
-                                    "event never reached the customer in time** — it is a "
-                                    "subset of the complaints column, not a third part of the "
-                                    "split. " + event_type_note(page))
+            with st.expander("Show the numbers"):
+                excel_bar_table(pairs, "Event type", value_col="Misses",
+                                extras=["Complaints", "Inquiries", "Emails"],
+                                label_head="Event type", value_head="Confirmed misses",
+                                variant="roomy",
+                                caption="**Emails = Complaints + Inquiries.** Confirmed misses is "
+                                        "a subset of the complaints, not a third part of the split.")
             downloads(pairs, "event_types", f_flow)
 
 
@@ -555,58 +535,50 @@ def _volume_caveat(trend):
     if not span or not pinned:
         return ""
     if pinned == span:
-        return ("**No month here can register as worse.** At 4 to 19 emails a month the "
-                "upper limit lands above 100% in every one of them, so this test can only "
-                "ever confirm an improvement. More emails a month would narrow the band and "
-                "make it two-sided; nothing on the dashboard can.")
-    return (f"**{pinned} of {span} months cannot register as worse** — at their email "
-            f"counts the upper limit lands above 100%, so for those months this test only "
-            f"detects an improvement.")
+        return ("**One limit only:** at this many emails a month the band reaches 100%, so "
+                "it can flag an improvement but never a worsening.")
+    return (f"**One limit only on {pinned} of {span} months:** their band reaches 100%, so "
+            f"for those it can flag an improvement but never a worsening.")
 
 
 def render_trend(page):
-    """Is it getting better: the miss rate by month, inside its own control limits."""
+    """Is it getting better: the verdict, the months, and the numbers behind them."""
     trend = miss_trend(page)
     latest = trend.get("latest")
     arrow = {"worse": ("▲", "#f28b82"), "better": ("▼", "#a8dab5")}.get(
         (latest or {}).get("direction", "flat"), ("▬", "#8a94a8"))
     add_section("Is it getting better", "", "#8ab4f8")
     if latest:
-        # The arrow is the whole answer for a reader who stops here, so it carries the
-        # verdict and not the month's percentage -- a number here would be the fourth
-        # place on this page that prints one, and the one most likely to be read as a
-        # target.
+        # The arrow and one sentence are the whole answer for a reader who stops here.
         st.markdown(
             f"<div style='display:flex;align-items:baseline;gap:14px;margin:2px 0 10px'>"
             f"<span style='font-size:42px;line-height:1;color:{arrow[1]}'>{arrow[0]}</span>"
             f"<span style='font-size:15px;color:#b6beca'>{esc(trend_note(trend))}</span>"
             f"</div>", unsafe_allow_html=True)
     trend_line(trend)
+    # **One sentence teaches the whole chart.** A control chart is unreadable to anyone
+    # who has not met one, and the owner said so: they did not understand the timeline.
+    # This says what the band is for in the words a reader already has, and says nothing
+    # about sigma, pooling or p-charts -- that reasoning is in CLAUDE.md, where the next
+    # person to change the threshold will look for it.
+    st.caption("The shaded band is how much this number normally bounces about. "
+               "A month inside it means nothing changed; only a month outside is news. "
+               + _volume_caveat(trend))
     months = trend["months"]
     if not months.empty:
         table = months[["Month", "Emails", "Misses", "Rate"]].copy()
         table.columns = ["Month", "Emails", "Confirmed misses", "Miss rate"]
         table["Miss rate"] = table["Miss rate"].map(lambda v: f"{v:.0f}%")
-        excel_bar_table(table, "Month", value_col="Confirmed misses",
-                        extras=["Emails", "Miss rate"], label_head="Month",
-                        value_head="Confirmed misses", variant="roomy", total_row=False,
-                        caption=f"The dotted line is the **pooled** rate across every month "
-                                f"in this filter, {trend['centre']:.0f}% — not the average of "
-                                f"the monthly percentages, because a month with 4 emails must "
-                                f"not weigh the same as one with 19. The band is where this "
-                                f"book normally varies; only a point outside it is a change. "
-                                + _volume_caveat(trend))
+        with st.expander("Show the numbers"):
+            excel_bar_table(table, "Month", value_col="Confirmed misses",
+                            extras=["Emails", "Miss rate"], label_head="Month",
+                            value_head="Confirmed misses", variant="roomy", total_row=False)
 
 
 def render_nature(page):
     """Nature of complaints: the seven categories, split on whether we got it wrong."""
     missed = int(page.get("Missed_Flag", pd.Series(dtype=str)).astype(str).str.strip().eq("Yes").sum())
-    add_section("Nature of complaints", "What the customer actually wrote about, folded onto the "
-                "eight categories the All customer emails tab defines. Each bar is split: the "
-                "darker part is the emails in that category that turned out to be a confirmed "
-                "miss, the lighter part the ones where the event did reach them. That split is "
-                "the answer to the question this block always raised — why the Event missed row "
-                "does not equal the headline miss count.", "#8ab4f8")
+    add_section("Nature of complaints", "", "#8ab4f8")
     nature = nature_table(page)
     if nature.empty:
         st.info("No email in the current filter carries a reason.")
@@ -621,15 +593,13 @@ def render_nature(page):
                                {"Misses": "#f28b82", "Reported timely": "#b6beca"},
                                title="What customers wrote about, and how much of it we got wrong",
                                x_title="Customer emails", rows=len(split))
-        excel_bar_table(nature, "Category", label_head="What they wrote about",
-                        value_head="Emails", variant="wide roomy",
-                        extras=["What it means", "Complaints", "Inquiries", "Misses",
-                                "Reported timely"],
-                        wrap=["What it means"],
-                        caption="Every row adds up: **Emails = Confirmed misses + Reported "
-                                "timely.** The same categories, with the same meanings, are "
-                                "listed on All customer emails with every customer wording "
-                                "folded into each one.")
+        with st.expander("Show the numbers"):
+            excel_bar_table(nature, "Category", label_head="What they wrote about",
+                            value_head="Emails", variant="wide roomy",
+                            extras=["What it means", "Complaints", "Inquiries", "Misses",
+                                    "Reported timely"],
+                            wrap=["What it means"],
+                            caption="**Emails = Confirmed misses + Reported timely** on every row.")
         top = split.sort_values("Misses", ascending=False)
         others = top[top["Category"] != "Event missed"]
         elsewhere = int(others["Misses"].sum())
@@ -637,22 +607,16 @@ def render_nature(page):
                           for _, r in others[others["Misses"] > 0].iterrows())
         here = int(top.loc[top["Category"] == "Event missed", "Misses"].sum())
         st.caption(
-            f"**Event missed carries {here} confirmed misses, not the {missed} in this filter, "
-            f"and that is not an error.** This column counts what the customer wrote "
-            f"about; the miss count counts whether the event reached them in time. The other "
-            f"{elsewhere} confirmed miss(es) sit in categories where the event was reported and "
-            f"something else went wrong — {named}. "
-            f"{here} + {elsewhere} = {here + elsewhere}.")
+            f"**{here} + {elsewhere} = {here + elsewhere}.** Event missed carries {here}, not "
+            f"the {missed} in this filter: this counts what the customer wrote about, the miss "
+            f"count counts whether the event reached them in time. The other {elsewhere} are "
+            f"{named}.")
         downloads(split, "nature_of_complaints", f_nature)
 
 
 def render_deeper_root_cause(page):
     """The deeper root cause: every failure with both bases and its owner."""
-    add_section("The deeper root cause", "Every failure in the taxonomy, in plain words, with the "
-                "tracker's own value beside it in the table. Two bars on each row: how many emails "
-                "named that failure at all, and how many of those we confirmed as a miss — so a "
-                "failure we mostly get away with is told apart from one that costs us every time. "
-                "Nothing is folded into an Other, however few emails carry it.", "#f28b82")
+    add_section("The deeper root cause", "", "#f28b82")
     roots = root_frame(page)
     if roots.empty:
         st.info("No email in the current filter carries a root cause.")
@@ -660,15 +624,16 @@ def render_deeper_root_cause(page):
         f_root = grouped_bar(roots, "What went wrong", ["Emails", "Misses"],
                              {"Emails": "#b6beca", "Misses": "#f28b82"},
                              title="Every failure: emails raised, and how many were confirmed misses")
-        excel_bar_table(roots, "What went wrong", value_col="Misses",
-                        extras=["Owner", "Emails", "Tracker value"],
-                        label_head="What went wrong", value_head="Confirmed misses",
-                        variant="wide roomy", wrap=["Tracker value"], raw=["Owner"],
-                        classes={"Owner": "owners"},
-                        caption="Emails is every email that named this failure; Confirmed "
-                                "misses is how many of those did not reach the customer in "
-                                "time — the gap between the two is the failures we mostly "
-                                "get away with. Tracker value is the Sub-type on the record, "
-                                "and where two of them mean one thing to a reader both are "
-                                "listed on the row.")
+        with st.expander("Show the numbers"):
+            excel_bar_table(roots, "What went wrong", value_col="Misses",
+                            extras=["Owner", "Emails", "Tracker value"],
+                            label_head="What went wrong", value_head="Confirmed misses",
+                            variant="wide roomy", wrap=["Tracker value"], raw=["Owner"],
+                            classes={"Owner": "owners"},
+                            caption="Emails is every email that named this failure; Confirmed "
+                                    "misses is how many of those did not reach the customer in "
+                                    "time — the gap between the two is the failures we mostly "
+                                    "get away with. Tracker value is the Sub-type on the record, "
+                                    "and where two of them mean one thing to a reader both are "
+                                    "listed on the row.")
         downloads(roots, "root_cause_of_misses", f_root)
