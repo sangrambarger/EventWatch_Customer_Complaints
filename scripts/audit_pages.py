@@ -152,9 +152,50 @@ def expectations(df: pd.DataFrame) -> dict[str, dict[str, int]]:
     }
 
 
-def scrape(url: str, pages: list[str]) -> dict[str, list[list[list[str]]]]:
+SETTLE_MS = 1800          # Streamlit swaps the page body a beat after the click
+POLL_MS = 300
+POLL_DEADLINE_S = 25
+STABLE_READS = 3          # unchanged this many times in a row before the page is believed
+
+
+def owed_tables(name: str) -> int:
+    """How many `excel-table`s this page owes, from `smoke_app.EXPECTED`.
+
+    One source of truth for what a page owes, rather than a second list here that
+    would drift. Missing or unimportable, the poll falls back to stability alone --
+    weaker, but never worse than the fixed wait it replaces.
+    """
+    try:
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        from smoke_app import EXPECTED
+        return int(EXPECTED.get(name, (0, 0))[1])
+    except Exception:
+        return 0
+
+
+def scrape(url: str, pages: list[str]) -> tuple[dict[str, list[list[list[str]]]], list[str]]:
+    """Every `excel-table` on every page, plus a list of pages that never finished.
+
+    **It settles, then polls -- and it did neither before, which made this gate lie.**
+    A flat `wait_for_timeout(2200)` then counted whatever happened to exist. On the
+    light pages that was always everything. On the heaviest it was not: six consecutive
+    scrapes of Analysis, against one running app, returned **7, 8, 6, 3, 12 and 11**
+    tables against the 17 it owes -- never once all of them, and the audit reported PASS
+    every time. A gate that silently checks a third of a page is worse than no gate,
+    because it is quoted as though it checked the page.
+
+    `smoke_app.py` had already learned this lesson and this is the same fix: settle for
+    the body swap, then poll until the count both MEETS what the page owes and has
+    stopped changing. Stability alone is not enough -- a render that pauses mid-way
+    reads as stable -- and the owed count alone is not enough either, because a page can
+    pass its minimum while still drawing. Both, or neither is trustworthy.
+
+    **A page that never gets there is returned as a problem, not swallowed.** The whole
+    failure above was silence; a timeout that printed nothing would reproduce it.
+    """
     from playwright.sync_api import sync_playwright
     out: dict[str, list[list[list[str]]]] = {}
+    short: list[str] = []
     with sync_playwright() as p:
         launch = {"executable_path": CHROMIUM} if os.path.exists(CHROMIUM) else {}
         browser = p.chromium.launch(**launch)
@@ -163,13 +204,27 @@ def scrape(url: str, pages: list[str]) -> dict[str, list[list[list[str]]]]:
         page.wait_for_timeout(3000)
         for name in pages:
             page.get_by_text(name, exact=True).first.click()
-            page.wait_for_timeout(2200)
+            page.wait_for_timeout(SETTLE_MS)
+            owed, last, stable = owed_tables(name), -1, 0
+            deadline = time.time() + POLL_DEADLINE_S
+            while True:
+                seen = page.locator("table.excel-table").count()
+                stable = stable + 1 if seen == last else 0
+                last = seen
+                if seen >= owed and stable >= STABLE_READS:
+                    break
+                if time.time() > deadline:
+                    short.append(f"{name}: scraped {seen} table(s), the page owes {owed} -- "
+                                 f"it never finished rendering, so this page was audited "
+                                 f"on a fraction of what it draws")
+                    break
+                page.wait_for_timeout(POLL_MS)
             out[name] = page.eval_on_selector_all(
                 "table.excel-table",
                 "ts => ts.map(t => Array.from(t.querySelectorAll('tr'))"
                 "        .map(r => Array.from(r.querySelectorAll('th,td')).map(c => c.innerText.trim())))")
         browser.close()
-    return out
+    return out, short
 
 
 def reconciled_totals(df: pd.DataFrame) -> dict[str, dict[str, int]]:
@@ -394,13 +449,13 @@ def main() -> int:
                 time.sleep(1)
         else:
             print(f"FAIL — Streamlit did not come up on {url}"); return 1
-        scraped = scrape(url, list(want))
+        scraped, short = scrape(url, list(want))
     finally:
         proc.terminate()
         try: proc.wait(timeout=10)
         except subprocess.TimeoutExpired: proc.kill()
 
-    problems = []
+    problems = list(short)
     totals_checked = 0
     reconciled = reconciled_totals(df)
     for page, expected in want.items():
@@ -422,6 +477,7 @@ def main() -> int:
                    if any(r and r[0].strip().lower() == "total" for r in rows[1:]))
         note = f"{checked} label(s) reconciled" + (f", {missing} not rendered (top-N cut)" if missing else "")
         note += f", {feet} total row(s) checked" if feet else ""
+        note += f", {len(scraped[page])} table(s) read"
         print(f"{page:34s} {note}")
 
     card_problems, cards_checked = card_detail_problems(df)
