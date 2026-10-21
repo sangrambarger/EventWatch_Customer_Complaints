@@ -842,7 +842,7 @@ spill cache on the Dashboard, which carried the old value.
 
 ## The Executive Summary, section by section
 
-The page is a story in six parts, separated by `add_rule()` -- a full-width hairline,
+The page is a story in seven parts, separated by `add_rule()` -- a full-width hairline,
 because the heading card alone was not enough and two adjacent sections read as one.
 Every section is chart-then-table, in that order, so the eye learns the shape once.
 
@@ -855,10 +855,11 @@ under five blocks because its table has seventeen columns optimises for layout a
 the question being asked. It is back at **fourth**, directly under the failure analysis
 it belongs to.
 
-The order now is **six sections**: what came in (the cards), **how those figures
-join** (the funnel bars), **when it arrived and where it failed** (the monthly breakdown, moved to second on the owner's call), **why
-we missed** (the root causes and their drivers), **who it hit** (Customers impacted),
-and **what kind of event** it was. Two sections left on the owner's call and neither
+The order now is **seven sections**: what came in (the cards), **how those figures
+join** (the Sankey), **when it arrived and where it failed** (the monthly breakdown,
+moved to second on the owner's call), **whether it is moving** (the trend line and its
+arrow), **why we missed** (the root causes and their drivers), **who it hit** (Customers
+impacted), and **what kind of event** it was. Two sections left on the owner's call and neither
 was replaced -- the rings that were "how much of it was ours", and Nature of
 complaints, "what the customer themselves called it", which moved to Analysis.
 **Do not re-sort this page by table width**, and do not read a shorter page as licence
@@ -912,45 +913,37 @@ built from, not the sum of the strings in it.
    **No label says "Product fixes it".** The owner asked what that meant, and the
    question is the right one -- it names no team a reader could take the number to.
    The two values of `Routed To` do: `Product & Platform` and `EventWatch Ops`.
-2. **How the numbers above fit together** -- `funnel_bars()`, three bars on one shared
-   scale, directly under the cards because it explains them. Each row starts at the same
-   left edge and spans exactly the carried segment of the row above it, so **the
-   narrowing is the arithmetic**: a reader checks it by reading two bar ends against
-   each other rather than adding three numbers. Verified in pixels, not by eye -- row
-   two's bar ends at 1230 where row one's carry ends at 1230, row three's at 1117 where
-   row two's carry ends at 1117.
+2. **How the numbers above fit together** -- `flow_chart()`, a **Sankey**, directly
+   under the cards because it explains them. `flow_graph()` builds the nodes and links
+   and is the one source for the cards as well, so a band and the card above it cannot
+   disagree.
 
-   **`funnel_levels()` is the one source for the cards AND the chart.** The eight card
-   figures were computed inline in the page; a chart recomputing them a few lines below
-   is a second implementation of the page's own headline numbers, which is exactly the
-   fault `card_details()` exists to avoid. The third level comes from `_miss_parts()`,
-   so the three stages stay a partition by construction however the taxonomy grows.
+   **Two forms were tried here before this one and both were wrong.** A donut was asked
+   for twice: a ring draws ONE whole split into parts, and these are three wholes nested
+   inside each other, so it takes three rings with nothing joining them and the reader
+   still carries 103 from the first to the second. Then three left-aligned stacked bars
+   shipped, called a funnel -- **and they were a bar chart named after the thing they
+   were meant to be.** The join between levels was real but implicit: a reader had to
+   notice that one bar's grey segment was the next bar's total. The owner's verdict was
+   "nowhere close to it", and that was right.
 
-   **Colour says one thing: did this email stop here, or carry on.** The carried segment
-   is an **outlined box** (`--panel2` fill, `--line2` edge), not a filled one -- it is
-   not a category, it is the part of the bar the next row explains. That is a
-   correction a screenshot forced: it was a solid `#2d3542` sitting beside the `#515a68`
-   of `Reported, but wrong` on the same row, and the 17 read as a lighter continuation
-   of the carry rather than as the thing that stopped there. **Two greys adjacent cannot
-   both mean something.** Every leaf keeps the colour that email already wears on this
-   page -- `--teal` and `#515a68` straight off `MONTH_PARTS`, and `--blue` / `BLUE_RAMP`
-   / `--red` for the three stages, the same blue/blue/red the cards print.
+   A flow draws the split itself. A band of 103 leaves the emails node and arrives at
+   complaints; the 24 that do not go with it peel off where the eye already is. Nothing
+   has to be added and nothing has to be spotted.
 
-   **`_on_fill()` picks each label's colour from its own fill's luminance.** The house
-   rule is that an in-bar label wears `--panel` -- right for every light fill and exactly
-   wrong for a dark one, and this chart carries both: the 9 sat on `BLUE_RAMP[2]` at
-   about 2:1. Deciding per fill means a palette edit cannot silently strand a label.
-   One cost is measured and accepted: `#4e7bb8` is 3.8:1 against dark and 3.9:1 against
-   light, under the floor either way, and `BLUE_RAMP` holds no third blue both readable
-   and distinguishable from `--blue`. Legal on secondary encoding only -- hover, legend
-   and a caption printing all three stages. **Do not instead merge the two Product
-   stages**; that throws away the part of the number that says who acts on it.
+   **It also deleted a colour problem by construction.** The bars needed a "carried"
+   segment -- a grey box meaning "the row below explains this" -- which is a category
+   invented purely to make that form work, and it brought two more greys onto a chart
+   that already had one. A flow has no such thing: a band either ends at a node or
+   carries on. `FUNNEL_CARRY`, `FUNNEL_CARRY_EDGE`, `FUNNEL_COLOURS` and
+   `funnel_levels()` all went with it.
 
-   **This is also where `42 + 9 + 35 = 86` came back**, in the caption, having been
-   removed from under the cards on the owner's earlier call. That is the owner reversing
-   their own call and is recorded as such. What was objected to then was a bare line of
-   arithmetic restating the row; what is here is a chart that shows the joins, with the
-   equations as its reconciliation caption.
+   **Colour: a `stage` node is scaffolding, everything that ENDS takes a real hue.** The
+   spine (emails, complaints, misses) is the quietest surface the stylesheet owns,
+   because each one is split further on. A band is a translucent wash of the node it
+   ARRIVES at, so the eye follows it to where those emails ended up rather than to
+   where they came from.
+
 3. **Month by month: what came in, and where it failed** -- `render_monthly_breakdown()`,
    moved here from sixth on the owner's call. It is the view a VP comes to this page
    for, and it sat behind five other blocks.
@@ -1145,7 +1138,12 @@ addition the block exists to remove. **Reach for a funnel, a nest or a cascade w
 parts of one level are the whole of the next; reach for a ring only when there is
 exactly one whole.**
 
-4. **Why the events were missed** -- two tiers, and the page's headline above both:
+4. **Is it getting better** -- `render_trend()`: an arrow, the dashboard's only
+   time-series chart, and the months underneath. Set out in full under **"Is it getting
+   better"** below, with the two things that make it honest -- three-sigma control
+   limits so it reads flat on noise, and `_volume_caveat()` saying out loud that at
+   these monthly volumes the test can only ever detect an improvement.
+5. **Why the events were missed** -- two tiers, and the page's headline above both:
    *N of 78 misses never entered our system*, computed from the source and keyword
    buckets so it cannot go stale. That sentence is the number Product sizes the
    source-and-keyword problem with; what to buy against it is deliberately not on the
@@ -1222,7 +1220,7 @@ exactly one whole.**
    reads `g.hoverlayer`'s text back. That tests the hovertemplate and its customdata,
    which is the part that can actually be wrong. The clipping was only visible in a
    screenshot taken while the label was up.
-5. **Customers impacted** -- `miss_by_customer()`, the eight worst as a stacked bar and
+6. **Customers impacted** -- `miss_by_customer()`, the eight worst as a stacked bar and
    **every** account in a scrolling table. The row carries **both bases**: `Emails` with
    `Complaints` and `Inquiries` beside it (every email that named the account), then the
    failure columns and `Misses` (confirmed misses only, a smaller number from a different
@@ -1251,10 +1249,27 @@ exactly one whole.**
    **The general rule: a total row is a reconciliation, not a sum.** Where the rows
    double-count on purpose, the foot has to carry the figure the rest of the dashboard
    uses, and the caption has to say why they differ.
-6. **Complaints by event type** -- two charts and one table. `all_event_types()` is
-   every email by the kind of event it was about; `missed_event_types()` is the confirmed
-   misses only. Neither is readable alone: nine misses is a different fact depending on
-   whether ten emails named that event type or forty.
+7. **Complaints by event type** -- **one** chart and one table. `event_type_flow()` and
+   `flow_bar()`: a row per event type, split the way the month chart splits a month --
+   Product / Analyst / Process / Reported, but wrong / Inquiry, same five segments, same
+   colours, same order, straight off `MONTH_PARTS`. A row's length is how much arrived
+   and its colour is where it failed. Ranked by misses, so the event types we are worst
+   at sit at the top rather than the ones we merely receive a lot of.
+
+   **It replaced two near-identical ranked bars and the owner said the block confused
+   them.** One charted every email by event type, the other the confirmed misses, side
+   by side: the same twenty-odd labels down both axes, in two different orders, leaving
+   the reader to join "nine misses" to "sixteen emails" themselves. That is the correct
+   reaction to two rankings of one population drawn as though they were a comparison.
+   `all_event_types()` and `missed_event_types()` went with them -- no caller left.
+
+   It immediately showed something both old charts hid: **Extreme Weather is 3 analyst
+   misses against 5 delivered-but-wrong**, a shape no ranking of either population alone
+   could have said.
+
+   The reasoning the two charts rested on is kept because it is still true and is now
+   served better: nine misses is a different fact depending on whether ten emails named
+   that event type or forty. One stacked row carries both.
 
    **One split per table.** `event_type_pairs()` briefly carried `Reported timely` and a
    `Miss rate` as well, which put **two different partitions of the same 16 emails on one
@@ -1281,7 +1296,44 @@ exactly one whole.**
    selection* says we reported the fire and the Automotive tag was missing, which is a
    different complaint from not reporting it. Three wordings at most, then "and N other
    reasons", and it follows the filter so it cannot go stale.
-**Is it getting better** is on NO page. It left the summary for Monthly trend, and
+**Is it getting better** is section 3 of the Executive Summary again, and it is the
+dashboard's **first and only time-series chart**. `miss_trend()` / `trend_line()` /
+`trend_note()`.
+
+**The gap it closed was not a bar being over-used -- it was a missing chart.** An audit
+of all 14 chart calls found 13 bars and one heatmap, and the honest finding was that
+most of those bars are correct: a ranked comparison of categories SHOULD be a bar, and
+sunbursts, donuts and dumbbells were each added here for variety and each removed for
+being worse. But the one question a VP asks monthly had no chart at all -- the miss rate
+was a percentage printed on top of each bar of the month chart, ten numbers for a reader
+to compare in their head.
+
+**It is a p-chart and the control limits are the point.** The rate moves every month on
+this data and almost none of that movement means anything. The band is +/- 3 sigma of
+the **pooled** rate, scaled by each month's own email count, so a 4-email month gets a
+wide band and a 19-email one a narrow band. Pooled, never the mean of monthly
+percentages. A point inside its band is normal variation and the arrow reads flat
+however different the percentage looks. **A reader asking for a more sensitive threshold
+is asking to be told about noise.** All ten months sit inside today, which is the same
+answer `missed_verdict()` gave before it was deleted.
+
+**`_volume_caveat()` states the thing this chart would otherwise hide: the test is
+one-sided.** Three sigma above a ~68% base rate lands past 100% on a month of 4 to 19
+emails, so **the upper limit is pinned at the ceiling in 9 months of 10 and no month can
+register as WORSE however badly it runs.** An arrow that can only ever point down is a
+broken instrument unless it says so, and it says so in a computed line that corrects
+itself if volumes ever grow enough to make the test two-sided. Nothing on the dashboard
+can make that happen; only more emails a month can.
+
+**The band is drawn at 0.07 alpha with its lower edge as a real dashed line, and that is
+a correction a screenshot forced.** At 0.16 the fill ran from the lower limit to the
+ceiling and covered the plot -- the thin months drew as solid dark columns and the whole
+thing read as a rendering fault. The statistics did not change and the width is real;
+only its visual weight came down, and the one edge that can actually be crossed is now
+the one you can see.
+
+**The historical note, for whoever revisits the threshold:** it left the summary for
+Monthly trend, and
    was deleted with it when seven tabs became three -- `render_trend`,
    `missed_verdict`, `trend_chart` and `trend_table` are all gone. A trend indicator is
    coming back as **an arrow above the month chart that moves only when the month is
@@ -1965,6 +2017,25 @@ People and 0 Process, `Source Coverage` is 20 Product and 0 anything else -- two
 sub-types tied at 20 records that are entirely different failures with different owners.
 Sixteen sub-types is far past the 7-8 ceiling where categorical colour stays readable,
 which is why it is a single-hue heatmap and not sixteen coloured bars.
+
+**A grey is chrome OR a category, never both** -- `--slate` / `CAT_SLATE` `#8a94a8`
+exists to hold that line. The opposite shipped and a reader named it: `--line2` was the
+fill for `Reported, but wrong` -- a real category, 17 emails -- **and** the colour of
+every table border, header rule and scrollbar thumb on the dashboard. A category wearing
+the border colour reads as furniture. `--muted` was worse, carrying three unrelated
+jobs: all secondary text, "an owner we could not identify", and a fallback fill for
+anything unmapped. It keeps the first two; `UNKNOWN_OWNER` names the second so the third
+cannot creep back.
+
+`CAT_SLATE` is 5.4:1 against `--panel`, so it reads as a deliberate fill rather than a
+rule, and 2.3:1 clear of `--line2`, so the two can never be confused. It is the ONLY
+grey that is a category and it appears nowhere as chrome.
+
+**`Reported, but wrong` is owner-neutral because the data says so, not for tidiness.**
+It was proposed here as an analyst issue. Those 17 emails are **9 Product, 7 People and
+1 Process** -- painting them `--red` would print "analyst" over nine Product-rooted
+records. **Any segment spanning every owner has to take a colour that names none of
+them.** Check the split before giving a mixed category an owner hue.
 
 **Every chart draws from the app's own CSS tokens.** `RED_BLUE` is `--red`/`--blue`
 and `BLUE_RAMP` grades `--panel` up to `--blue`; no chart introduces a hue of its own.
