@@ -367,24 +367,51 @@ performance, Open items and Definitions, then SOURCE 02 Fix status, SOURCE 03 Se
 SOURCE 06 Automation focus, Repeat patterns and Automation urgency. Their functions went
 with them (`close_stats`, `close_trend`, `open_items`, `days_open`,
 `definitions_payload`, `repeat_patterns`, `urgency_table`, `recommendation_for_focus`,
-`filled`, `rate_chart`). **`PAGES` is seven**, and each one now answers a different
-question:
+`filled`, `rate_chart`).
+
+**Seven then became three, on the owner's call**, and that round took five more page
+modules with it (`monthly_trend`, `event_workload`, `source_discovery`, `root_cause`,
+`top_customers`) plus the functions only they reached: `render_trend`,
+`missed_verdict`, `trend_chart`, `trend_table` and `long_pair_table`. **`PAGES` is
+three**, and each one answers a different question:
 
 | Page | What it is |
 | --- | --- |
-| Executive Summary | the whole story, in seven sections |
-| All customer emails | the records, and the vocabulary every other tab uses |
-| Monthly trend | volume by month, then the summary's own trend block |
-| Root cause | the summary's root-cause block, then the deeper one the summary no longer carries, the heatmap and the per-owner drill-downs |
-| Top customer complaints | the summary's Customers impacted block, then one account at a time from a dropdown |
-| DETAIL Event workload | the summary's Event types block |
-| Dynamic Source Discovery | the source and keyword deep dive |
+| Executive Summary | what a VP reads, month by month |
+| All customer emails | the records, and the vocabulary every figure is written in |
+| Analysis | where a figure came from, for whoever is asked to prove it |
+
+**What went in that round, and why each one earned it.** `DETAIL Event workload`
+rendered one Executive Summary block and nothing else -- a page with zero unique
+content. `Monthly trend` was the month chart, which now lives on the summary, plus a
+miss-rate chart of a figure the summary already prints above every bar.
+`Dynamic Source Discovery` selected itself on `Standard Automation Focus`, **a field
+this file documents as deliberately spanning BOTH source gaps and keyword gaps** -- a
+page whose own filter is not evidence of a cause cannot answer the question in its
+title. `Root cause` and `Top customer complaints` merged into **Analysis**; both
+already ran the summary's own renderers, so the merge moved code nowhere.
+
+**The merge was proved the way this file requires, not asserted.** The rendered text of
+all seven pages was captured first. After: Executive Summary and All customer emails
+are **byte-identical**, and Analysis carries every content line of both merged pages --
+the only six lines that moved are the two discarded page headings, replaced by one.
+`smoke_app.EXPECTED` for Analysis is `(9, 17)`, the exact **sum** of Root cause's
+`(4, 12)` and Top customer complaints' `(5, 5)`, which is what proves nothing was
+dropped in the merge rather than quietly lost.
+
+**`source_page()` grew a `header` flag, and it closed a real defect.** Analysis calls it
+twice -- once for the Root Cause blocks, once for the Customer blocks -- and a page may
+carry only one heading. The old Root cause page called `render_root_cause()` *before*
+`source_page()`, so its own heading and filter line rendered **three hundred lines down
+the page**, underneath the section they were supposed to introduce. Nobody had reported
+it because nobody scrolls back up to look for a heading.
 
 **The six Executive Summary sections are functions now** -- `render_root_cause`,
 `render_customers`, `render_event_types`, `render_nature`, `render_trend`,
 `render_deeper_root_cause` -- and the internal pages call the same ones. Two of them
-have since left the summary itself and run only on an internal page (`render_trend` on
-Monthly trend, `render_deeper_root_cause` on Root cause), which costs nothing precisely
+have since left the summary itself (`render_trend` to Monthly trend,
+`render_deeper_root_cause` to Root cause -- and `render_trend` has since been deleted
+outright with that page, while `render_deeper_root_cause` moved on to Analysis), which cost nothing precisely
 because they were already functions: the move is one call deleted, not a block of code
 rewritten somewhere else. That is the
 only honest way to satisfy "put the summary's views on the internal pages" and "stop
@@ -1150,8 +1177,13 @@ built from, not the sum of the strings in it.
    selection* says we reported the fire and the Automotive tag was missing, which is a
    different complaint from not reporting it. Three wordings at most, then "and N other
    reasons", and it follows the filter so it cannot go stale.
-7. **Is it getting better** is NOT on this page -- it was removed on the owner's call
-   and lives on Monthly trend alone. What it does, unchanged: `trend_chart()` is **one
+7. **Is it getting better** is on NO page. It left the summary for Monthly trend, and
+   was deleted with it when seven tabs became three -- `render_trend`,
+   `missed_verdict`, `trend_chart` and `trend_table` are all gone. A trend indicator is
+   coming back as **an arrow above the month chart that moves only when the month is
+   outside normal variation**, on the owner's call, and deliberately not as a monthly
+   percentage a reader has to interpret. The reasoning below is kept because it still
+   binds that arrow: what it did was `trend_chart()` as **one
    bar per month**, its percentage printed on it, the last three months blue and the
    three before grey, months outside both windows dark so they cannot be mistaken for
    part of the comparison. It was a line with two flat shelves drawn over it and a
@@ -1780,7 +1812,12 @@ exactly when a reader is most likely to see it. At 117 emails over ten months th
 is 64% against 68%, a 4.4-point move the rule calls noise rather than dressing up as a
 trend; the windows moved to Aug-Oct the moment October opened with one record, which is
 the flag earning its place. It is not on the Executive Summary at all any more -- it
-opened that page once, and now lives on Monthly trend, which is the page for it.
+opened that page once, moved to Monthly trend, and was deleted with it. **The
+replacement is the arrow, and the rule it must follow is the one this function got
+right**: nine of the ten months sit inside three-sigma control limits on their own
+monthly counts, so an indicator that moves every month is reporting noise. The arrow
+reads flat unless the month is genuinely outside the range, and a reader asking for a
+more sensitive threshold is asking for the chart this paragraph rejected.
 
 **The per-owner drill-downs are three tables stacked full width, not two squeezed into
 `st.columns(2)`.** Side by side, a `count_table` with six numeric columns and a wrapped

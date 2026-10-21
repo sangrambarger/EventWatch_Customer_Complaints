@@ -126,8 +126,10 @@ def names_match(series, chosen):
 # no page shows any more -- a control that narrows a population by something invisible
 # leaves a reader unable to explain their own numbers. `Routed To` is derived from
 # `Root Cause` on every row, so it was the same filter twice under two names.
-# `Standard Automation Focus` is how the Dynamic Source Discovery page selects itself,
-# not a cut a reader makes. And the raw `Reason` dropdown listed forty wordings for
+# `Standard Automation Focus` was how the Dynamic Source Discovery page selected
+# itself, and that page is gone -- the field spans both source and keyword gaps, so it
+# never named a cause. It stays out of the filters for the original reason as well: it
+# is not a cut a reader makes. And the raw `Reason` dropdown listed forty wordings for
 # seven real things, so no one could use it.
 #
 # What arrived: the two derived vocabularies the pages are written in (the reason

@@ -28,8 +28,7 @@ from dashboard.styles import CSS_BLOCKS
 from dashboard.data import load_data
 from dashboard.filters import sidebar_filters
 from dashboard.staging import STAGED_FLAG, apply_staged
-from dashboard.pages import (event_workload, executive_summary, monthly_trend, records,
-                             root_cause, source_discovery, top_customers)
+from dashboard.pages import analysis, executive_summary, records
 
 for block in CSS_BLOCKS:
     st.markdown(block, unsafe_allow_html=True)
@@ -37,11 +36,7 @@ for block in CSS_BLOCKS:
 RENDERERS = {
     "Executive Summary": executive_summary,
     "All customer emails": records,
-    "Monthly trend": monthly_trend,
-    "Root cause": root_cause,
-    "Top customer complaints": top_customers,
-    "DETAIL · Event workload": event_workload,
-    "Dynamic Source Discovery": source_discovery,
+    "Analysis": analysis,
 }
 assert set(RENDERERS) == set(PAGES), "every page in PAGES needs a renderer, and vice versa"
 

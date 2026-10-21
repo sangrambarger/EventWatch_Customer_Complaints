@@ -484,44 +484,6 @@ def stacked_bar(frame, label_col, parts, colours, title="", x_title="Records", r
     return fig
 
 
-def trend_chart(rate, band, title=""):
-    """One bar per month, coloured by which window it belongs to.
-
-    This was a line with two flat shelves drawn over it and a signed delta printed on the
-    plot, and it was not readable: a reader had to be told what the shelves meant before
-    the chart said anything. Bars need no explaining -- each month is its own bar with its
-    own percentage printed on it, and the two windows being compared are told apart by
-    colour, with the comparison itself stated in words above the chart rather than drawn
-    into it. Months outside both windows stay grey so they cannot be mistaken for part of
-    the comparison.
-    """
-    if rate.empty or "Missed %" not in rate.columns:
-        st.info("Chart cannot be rendered because required fields are missing: Month, Missed %.")
-        return None
-    months = list(rate["Month"])
-    older = set(band["older"]["months"]) if band else set()
-    recent = set(band["recent"]["months"]) if band else set()
-    colour = ["#8ab4f8" if m in recent else "#b6beca" if m in older else "#3a414d" for m in months]
-    legend = ("Blue: the last three months.  Grey: the three before.  Dark: outside the comparison."
-              if band else "")
-    fig = go.Figure(go.Bar(
-        x=months, y=list(rate["Missed %"]), marker=dict(color=colour, line=dict(width=0)),
-        text=[f"{v:.0f}%" for v in rate["Missed %"]], textposition="outside",
-        textfont=dict(size=13, color="#f3f4f6"),
-        customdata=rate[["Missed", "Records"]].values,
-        hovertemplate="%{x}<br>%{y:.0f}% — %{customdata[0]} of %{customdata[1]} emails<extra></extra>"))
-    fig.update_xaxes(tickfont=dict(size=12, color="#f3f4f6"), gridcolor="#303846", title="")
-    fig.update_yaxes(tickfont=dict(size=12, color="#f3f4f6"), gridcolor="#303846", title="",
-                     ticksuffix="%", range=[0, 105])
-    fig.update_layout(template="plotly_dark", plot_bgcolor="#1b1f26", paper_bgcolor="#1b1f26",
-                      font=dict(color="#f3f4f6", size=13), title=title, showlegend=False,
-                      margin=dict(l=20, r=30, t=56 if title else 20, b=28), height=400)
-    st.plotly_chart(fig, width="stretch")
-    if legend:
-        st.caption(legend)
-    return fig
-
-
 def ranked_bar(frame, label_col, value_col, colours=None, title="", x_title="Records",
                height_per=38):
     """One bar per category, longest first, each in its own colour.

@@ -10,7 +10,7 @@ pairs out, and compares them against counts computed independently from the CSV.
 page whose figures do not reconcile fails, naming the label and both numbers.
 
   python3 scripts/audit_pages.py
-  python3 scripts/audit_pages.py --page "Root cause"   # just the matching pages
+  python3 scripts/audit_pages.py --page "Analysis"   # just the matching pages
 Exits non-zero on any mismatch.
 """
 from __future__ import annotations
@@ -136,14 +136,15 @@ def expectations(df: pd.DataFrame) -> dict[str, dict[str, int]]:
     return {
         "Executive Summary": {**split_all, **dict(drivers), **miss_types, **inbox,
                               **reason_category_counts(df)},
-        # Root cause renders the Executive Summary's own root-cause blocks, so it is
-        # checked against the same driver and failure counts -- if the two tabs ever
-        # drift, one of them fails here rather than both agreeing with themselves.
-        "Root cause": {**counts(df, "Root Cause"), **dict(drivers)},
-        "Top customer complaints": dict(split_all),
-        "DETAIL · Event workload": {**counts(df, "Event type"), **miss_types},
-        "Monthly trend": {f"{m} Complaint": int(monthly.loc[m].get("Complaint", 0))
-                                      for m in monthly.index},
+        # Analysis is the merge of what were Root cause and Top customer complaints, so
+        # it is checked against BOTH sets: the root-cause and driver counts from the
+        # first half, the per-account counts from the second. Both halves run the
+        # Executive Summary's own renderers, so if the two tabs ever drift one of them
+        # fails here rather than both agreeing with themselves.
+        #
+        # Root Cause values and account names cannot collide, so the merge is safe --
+        # check that again if either vocabulary ever grows a shared word.
+        "Analysis": {**counts(df, "Root Cause"), **dict(drivers), **split_all},
         # The reason categories on All customer emails. Imported from app.py rather
         # than restated, because a second copy of the fold would drift and the whole point
         # of the map is that one wording maps one way everywhere.
@@ -180,7 +181,7 @@ def reconciled_totals(df: pd.DataFrame) -> dict[str, dict[str, int]]:
     115, and 27 / 24 / 13 where the chart above it said 26 / 23 / 12, before this check
     existed. Everything else is checked against the column above it.
 
-    It is registered for BOTH pages that render it. Top customer complaints calls the Executive
+    It is registered for BOTH pages that render it. Analysis calls the Executive
     Summary's own `render_customers()`, and the first run after that wiring failed here
     with the same 120-against-115 the check was written for -- the table was reconciled,
     the audit's registration was not. A shared renderer means shared expectations.
@@ -193,7 +194,7 @@ def reconciled_totals(df: pd.DataFrame) -> dict[str, dict[str, int]]:
         "CONFIRMED MISSES": int(df["Missed_Flag"].astype(str).str.strip().eq("Yes").sum()),
     }
     exec_page.update({k.upper(): v for k, v in miss_buckets(df).items()})
-    return {"Executive Summary": exec_page, "Top customer complaints": dict(exec_page)}
+    return {"Executive Summary": exec_page, "Analysis": dict(exec_page)}
 
 
 def total_row_problems(page: str, tables, df: pd.DataFrame, reconciled) -> list[str]:
