@@ -1,8 +1,10 @@
 """The Executive Summary's sections, as functions the internal pages call too.
 
-This is what stops the summary and an internal page drifting: Monthly trend runs
-`render_trend()`, Root cause runs `render_deeper_root_cause()`, and there is one
-implementation of each rather than two that agree today.
+This is what stops the summary and Analysis drifting: Analysis runs the summary's own
+`render_root_cause()`, `render_deeper_root_cause()` and `render_customers()`, so there
+is one implementation of each rather than two that agree today. It mattered more when
+seven pages shared these; at three pages the rule is the same and the surface is
+smaller.
 """
 from __future__ import annotations
 
@@ -21,8 +23,8 @@ import streamlit as st
 from dashboard.styles import esc
 from dashboard.taxonomy import ROOT_OWNERSHIP, name_subtypes, plural
 from dashboard.filters import customer_names, filter_note, names_match
-from dashboard.metrics import MISS_BUCKETS, account_failures, account_headline, all_event_types, count_table, customer_totals, driver_table, event_type_note, event_type_pairs, miss_by_customer, miss_categories, miss_colours, missed_event_types, missed_verdict, monthly_breakdown, monthly_note, monthly_table, nature_table, owner_accounts, owner_insight, root_drivers, root_frame, root_recent_note, root_summary, subtype_matrix, takeaway, trend_table, trend_windows
-from dashboard.components import add_section, chart, downloads, driver_bar, excel_bar_table, grouped_bar, heatmap, kpis, monthly_stack, page_header, proportion_bar, stacked_bar, styled_table, trend_chart
+from dashboard.metrics import MISS_BUCKETS, account_failures, account_headline, all_event_types, count_table, customer_totals, driver_table, event_type_note, event_type_pairs, miss_by_customer, miss_categories, miss_colours, missed_event_types, monthly_breakdown, monthly_note, monthly_table, nature_table, owner_accounts, owner_insight, root_drivers, root_frame, root_recent_note, root_summary, subtype_matrix, takeaway, trend_windows
+from dashboard.components import add_section, chart, downloads, driver_bar, excel_bar_table, grouped_bar, heatmap, kpis, monthly_stack, page_header, proportion_bar, stacked_bar, styled_table
 
 
 
@@ -179,7 +181,7 @@ def render_account_view(page):
         downloads(types, f"account_event_types_{picked}", f_type)
 
 
-def source_page(title, df, col, key, primary=None, summary=True):
+def source_page(title, df, col, key, primary=None, summary=True, header=True):
     """`primary` overrides how the main table is counted -- Customer needs a counter that
     credits every account named in a multi-customer row, not the whole string.
 
@@ -187,8 +189,16 @@ def source_page(title, df, col, key, primary=None, summary=True):
     page now renders the Executive Summary's own block for the same dimension, that pair
     was the same numbers a second time in weaker words, and two tables of one thing on
     one page is exactly the repetition this dashboard is being cleaned of.
+
+    `header=False` suppresses the page heading and the filter line. Analysis calls this
+    twice -- once for the Root Cause blocks and once for the Customer blocks -- and a
+    page may only have one heading. It also fixes a real defect: the Root cause page
+    called `render_root_cause()` before `source_page()`, so its own heading rendered
+    three hundred lines down the page, under the section it was supposed to introduce.
     """
-    page_header(title); page = df; filter_note(); label = col.replace("Standard Automation Focus", "Automation focus")
+    if header:
+        page_header(title); filter_note()
+    page = df; label = col.replace("Standard Automation Focus", "Automation focus")
     if summary:
         t = primary(page) if primary else count_table(page, col)
         note = (" A row naming two customers is counted for each of them, so one incident reported by two accounts "
@@ -304,9 +314,10 @@ def _open_month(page, frame, month):
 def render_monthly_breakdown(page, clickable=False):
     """Month by month: what came in, and where it failed.
 
-    On the Executive Summary and on Monthly trend, from one function, for the same
-    reason every other shared block is: two pages drawing the same months from two
-    copies is how they end up disagreeing.
+    The Executive Summary is now its only caller -- Monthly trend drew it too until
+    that page was cut -- so `clickable` has only one answer today. The parameter stays:
+    it is what keeps the chart's widget key owned by exactly one page, and the day a
+    second page draws these months that constraint is the whole of why it exists.
 
     It replaced a grouped complaint-against-inquiry pair that was volume only -- how
     many arrived, nothing about how many we got wrong, which is the whole of what a VP
@@ -314,9 +325,9 @@ def render_monthly_breakdown(page, clickable=False):
     with both bases beside it.
 
     **`clickable` belongs to the page, not to the block.** Only one page may own the
-    chart's widget key, or Streamlit hands the two pages one piece of selection state
-    and a month opened on the summary opens again on Monthly trend. The Executive
-    Summary owns it; Monthly trend draws the same chart without the click.
+    chart's widget key, or Streamlit hands both pages one piece of selection state and
+    a month opened on one opens again on the other. The Executive Summary owns it; any
+    future caller draws the same chart without the click.
 
     No descriptive paragraph under the heading, on the owner's call. The one line under
     the table is the hierarchy, which is a reconciliation rather than commentary: it is
@@ -578,36 +589,6 @@ def render_nature(page):
             f"something else went wrong — {named}. "
             f"{here} + {elsewhere} = {here + elsewhere}.")
         downloads(split, "nature_of_complaints", f_nature)
-
-
-def render_trend(page):
-    """Is it getting better: the verdict sentence, the monthly bars and the table."""
-    rate, band = trend_windows(page)
-    add_section("Is it getting better?", "One bar per month: the share of that month's emails that "
-                "turned out to be a confirmed miss, with its percentage printed on it. The last "
-                "three months are blue and the three before them grey, and the sentence above the "
-                "chart states the comparison rather than leaving it to be read off the bars. Both "
-                "figures are pooled on counts, so a month with four emails does not weigh the same "
-                "as one with eighteen.", "#f6c177")
-    if rate.empty:
-        st.info("No dated email in the current filter.")
-    else:
-        verdict = missed_verdict(rate)
-        if verdict:
-            headline, detail, colour, _ = verdict
-            st.markdown(f"<div class='insight-box' style='--accent:{colour}'>"
-                        f"<b style='color:{colour}'>{esc(headline)}.</b> {esc(detail)}</div>",
-                        unsafe_allow_html=True)
-        f_rate = trend_chart(rate, band, title="Confirmed misses as a share of each month's emails")
-        months = trend_table(rate, band)
-        styled_table(months, total_row=True)
-        if band:
-            st.caption(f"The comparison rests on {band['older']['emails']} emails and "
-                       f"{band['recent']['emails']} emails. A single thin month moves it several "
-                       f"points, so read it as a direction rather than a result.")
-        else:
-            st.caption("Fewer than six months of emails in this filter — too short to compare two windows.")
-        downloads(months, "missed_event_rate", f_rate)
 
 
 def render_deeper_root_cause(page):

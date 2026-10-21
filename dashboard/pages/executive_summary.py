@@ -106,12 +106,12 @@ def render(df, filtered, selected_page):
         _open_card(details, opened)
 
     add_rule()
-    # Section 2 on the owner's call. "Is it getting better?" (`render_trend`) stays on
-    # Monthly trend, which is the page for it; this is the same breakdown function that
-    # page draws, so the two cannot show one month two ways.
-    # Only this page passes `clickable`: the chart's widget key is one piece of
-    # session state, and two pages sharing it would have a month opened here open
-    # again on Monthly trend.
+    # Section 2 on the owner's call, and the block this page is read for. "Is it
+    # getting better?" (`render_trend`) left for Monthly trend and was deleted with it;
+    # the replacement is an arrow above this chart that moves only when a month is
+    # outside normal variation, not a percentage that wobbles every month.
+    # `clickable` is still passed explicitly rather than defaulted: the chart's widget
+    # key is one piece of session state and exactly one page may own it.
     render_monthly_breakdown(page, clickable=True)
 
     add_rule()

@@ -69,15 +69,6 @@ def count_table(df, col, base=None):
     return t[[c for c in cols if c in t.columns]]
 
 
-def long_pair_table(df, first, second, base=None):
-    if df.empty or first not in df.columns or second not in df.columns: return pd.DataFrame(columns=[first, second, "Records", "% of Total"])
-    out = df.groupby([first, second], dropna=False).size().reset_index(name="Records")
-    out[first], out[second] = out[first].fillna("Blank").astype(str), out[second].fillna("Blank").astype(str)
-    denom = max(base or int(out["Records"].sum()), 1)
-    out["% of Total"] = (out["Records"] / denom * 100).round(1).astype(str) + "%"
-    return out.sort_values(["Records", first, second], ascending=[False, True, True])
-
-
 def category_table(df, total=True):
     """One row per category, carrying the customer wordings folded into it.
 
@@ -389,52 +380,6 @@ def missed_rate(df):
 
 def _share(frame, col, value):
     return (frame[col].astype(str).str.strip().eq(value).mean() * 100) if len(frame) else 0.0
-
-
-def missed_verdict(rate, window=3, noise=5.0):
-    """Say in words whether the miss rate is coming down, in a sentence a director reads.
-
-    A grid of monthly percentages does not answer "are we getting better", and the
-    honest answer here is no -- nine months in, the rate has not moved. Stating that
-    is the point of the KPI; leaving the reader to eyeball nine numbers is how it went
-    unnoticed.
-
-    Compared on POOLED counts, not the mean of monthly percentages: a month with four
-    emails would otherwise carry the same weight as one with eighteen. A move smaller
-    than `noise` points is reported as flat rather than dressed up as a trend, and the
-    latest month is flagged when it is too thin to lean on -- these are 10-20 emails a
-    month, and reading a trend into that noise is worse than reading none.
-    """
-    if len(rate) < window * 2:
-        return None
-    recent, prior = rate.tail(window), rate.iloc[-window * 2:-window]
-    now = recent["Missed"].sum() / max(recent["Records"].sum(), 1) * 100
-    was = prior["Missed"].sum() / max(prior["Records"].sum(), 1) * 100
-    delta = now - was
-    label = lambda m: pd.Period(m, freq="M").strftime("%b %Y")
-    span = (f"{label(recent['Month'].iloc[0])}–{label(recent['Month'].iloc[-1])} "
-            f"against {was:.0f}% in {label(prior['Month'].iloc[0])}–{label(prior['Month'].iloc[-1])}")
-    # One decimal on the gap and on both rates. Rounded to whole points, a 4.5-point
-    # move printed as "a 5-point move ... which is noise" against a 5-point threshold,
-    # which reads as the sentence contradicting itself.
-    if delta <= -noise:
-        verdict, colour = "Improving", "#a8dab5"
-        sentence = f"down {abs(delta):.1f} points"
-    elif delta >= noise:
-        verdict, colour = "Getting worse", "#f28b82"
-        sentence = f"up {delta:.1f} points"
-    else:
-        verdict, colour = "Not improving", "#f6c177"
-        sentence = f"a {abs(delta):.1f}-point move, which is noise at this volume"
-    detail = (f"{now:.0f}% of customer emails were confirmed misses in {span} — {sentence}. "
-              f"{int(recent['Missed'].sum())} of {int(recent['Records'].sum())} emails.")
-    thin = rate.iloc[-1]
-    if thin["Records"] < 8:
-        # `plural()`, because the first email of a new month makes this read "has only
-        # 1 emails so far" on the Executive Summary -- which is exactly when a reader is
-        # most likely to be looking at it.
-        detail += f" {label(thin['Month'])} has only {plural(int(thin['Records']), 'email')} so far."
-    return verdict, detail, colour, now
 
 
 def customer_exposure(df, base=None):
@@ -921,22 +866,6 @@ def trend_windows(df, window=3):
         return {"months": list(part["Month"]), "emails": emails, "missed": misses,
                 "value": misses / max(emails, 1) * 100}
     return rate, {"older": pooled(rate.iloc[-window * 2:-window]), "recent": pooled(rate.tail(window))}
-
-
-def trend_table(rate, band):
-    """The monthly series as a table, with a total whose share is pooled, not averaged."""
-    if rate.empty:
-        return pd.DataFrame(columns=["Month", "Emails", "Confirmed misses", "Miss rate"])
-    out = pd.DataFrame({
-        "Month": [pd.Period(m, freq="M").strftime("%b %Y") for m in rate["Month"]],
-        "Emails": rate["Records"].astype(int).values,
-        "Confirmed misses": rate["Missed"].astype(int).values,
-    })
-    out["Miss rate"] = (out["Confirmed misses"] / out["Emails"].clip(lower=1) * 100).round(0).astype(int).astype(str) + "%"
-    emails, misses = int(out["Emails"].sum()), int(out["Confirmed misses"].sum())
-    out.loc[len(out)] = {"Month": "Total", "Emails": emails, "Confirmed misses": misses,
-                         "Miss rate": f"{misses / max(emails, 1) * 100:.0f}%"}
-    return out
 
 
 def root_frame(df):

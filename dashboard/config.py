@@ -29,47 +29,48 @@ WORKBOOK_NAME = "EventWatch_Customer_Complaints_2026.xlsx"
 # at `dashboard/`, finds nothing, and every page renders empty.
 APP_DIR = Path(__file__).resolve().parent.parent
 
+# Seven tabs became three on the owner's call. Each of the three now answers a
+# different question, and nothing is on two of them:
+#   Executive Summary   -- what a VP reads, month by month
+#   All customer emails -- the records, and the vocabulary every figure is written in
+#   Analysis            -- where a figure came from, for whoever is asked to prove it
+#
+# What went, and why. DETAIL Event workload rendered one Executive Summary block and
+# nothing else. Monthly trend was the month chart -- which now lives on the summary --
+# plus a miss-rate chart of a figure the summary already prints above every bar.
+# Dynamic Source Discovery selected itself on `Standard Automation Focus`, a field this
+# repository documents as deliberately spanning BOTH source gaps and keyword gaps, so
+# the page could not answer the question in its own title. Root cause and Top customer
+# complaints merged into Analysis; both already ran the summary's own renderers.
 PAGES = [
     # All customer emails sits second on purpose: it is where the vocabulary every other
     # tab uses is defined, so a reader who stops on a category name anywhere else finds
-    # its meaning one click away rather than at the bottom of a list of fifteen.
-    "Executive Summary", "All customer emails",
-    "Monthly trend", "Root cause", "Top customer complaints",
-    "DETAIL · Event workload", "Dynamic Source Discovery",
+    # its meaning one click away rather than at the bottom of a longer list.
+    "Executive Summary", "All customer emails", "Analysis",
 ]
 
 DESCRIPTIONS = {
     "Executive Summary": "What customers sent in, how much of it we got wrong, why, who it hit, and whether it is moving.",
-    "Monthly trend": "Month-by-month complaint and inquiry trend, sorted chronologically from January onward, with the missed-event rate that volume alone hides.",
-    "Root cause": "People, Process, and Product themes with deeper drill-downs below the current summary.",
-    "Top customer complaints": "Customers with the highest complaint or inquiry volume and the reasons behind those records.",
-    "DETAIL · Event workload": "Event types that repeatedly drive complaints, inquiries, or operational workload.",
-    "Dynamic Source Discovery": "Source coverage, feed, keyword, vendor monitoring, and event-discovery gaps.",
     "All customer emails": "Every complaint and inquiry a customer sent in, with the category behind each one, downloads, and controlled manual-entry staging.",
+    "Analysis": "Where the summary's figures come from: the full failure taxonomy, the sub-type heatmap, the per-owner drill-downs, and one account at a time.",
 }
 
-# The fifteen pages fall into four jobs, and the job -- not the page -- is what a colour
-# can usefully say. Fifteen hues would be confetti, and repeating a hue across unrelated
-# pages claims a kinship that is not there; four groups give the eye landmarks in a long
-# list while staying inside the app's own tokens. The index is derived from PAGES rather
+# The pages fall into jobs, and the job -- not the page -- is what a colour can usefully
+# say. A hue per page would be confetti, and repeating a hue across unrelated pages
+# claims a kinship that is not there. At three pages the grouping earns little, and it
+# stays because the rule is what matters: colour names the job. The index is derived from PAGES rather
 # than written out, so reordering or renaming a page cannot leave a rule pointing at the
 # wrong row.
 NAV_GROUPS = {
     "Where you start": ("#8ab4f8", ("Executive Summary", "All customer emails")),
-    "Why it happened": ("#f28b82", ("Monthly trend", "Root cause")),
-    "Who it happened to": ("#f6c177", ("Top customer complaints", "DETAIL · Event workload")),
-    "What we do about it": ("#80cbc4", ("Dynamic Source Discovery",)),
+    "Where it comes from": ("#80cbc4", ("Analysis",)),
 }
 
 
 PAGE_KICKERS = {
     "Executive Summary": ("Overview", "#8ab4f8"),
-    "Monthly trend": ("Chart source", "#80cbc4"),
-    "Root cause": ("Chart source", "#80cbc4"),
-    "Top customer complaints": ("Chart source", "#80cbc4"),
-    "DETAIL · Event workload": ("Detail view", "#f6c177"),
-    "Dynamic Source Discovery": ("Coverage gap", "#f6c177"),
     "All customer emails": ("The records", "#f28b82"),
+    "Analysis": ("Drill-down", "#80cbc4"),
 }
 
 
