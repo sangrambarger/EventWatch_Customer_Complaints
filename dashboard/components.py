@@ -770,6 +770,40 @@ def nested_donut(ring):
     return fig
 
 
+def fault_pills(groups, colours):
+    """One tapered pill per complaint, grouped by what went wrong.
+
+    **Seventeen records is not a bar chart.** A bar of 3 against a bar of 1 exaggerates
+    a difference of two emails, and nine bars of which five are a single record is a
+    table drawn as shapes -- both were built and both were rejected on sight. A pill
+    per record cannot lie about length: you count them. It also carries the customer
+    name for free, which is what turns the block from a count into a finding -- Eaton
+    on four of the nine failures is visible here and in no aggregate.
+
+    Every pill hovers with the failure, the owner, the customer and the one line the
+    record itself records about what happened. `metrics.bulletin_errors()` folds a
+    repeated (customer, owner) into one pill with a count, so two identical chips never
+    sit side by side; the row count on the right stays the real total.
+    """
+    if not groups:
+        st.info("No complaint in this view was reported and then found wrong.")
+        return
+    rows = []
+    for label, note, pills, n in groups:
+        chips = "".join(
+            f"<span class='fault-pill' style='--c:{colour}' "
+            f"title='{esc(label)} &#183; {esc(owner)}&#10;{esc(cust)}&#10;{esc(what)}'>"
+            f"{esc(cust)}{f'<b>&times;{k}</b>' if k > 1 else ''}</span>"
+            for cust, owner, colour, k, what in pills)
+        rows.append(f"<div class='fault-row'>"
+                    f"<div class='fault-name' title='{esc(note)}'>{esc(label)}</div>"
+                    f"<div class='fault-pills'>{chips}</div>"
+                    f"<div class='fault-count'>{n}</div></div>")
+    key = "".join(f"<div class='fault-key'><span class='fault-swatch' style='--c:{c}'></span>"
+                  f"{esc(name)}</div>" for name, c in colours)
+    st.markdown("".join(rows) + f"<div class='fault-legend'>{key}</div>", unsafe_allow_html=True)
+
+
 def trend_line(trend, title=""):
     """The miss rate month by month, inside its own control limits.
 

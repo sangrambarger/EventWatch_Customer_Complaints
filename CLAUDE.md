@@ -842,7 +842,7 @@ spill cache on the Dashboard, which carried the old value.
 
 ## The Executive Summary, section by section
 
-The page is a story in seven parts, separated by `add_rule()` -- a full-width hairline,
+The page is a story in eight parts, separated by `add_rule()` -- a full-width hairline,
 because the heading card alone was not enough and two adjacent sections read as one.
 Every section is chart-then-table, in that order, so the eye learns the shape once --
 and **the table is collapsed**, behind a `Show the numbers` expander, so a reader meets
@@ -864,11 +864,12 @@ under five blocks because its table has seventeen columns optimises for layout a
 the question being asked. It is back at **fourth**, directly under the failure analysis
 it belongs to.
 
-The order now is **seven sections**: what came in (the cards), **how those figures
+The order now is **eight sections**: what came in (the cards), **how those figures
 join** (the two nested rings), **when it arrived and where it failed** (the monthly breakdown,
 moved to second on the owner's call), **whether it is moving** (the trend line and its
-arrow), **why we missed** (the root causes and their drivers), **who it hit** (Customers
-impacted), and **what kind of event** it was. Two sections left on the owner's call and neither
+arrow), **why we missed** (the root causes and their drivers), **what we got wrong in
+the bulletins we did send** (the 17), **who it hit** (Customers impacted), and **what
+kind of event** it was. Two sections left on the owner's call and neither
 was replaced -- the rings that were "how much of it was ours", and Nature of
 complaints, "what the customer themselves called it", which moved to Analysis.
 **Do not re-sort this page by table width**, and do not read a shorter page as licence
@@ -1296,6 +1297,65 @@ neither of those did.
    reads `g.hoverlayer`'s text back. That tests the hovertemplate and its customdata,
    which is the part that can actually be wrong. The clipping was only visible in a
    screenshot taken while the label was up.
+**Errors in the bulletins we sent** -- `render_bulletin_errors()`, directly under the
+root-cause section, because between them they are every complaint. Section 5 covers the
+**86 misses and stops**; these are the **17** where the event reached the customer in
+time and the bulletin itself was wrong, and until this landed they existed only behind a
+click on the fourth KPI card. The caption prints the join rather than leaving a reader to
+subtract: **86 + 17 = 103**.
+
+**It is pills, and four other forms were built and rejected first.** A second bar series
+on the driver charts broke the card above it. A third owner card asserted that "Product
+reported it", which is false -- **analysts report every event, Product reports nothing**,
+and that correction is why the block is its own section rather than a card in the tier.
+A treemap turned nine groups into a wall of rectangles. A unit chart of plotly squares
+read as a different product beside the KPI cards. **Seventeen records is not a bar
+chart**: a bar of 3 against a bar of 1 exaggerates a difference of two emails, and five
+of the nine groups hold a single record.
+
+**One tapered pill is one complaint, and it carries the customer's name.** The owner
+colour starts solid at the pill's left edge and fades across it -- a flat fill strong
+enough to read as a colour was too strong to read text on, and one quiet enough for the
+text stopped telling Product from Analyst apart; the gradient is the only version that
+does both. The name costs nothing in space and changes what the block is worth: **Eaton
+appears on four of the nine failures**, which no aggregate shows. Drawn in HTML, not as
+plotly markers, because these are chips and the rest of the page's chips are HTML.
+
+**Pills fold on `(customer, owner)`, never on the customer alone.** Two identical pills
+on one row is repetition rather than a finding, so `Eaton` twice becomes `Eaton x2` and
+the row count still prints the real total. Folding on the name alone would hide a
+customer appearing under two owners on one failure, which is a real split.
+
+**`WRONG_GROUPS` is the one fold, shared with the card popup**, so the 17 cannot be told
+two different ways on one page. Three groups were split out of broader ones when this
+was built, each because the owner of the fix differs: `Incorrect geocode` left the
+supplier group (the Data team, not an analyst), `Wrong routing data` left it too (tenant
+linkage is Platform's), and `Wrong industry tag` left `Not visible on portal`, because a
+tag an analyst set is not a portal that failed to render. Seven groups became nine.
+
+**Every label is a TERM now, and the sentence moved to the hover.** They read "The
+supplier list was wrong", "We called the event wrong", "Sent twice, or merged wrong"
+until the owner named the fault: a label competing with its own number is a label nobody
+scans. **This reverses the earlier decision** recorded further down, where `PLAIN_SUBTYPE`
+was deliberately rewritten *into* plain-English sentences because a bare term said
+nothing to a VP -- and it only works because the sentence is still there, on the hover
+and in `note`. **Keep both halves or neither**: terms as labels with no hover is the
+state that instruction was written against.
+
+**`what_happened()` is derived, never typed.** The table's last column is the first
+sentence of the record's own `RCA Details`, falling back to `Comments`, with the daily
+Routine's `Staged from Jira EAO-NN (status).` preamble stripped. Seventeen hand-written
+explanations would be seventeen strings that go stale the day a ticket moves. Two
+records say "No cause recorded on the ticket" and that is the honest reading, not a gap
+to be filled in.
+
+**The accent is `CAT_SLATE`, not an owner hue**, because the 17 are 9 Product, 7 People
+and 1 Process -- the same rule `Reported, but wrong` is held to everywhere else.
+
+**It adds a table and no chart to each page**, which is itself the check: `smoke_app`
+went `(8, 5) -> (8, 6)` and `(10, 18) -> (10, 19)`. A chart count that moved would mean
+the pills had been quietly redrawn as plotly.
+
 6. **Customers impacted** -- `miss_by_customer()`, the eight worst as a stacked bar and
    **every** account in a scrolling table. The row carries **both bases**: `Emails` with
    `Complaints` and `Inquiries` beside it (every email that named the account), then the

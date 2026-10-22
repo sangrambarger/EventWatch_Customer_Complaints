@@ -20,11 +20,11 @@ import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 
-from dashboard.styles import esc
+from dashboard.styles import CAT_SLATE, ROOT_COLOURS, esc
 from dashboard.taxonomy import ROOT_OWNERSHIP, name_subtypes, plural
 from dashboard.filters import customer_names, filter_note, names_match
-from dashboard.metrics import MISS_BUCKETS, account_failures, account_headline, count_table, customer_totals, driver_table, event_type_flow, miss_by_customer, miss_categories, miss_colours, miss_trend, monthly_breakdown, monthly_note, monthly_table, nature_table, owner_accounts, owner_insight, root_drivers, root_frame, root_recent_note, root_summary, subtype_matrix, takeaway, trend_note, trend_windows
-from dashboard.components import add_section, chart, downloads, driver_bar, excel_bar_table, flow_bar, grouped_bar, heatmap, kpis, monthly_stack, page_header, proportion_bar, stacked_bar, styled_table, trend_line
+from dashboard.metrics import MISS_BUCKETS, account_failures, bulletin_errors, account_headline, count_table, customer_totals, driver_table, event_type_flow, miss_by_customer, miss_categories, miss_colours, miss_trend, monthly_breakdown, monthly_note, monthly_table, nature_table, owner_accounts, owner_insight, root_drivers, root_frame, root_recent_note, root_summary, subtype_matrix, takeaway, trend_note, trend_windows
+from dashboard.components import add_section, chart, downloads, driver_bar, fault_pills, excel_bar_table, flow_bar, grouped_bar, heatmap, kpis, monthly_stack, page_header, proportion_bar, stacked_bar, styled_table, trend_line
 
 
 
@@ -462,6 +462,47 @@ def render_root_cause(page):
                             wrap=["What it means"], raw=["Owner"], classes={"Owner": "owners"},
                             caption="Every driver behind the cards above, biggest first.")
         downloads(drivers, "miss_drivers")
+
+
+def render_bulletin_errors(page):
+    """The other half of the 103: complaints where the bulletin went out and was wrong.
+
+    **"Why the events were missed" covers 86 records and stops.** The 17 complaints
+    where the event DID reach the customer in time had no block of their own and
+    appeared only behind a click on the fourth KPI card. Together the two sections are
+    every complaint, which is why the caption prints the join rather than leaving a
+    reader to subtract: `86 + 17 = 103`.
+
+    **It is pills, not bars**, for the reason set out on `fault_pills()`. The failure
+    names carry the short vocabulary -- `Incorrect geocode`, `Incorrect suppliers
+    selected`, `Duplicate bulletins` -- and the sentence that used to be the label is
+    the hover. `WRONG_GROUPS` is the one fold, shared with the card popup, so the 17
+    cannot be told two different ways on one page.
+
+    The accent is `CAT_SLATE` and not an owner hue, because these 17 are 9 Product,
+    7 People and 1 Process -- the rule every mixed category here is held to.
+    """
+    data = bulletin_errors(page)
+    add_section("Errors in the bulletins we sent", "", CAT_SLATE)
+    if not data["total"]:
+        st.info("No complaint in the current filter was reported and then found wrong.")
+        return
+    missed = int(page.get("Missed_Flag", pd.Series(dtype=str)).astype(str).str.strip().eq("Yes").sum())
+    n = data["total"]
+    st.markdown(
+        f"<div class='insight-box' style='--accent:{CAT_SLATE}'>"
+        f"<b style='color:var(--ink)'>{n} complaints.</b> The event reached the customer "
+        f"in time and the bulletin itself was wrong. One pill is one complaint; hover it "
+        f"for the customer and what happened. "
+        f"<b style='color:var(--ink)'>{missed} missed + {n} wrong = {missed + n} "
+        f"complaints.</b></div>", unsafe_allow_html=True)
+    fault_pills(data["groups"], [(k, ROOT_COLOURS[k]) for k in ("Product", "People", "Process")])
+    table = data["rows"].rename(columns={"Email/JIRA Date": "Date", "Failure": "What was wrong",
+                                         "Owner": "Who fixes it"})[
+        ["Date", "Customer", "What was wrong", "Who fixes it", "What happened"]]
+    with st.expander("Show the numbers"):
+        styled_table(table, variant="wide roomy", wrap=["What happened"])
+    downloads(table, "bulletin_errors")
 
 
 def render_customers(page):

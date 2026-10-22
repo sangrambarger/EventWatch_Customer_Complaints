@@ -35,7 +35,7 @@ import streamlit as st
 from dashboard.filters import filter_note
 from dashboard.metrics import card_details, inbox_rings, inbox_totals, trend_windows
 from dashboard.components import add_rule, add_section, clickable_kpis, detail_panel, nested_donut, page_header
-from dashboard.sections import render_customers, render_event_types, render_monthly_breakdown, render_root_cause, render_trend
+from dashboard.sections import render_bulletin_errors, render_customers, render_event_types, render_monthly_breakdown, render_root_cause, render_trend
 
 
 
@@ -177,6 +177,12 @@ def render(df, filtered, selected_page):
 
     add_rule()
     render_root_cause(page)
+
+    add_rule()
+    # The other half of the 103. Section 5 covers the 86 misses and stops; these
+    # are the complaints where the bulletin went out and was wrong, which had no
+    # block of their own and lived behind a click on the fourth card.
+    render_bulletin_errors(page)
 
     add_rule()
     render_customers(page)

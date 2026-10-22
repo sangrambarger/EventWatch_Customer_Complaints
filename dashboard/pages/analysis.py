@@ -24,7 +24,7 @@ import streamlit as st
 from dashboard.filters import filter_note
 from dashboard.metrics import count_table, customer_exposure
 from dashboard.components import add_rule, add_section, downloads, page_header, styled_table
-from dashboard.sections import (render_customers, render_deeper_root_cause,
+from dashboard.sections import (render_bulletin_errors, render_customers, render_deeper_root_cause,
                                 render_nature, render_root_cause, source_page)
 
 
@@ -36,6 +36,8 @@ def render(df, filtered, selected_page):
     # carries, then the cuts that never fitted a summary at all: the sub-type heatmap
     # with its own customer selector, and the per-owner drill-downs.
     render_root_cause(page)
+    add_rule()
+    render_bulletin_errors(page)
     add_rule()
     render_deeper_root_cause(page)
     add_rule()
