@@ -1993,6 +1993,35 @@ has recorded the contradiction as unresolved since the October rulings, and noth
 the records said so. Row 95's `Comments` now names it. **Settling it is the owner's
 call**, and nothing here should reclassify either row to make the pair look tidy.
 
+**Five RCAs were read into the tracker on 22-Oct-2026 from the documents themselves**,
+pasted in by the owner because the PDFs are not readable from here. EAO-14, EAO-21,
+EAO-23, EAO-26 and EAO-48 now carry their own stated cause instead of a note saying a
+document existed. Four of the five confirmed the row as filed and the owner ruled on two
+of them in terms -- **"in simple words, analyst missed it, do not put it on product"**
+(EAO-21) and **"analyst overlooked it"** (EAO-23) -- which is the `People` / `Review`
+definition and is now quoted on those rows.
+
+**EAO-26 was the one that moved, and the RCA refutes the filing in its own first clause.**
+It was `Product` / `Source Coverage`, and the document says *"the July 24 article was
+successfully captured when it became available"* -- so coverage is not what failed. The
+cause it does name is the assessment: the affected Sasol facility was not mapped in the
+Resilinc database, no mapped supplier sites were in the immediate vicinity, and the first
+article reported an incident three days old, which together produced a Not Impactful
+call. That is the Product reading of `Mapping` word for word -- the supplier is not in
+the customer's mapped supply chain, so there was nothing for the event to match against.
+`Standard Automation Focus` and `Automation Opportunity` followed the cause off
+`Dynamic Source Discovery` to `Entity & Supplier Resolution`, per the Bombardier
+precedent that the remedy follows the cause.
+
+**`Missed_Flag` was left at Yes, and that is a live question rather than a settled one.**
+The NVR Kinston precedent says a notification is not owed where the site was never shared
+with Resilinc, and on that reading an unmapped Sasol facility is not a miss. What
+separates them is that NVR asked a question and Ford asserted a failure, which is the
+test the owner set. Moving the flag would take a miss off Ford's count, so it waits for
+the owner rather than being decided by a re-check. **No headline figure moved**: the
+change is inside Product, 86 / 51 / 35 are unchanged, and the miss-bucket chart shifts
+one email from the source bucket to the mapping tail.
+
 **Two things could not be verified and were not guessed.** Jira attachments are not
 readable from here -- the content endpoint returns 403, no credential is available to the
 shell, and the MCP exposes no download tool -- so where an RCA lives only in an attached
