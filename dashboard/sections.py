@@ -489,11 +489,15 @@ def render_bulletin_errors(page):
         return
     missed = int(page.get("Missed_Flag", pd.Series(dtype=str)).astype(str).str.strip().eq("Yes").sum())
     n = data["total"]
+    pills = data.get("pills", n)
+    shared = pills - n
+    extra = (f" Two account names on one email means two pills, so {pills} pills cover "
+             f"{n} complaints." if shared else "")
     st.markdown(
         f"<div class='insight-box' style='--accent:{CAT_SLATE}'>"
         f"<b style='color:var(--ink)'>{n} complaints.</b> The event reached the customer "
-        f"in time and the bulletin itself was wrong. One pill is one complaint; hover it "
-        f"for the customer and what happened. "
+        f"in time and the bulletin itself was wrong. One pill is one account on one "
+        f"complaint; hover it for the date, the ticket and what went wrong.{extra} "
         f"<b style='color:var(--ink)'>{missed} missed + {n} wrong = {missed + n} "
         f"complaints.</b></div>", unsafe_allow_html=True)
     fault_pills(data["groups"], [(k, ROOT_COLOURS[k]) for k in ("Product", "People", "Process")])

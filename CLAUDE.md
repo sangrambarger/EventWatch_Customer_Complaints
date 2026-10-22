@@ -336,7 +336,7 @@ instead of pushing, so a bad row cannot reach the dashboard silently.
 `Resolution Date` is what makes any timing metric possible, and the app treats it as
 the record's closing date. `days_to_close()` is the cycle time and is what
 `days_to_close()`, `days_open()` and `age_days()` are all gone with the pages that used
-them, so **no cycle-time figure is computed anywhere in the app**. The column is blank on 73 closed records: those predate the
+them, so **no cycle-time figure is computed anywhere in the app**. The column is blank on 83 closed records: most predate the
 EAO project and carry no ticket to read a date from, so every cycle-time figure names
 its own denominator rather than treating a blank as zero. Backfill came from each
 ticket's Jira `resolutiondate` via the connector -- never guessed, and never taken for
@@ -1321,6 +1321,21 @@ does both. The name costs nothing in space and changes what the block is worth: 
 appears on four of the nine failures**, which no aggregate shows. Drawn in HTML, not as
 plotly markers, because these are chips and the rest of the page's chips are HTML.
 
+**One pill is one ACCOUNT, not one Customer cell, and the slash is why.** `Eaton/Ford`
+and `Penske/Ford` are two companies each, and every other count in the app already reads
+them that way -- `customer_exposure()` explodes on the slash, `names_match()` matches
+either side. The pills were the one place still printing the raw cell, and the owner
+found it from the filter: narrow the sidebar to Penske and the `Penske/Ford` row
+survives, so a pill reading `Penske/Ford` names Ford inside a view Ford was filtered out
+of. `accounts_on()` splits it, so Penske and Ford get a pill each.
+
+**The cost is that pills outnumber records, and it is stated on the panel.** Two of the
+seventeen name two accounts, so nineteen pills cover seventeen complaints, and the
+number on the right of each row stays the **record** count throughout. The caption names
+the gap -- computed from `bulletin_errors()["pills"]`, never typed -- which is the same
+rule the Customers impacted table's total row follows: **where the parts cannot sum to
+the headline, say why on the panel.**
+
 **Pills fold on `(customer, owner)`, never on the customer alone.** Two identical pills
 on one row is repetition rather than a finding, so `Eaton` twice becomes `Eaton x2` and
 the row count still prints the real total. Folding on the name alone would hide a
@@ -1341,6 +1356,17 @@ was deliberately rewritten *into* plain-English sentences because a bare term sa
 nothing to a VP -- and it only works because the sentence is still there, on the hover
 and in `note`. **Keep both halves or neither**: terms as labels with no hover is the
 state that instruction was written against.
+
+**The hover names the complaint, not the row the pill is sitting in.** The first cut
+printed the failure, the owner and the customer -- and the failure is already the label
+at the head of that row while the customer is already written on the pill, so two of
+its three lines told a reader what they were looking at. `_pill_title()` opens with the
+account and who fixes it, then the failure and its meaning, then **one block per
+complaint folded into that chip**: the date the customer wrote in, the ticket to open,
+the event, and what the record says went wrong. A `title` attribute is plain text, so
+the structure is `&#10;` line breaks and every value goes through `esc()`. All four
+lines are columns on the record (`record_note()`), so none of them can go stale -- the
+same constraint `what_happened()` is held to below.
 
 **`what_happened()` is derived, never typed.** The table's last column is the first
 sentence of the record's own `RCA Details`, falling back to `Comments`, with the daily
