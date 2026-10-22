@@ -969,14 +969,22 @@ def bulletin_errors(df):
     Grouped by `WRONG_GROUPS`, the same fold the delivered-but-wrong popup uses, so the
     section and that popup cannot tell the 17 two different ways.
 
-    **Pills fold on (customer, owner), never on the customer alone.** Two identical
-    pills on one row is repetition rather than a finding -- the owner named it -- so
-    `Eaton` twice becomes `Eaton x2` and the row count still prints the real total.
-    Folding on the name alone would hide a customer that appears under two owners on
-    one failure, which is a real split and not a repeat.
+    **A pill is one ACCOUNT on one complaint, so a slashed row draws two.** See
+    `accounts_on()`: `Eaton/Ford` is two companies and every other count in the app
+    already splits it, so a single pill reading `Eaton/Ford` would survive a filter
+    narrowed to Penske and name a customer that filter excluded. Pills therefore
+    outnumber records -- 19 against 17 today -- and `pills` carries the figure so the
+    section can say so rather than leave it to be noticed.
 
-    Returns `{"total", "rows", "groups"}`; a group is
-    `(label, note, [(customer, owner, colour, repeats, what)], count)`.
+    **They fold on (account, owner), never on the account alone.** Two identical pills
+    on one row is repetition rather than a finding -- the owner named it -- so `Eaton`
+    twice becomes `Eaton x2` and the row count still prints the real record total.
+    Folding on the name alone would hide an account appearing under two owners on one
+    failure, which is a real split and not a repeat.
+
+    Returns `{"total", "rows", "groups", "pills"}`; a group is
+    `(label, note, [(account, owner, colour, repeats, notes)], records)`, where `notes`
+    is one `record_note()` tuple per complaint folded into that pill.
     """
     if df.empty or not {"Issue Type", "Missed_Flag", "Sub-type"} <= set(df.columns):
         return {"total": 0, "rows": pd.DataFrame(), "groups": []}
@@ -994,21 +1002,65 @@ def bulletin_errors(df):
     rows["Why"] = [claimed.get(s, (s, ""))[1] for s in sub]
     rows["Owner"] = rows["Root Cause"].fillna("").astype(str).str.strip()
     rows["What happened"] = [what_happened(r) for _, r in rows.iterrows()]
-    groups = []
+    groups, pill_total = [], 0
     for label in rows["Failure"].value_counts().index:
         part = rows[rows["Failure"] == label].sort_values("Owner")
         folded = {}
         for _, r in part.iterrows():
-            key = (str(r["Customer"]).strip(), r["Owner"])
-            if key in folded:
-                folded[key][0] += 1
-            else:
-                folded[key] = [1, ROOT_COLOURS.get(r["Owner"], UNKNOWN_OWNER), r["What happened"]]
-        pills = [(cust, owner, colour, n, what)
-                 for (cust, owner), (n, colour, what) in folded.items()]
+            for cust in accounts_on(r.get("Customer")):
+                key = (cust, r["Owner"])
+                entry = folded.setdefault(
+                    key, [0, ROOT_COLOURS.get(r["Owner"], UNKNOWN_OWNER), []])
+                entry[0] += 1
+                entry[2].append(record_note(r))
+        pills = [(cust, owner, colour, n, tuple(notes))
+                 for (cust, owner), (n, colour, notes) in folded.items()]
+        pill_total += sum(p[3] for p in pills)
         note = part["Why"].iloc[0]
         groups.append((label, note, pills, len(part)))
-    return {"total": len(rows), "rows": rows, "groups": groups}
+    return {"total": len(rows), "rows": rows, "groups": groups, "pills": pill_total}
+
+
+def accounts_on(value):
+    """The individual accounts a Customer cell names, slashes split out.
+
+    **`Eaton/Ford` is two companies, not a company called "Eaton/Ford".** Every other
+    count in the app already reads it that way -- `customer_exposure()` explodes on the
+    slash and `names_match()` matches either side -- and the pills were the one place
+    still printing the raw cell. The owner caught it from the filter: narrow to Penske
+    and the Penske/Ford row survives, so a pill reading `Penske/Ford` claims Ford is in
+    a view Ford was filtered out of.
+
+    The cost is that pills outnumber records, and it is paid in the open: the count on
+    the right of each row stays the record count, and the caption names the gap. Two of
+    the seventeen name two accounts, so nineteen pills cover seventeen complaints --
+    the same overshoot the Customers impacted table explains, for the same reason.
+    """
+    parts = [p.strip() for p in str(value or "").split("/")]
+    return [p for p in parts if p and p.lower() != "nan"] or ["Blank"]
+
+
+def record_note(row):
+    """One record's hover block: when, which ticket, which event, and what went wrong.
+
+    **The first cut hovered three lines -- failure, customer, cause -- and two of them
+    were already on screen.** The label sits at the head of the row the pill is in and
+    the customer is printed on the pill itself, so a reader who hovered learned one new
+    sentence. What a reader actually wants from a chip naming a company is which
+    complaint it is: the date they wrote in, the ticket to open, and the event it was
+    about. All four are columns on the record, so none of it can go stale.
+
+    A ticket-less record says so rather than printing an empty field, and the event
+    title is shortened because a 120-character title in a native tooltip wraps to the
+    width of the window.
+    """
+    stamp = str(row.get("Email/JIRA Date", "") or "").strip() or "no date"
+    key = str(row.get("Jira Key", "") or "").strip()
+    if key in ("", "nan"):
+        key = "no ticket"
+    title = shorten(str(row.get("Event/Bulletin Title", "") or "").strip(), 72)
+    return (f"{stamp} \u00b7 {key}", title,
+            shorten(str(row.get("What happened", "")).strip(), 160))
 
 
 WRONG_GROUPS = (

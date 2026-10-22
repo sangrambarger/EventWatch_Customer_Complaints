@@ -770,6 +770,31 @@ def nested_donut(ring):
     return fig
 
 
+def _pill_title(cust, owner, label, note, notes):
+    """The text of one pill's native tooltip, newline-escaped for a title attribute.
+
+    A `title` attribute is plain text, so the structure has to come from line breaks
+    (`&#10;`) rather than markup, and every value goes through `esc()` because a
+    customer name or an event title is text a human typed. The failure line is dropped
+    when the group carries no meaning -- the bug group prints the defects themselves
+    rather than a category -- so the tooltip never opens with a dangling dash.
+    """
+    head = [f"{esc(cust)} &#183; {esc(owner)} fixes it"]
+    if note:
+        head.append(f"{esc(label)} &#8212; {esc(note)}")
+    else:
+        head.append(esc(label))
+    blocks = []
+    for stamp, title, what in notes:
+        block = [esc(stamp)]
+        if title:
+            block.append(esc(title))
+        if what:
+            block.append(esc(what))
+        blocks.append("&#10;".join(block))
+    return "&#10;".join(head) + "&#10;&#10;" + "&#10;&#10;".join(blocks)
+
+
 def fault_pills(groups, colours):
     """One tapered pill per complaint, grouped by what went wrong.
 
@@ -780,10 +805,18 @@ def fault_pills(groups, colours):
     name for free, which is what turns the block from a count into a finding -- Eaton
     on four of the nine failures is visible here and in no aggregate.
 
-    Every pill hovers with the failure, the owner, the customer and the one line the
-    record itself records about what happened. `metrics.bulletin_errors()` folds a
-    repeated (customer, owner) into one pill with a count, so two identical chips never
-    sit side by side; the row count on the right stays the real total.
+    **The hover names the complaint, not the row it is already sitting in.** The first
+    cut printed the failure, the owner and the customer -- the failure is the label at
+    the head of the row and the customer is written on the pill, so two of its three
+    lines told a reader what they were already looking at. It now opens with the
+    account and who fixes it, then the failure and its meaning, then one block per
+    complaint folded into that pill: the date the customer wrote in, the ticket to
+    open, the event, and what the record says went wrong. Every line is a column, so
+    none of it can go stale.
+
+    `metrics.bulletin_errors()` draws one pill per ACCOUNT, so a slashed row such as
+    `Eaton/Ford` contributes two, and folds a repeated (account, owner) into one chip
+    with a count. The number on the right of each row is the record count throughout.
     """
     if not groups:
         st.info("No complaint in this view was reported and then found wrong.")
@@ -792,9 +825,9 @@ def fault_pills(groups, colours):
     for label, note, pills, n in groups:
         chips = "".join(
             f"<span class='fault-pill' style='--c:{colour}' "
-            f"title='{esc(label)} &#183; {esc(owner)}&#10;{esc(cust)}&#10;{esc(what)}'>"
+            f"title='{_pill_title(cust, owner, label, note, notes)}'>"
             f"{esc(cust)}{f'<b>&times;{k}</b>' if k > 1 else ''}</span>"
-            for cust, owner, colour, k, what in pills)
+            for cust, owner, colour, k, notes in pills)
         rows.append(f"<div class='fault-row'>"
                     f"<div class='fault-name' title='{esc(note)}'>{esc(label)}</div>"
                     f"<div class='fault-pills'>{chips}</div>"
