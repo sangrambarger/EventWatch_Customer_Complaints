@@ -1948,7 +1948,7 @@ is marked below.
 | Spain railway strike (Caterpillar, 20-Feb) | `People` / `WarRoom Creation` | **No** | the event was notified with no WarRoom attached; one was created after the customer wrote in. Sub-type corrected 18-Oct; the flag is unchanged |
 | LPG/LNG shortage (Caterpillar, 18-Mar) | `Product` / `Model Classification Defect` | Yes | the model classified the captured event Not Impactful; review did not correct it |
 | HPE SEC notification (25-Mar) | `Process` / `Process Clarification`, **Inquiry** | **No** | the news was not in the public domain, so there was nothing to report |
-| EAO-13 FXI foam fire (Ford) | `Product` / `Model Classification Defect` | Yes | captured, then classified Not Impactful by the model |
+| EAO-13 FXI foam fire (Ford) | ~~`Product` / `Model Classification Defect`~~ **`Product` / `Source Coverage`** | Yes | **superseded 22-Oct-2026.** The owner settled the EAO-13 against EAO-25 contradiction in favour of EAO-25's RCA: the sources were not in the vendor's network and the articles were never captured |
 | EAO-15 Samsung DRAM (META) | ~~`Product` / `Mapping / Routing Defect`~~ **`People` / `Supplier Selection Miss`** | Yes | **superseded 18-Oct.** The supplier was on file under two names and the analyst checked only one. See below |
 | Uber Freight (Red Cross, TS-22695) | `People` / `Industry selection` | ~~No~~ **Yes** | **superseded 15-Oct.** Published on 13-Aug, but incorrect industry selection kept it off the Red Cross portal and a customer-specific treatment existed only after they chased it. Nothing reached them. The ownership was right; the flag read "published" as "delivered" |
 
@@ -2080,17 +2080,72 @@ customer-facing documents about one fire that say opposite things.** Row 95 name
 Settling it is the owner's, and whichever way it goes one of the two RCAs was wrong when
 it was sent.
 
+**The owner settled five rulings on 22-Oct-2026, four of them off the RCA documents
+themselves.**
+
+**The FXI contradiction is resolved in favour of EAO-25.** Two RCAs went to Ford about
+one Cuautitlan fire: EAO-13's said EventWatch captured multiple public reports and the
+models misjudged them under a methodology Resilinc accepted as deficient; EAO-25's said
+the sources were not in the news vendor's monitoring network, so nothing was captured and
+nothing reached AI classification or review. The owner's ruling is EAO-25's. **EAO-13's
+row moved from `Model Classification Defect` to `Source Coverage`**, with focus and remedy
+following the cause, and both rows carry the supersession. The earlier ruling recorded in
+the October table -- that EAO-13's account was the one to follow -- is reversed. **One of
+the two documents was wrong when it was sent, and the tracker now says which.**
+
+**EAO-17 (Micron) is `People` / `Review`.** Its RCA: "the root cause occurred during the
+analyst review stage, where the litigation was mistakenly assessed as Not Impactful ...
+despite meeting the EventWatch reporting criteria for significant legal developments
+involving a monitored supplier." It was filed `Product` / `Source Coverage`, which says
+the story never arrived.
+
+**EAO-55 (Irving Oil) is `People` / `Review`.** Its RCA is the clearest statement in the
+book of the reportability test: the algorithms captured the articles and the models
+"correctly identified the feeds as Event and routed them for further review", and the
+reporting team then treated the absence of customer-specific supplier mapping as grounds
+to call the acquisition Not Impactful. Under the M&A guidelines an industry-relevant
+transaction involving unmapped companies may still publish as an informational alert
+even where no customer WarRoom is required. **Absence of supplier mapping is not absence
+of reportability**, and that is now on the record with its preventive measures.
+
+**EAO-26 (Ford, Sasol) takes the NVR Kinston rule in full.** `Process` /
+`Supplier / Site Not Shared`, **Inquiry**, `Missed_Flag` **No**, Severity Low, routed to
+EventWatch Ops -- the facility was never in the customer-provided data, so no
+notification was owed, and the remedy is how site data is gathered from the customer
+rather than a platform change. This supersedes both its original `Source Coverage` filing
+and the `Product` / `Mapping` reading taken earlier the same day.
+
+**EAO-54 (Belden) is three rows, not two.** The ticket carries three reportable events
+and the third -- DigiTimes of 04-May-2026, WIN Semiconductors saying GaAs and InP supply
+still meets production demand -- had no row. It is the supply-adequacy counterpoint in
+the same thread and one of the five URLs put to Engineering. All three stay `Pending`:
+EAO-54 is at Sent to PM with one comment and no reply, so nothing automatic will settle
+them. **A ticket covering several distinct events gets a row each, as EAO-39 already
+does** -- the "a row is a customer email" rule governs one event reported twice, not one
+email reporting several events.
+
+**Baseline on 22-Oct-2026**, replacing the 18-Oct figures above:
+
+```
+128 emails     = 103 complaints + 25 inquiries
+103 complaints =  86 confirmed misses + 17 process issues
+ 86 misses     =  50 Product + 36 Analyst
+```
+
 **Two things could not be verified and were not guessed.** Jira attachments are not
 readable from here -- the content endpoint returns 403, no credential is available to the
 shell, and the MCP exposes no download tool -- so where an RCA lives only in an attached
 document, the ticket's comments are the whole of the evidence -- EAO-10, EAO-14 and
 EAO-34 are all in that position, and none of them was edited on the strength of a
 document nobody here can open. **And EAO-13 and
-EAO-25 give contradictory accounts of the same FXI Cuautitlan fire**: EAO-13's RCA says
+EAO-25 gave contradictory accounts of the same FXI Cuautitlan fire**: EAO-13's RCA says
 EventWatch captured the reports and the model misjudged them, while EAO-25's engineering
-comment says *"Not captured by vendor due to source miss"*. The owner's ruling follows
-EAO-13. The contradiction is recorded here because it is unresolved, not because it is
-settled.
+comment and its own RCA say the sources were not in the vendor's network and nothing was
+captured. **Settled on 22-Oct-2026 in favour of EAO-25**, and EAO-13's row moved to
+`Source Coverage` to match -- see the rulings above. It stood unresolved for weeks with
+the owner's earlier ruling pointing the other way, which is why it is kept here: **two
+RCAs on one incident can disagree, both can reach the customer, and nothing in the
+tracker will tell you unless somebody reads them side by side.**
 
 ## The definitions, settled against the original tracker
 
