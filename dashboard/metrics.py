@@ -938,8 +938,17 @@ ANALYST_ACTIONS = (
 )
 
 WRONG_GROUPS = (
+    # **`Incorrect Geocode` is its OWN group and must not rejoin the one below.** It
+    # was folded into "The supplier list was wrong" for one commit, and that group also
+    # holds `Supplier Selection Miss` -- an analyst leaving a supplier off a WarRoom.
+    # Grouping them prints a Product data defect under a label that names an analyst
+    # action, which is the owner's correction: a wrong geocode is Product's, and the
+    # panel has to say so. The label names the DATA, not an actor, for the same reason
+    # no label names an actor where a sub-type spans owners.
+    ("The coordinates were wrong", ("Incorrect Geocode",),
+     "A correct geofence picked the wrong site"),
     ("The supplier list was wrong",
-     ("Supplier Selection Miss", "Mapping", "Mapping / Routing Defect", "Incorrect Geocode"),
+     ("Supplier Selection Miss", "Mapping", "Mapping / Routing Defect"),
      "It went out naming the wrong suppliers"),
     ("They could not see it", ("Visibility", "Industry selection", "Tagging"),
      "Published, and not on their portal"),

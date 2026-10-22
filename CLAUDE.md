@@ -1533,12 +1533,33 @@ visibly broken on purpose**: Definitions, then the row, then `DRIVERS` and
 term reports as pruned and `definitions.json` does not change -- which is correct, not a
 failure. It appears at commit two, when a record carries it.
 
-**What was deliberately NOT moved.** `Missed_Flag` stays No: the bulletin reached both
-customers and the complaint is over-inclusion. `Standard Automation Focus` stays
-`AI-Assisted Geofencing` although the geofence was the one thing that worked --
-`Entity & Supplier Resolution` is where CAN-3263's sits and is arguably right here too,
-but that is a judgement field and the owner has not ruled on it. **An open loose end,
-named rather than quietly fixed**, like the Eason row's mapping-theory remedy.
+**`Standard Automation Focus` moved to `Entity & Supplier Resolution` on the owner's
+call**, closing the loose end this paragraph used to name. `AI-Assisted Geofencing` was
+the one thing on the record that worked: the polygon was drawn correctly and the
+automated selection operated correctly on it. What was wrong was supplier data, which is
+where CAN-3263 already sits and what the row's own `Automation Opportunity` proposes.
+
+**`Missed_Flag` stays No**: the bulletin reached both customers and the complaint is
+over-inclusion.
+
+**`Incorrect Geocode` is its own `WRONG_GROUPS` card, and folding it in once was the
+error the owner caught.** It shipped inside `The supplier list was wrong`, a group that
+also holds `Supplier Selection Miss` -- an analyst leaving a supplier off a WarRoom. So
+the delivered-but-wrong popup printed a Product data defect under a label naming an
+analyst action, and the owner's correction is the rule: **a wrong geocode is Product's
+and every Product-side view has to say so.** It now reads `The coordinates were wrong /
+A correct geofence picked the wrong site` -- naming the data, never an actor, the same
+constraint every label carries where a sub-type spans owners. The supplier group drops
+5 to 4 and the panel still reconciles to 17.
+
+**It does NOT appear in the Product driver bars, and that is the partition working
+rather than a gap.** `root_drivers()` counts confirmed misses only, because
+`audit_pages.month_panel_problems()` asserts each owner's bars sum to that owner's card
+and that card is the owner's miss count. Row 104 is `Missed_Flag = No`, so it is absent
+there by construction. **Do not add non-misses to that chart to make a value visible** --
+it would break the one arithmetic guarantee the root-cause tier carries. Under Product
+it shows in the deeper root cause on Analysis, which prints Emails beside Misses and
+carries the Product pill, and in the Root Cause x Sub-type heatmap.
 
 **A documented root cause is not a delivered RCA, and the two fields say different
 things.** EAO-49's cause is established -- the analyst did not research beyond Bangkok --
