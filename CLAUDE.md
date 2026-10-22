@@ -2022,6 +2022,30 @@ the owner rather than being decided by a re-check. **No headline figure moved**:
 change is inside Product, 86 / 51 / 35 are unchanged, and the miss-bucket chart shifts
 one email from the source bucket to the mapping tail.
 
+**Where a cause was already on the row but in the wrong field, it was lifted into
+`RCA Details`.** EAO-4, EAO-9, EAO-10 and TS-22695 each carried the finding in
+`Comments` while `RCA Details` held only a note saying a PDF existed, so the record card
+answered "why did this happen" with "a document was attached". One ticketed row is left
+with no cause in that field -- **EAO-55**, deliberately, because its RCA is an attachment
+nobody here can read and the row says so rather than paraphrasing a document.
+
+**TS-22695's `Comments` still asserted the ruling the October section records as
+superseded** -- "this is a publishing-quality complaint, not a missed bulletin, so
+Missed_Flag is No" -- against a row flagged Yes since 15-Oct. **A superseded ruling left
+in the prose is worse than no note**: the record card shows the field and the sentence
+together, so the row argued with itself. Rewritten to the delivery test it was
+superseded by.
+
+**EAO-35 was closed by the owner on 22-Oct-2026 with the Data team's answer never
+received.** The row had carried an open loose end since 13-Oct -- what the source of the
+Pune site's coordinates was, asked then and chased on the 19th. The owner's call: the
+Data team acknowledged the geocode issue, nothing further is coming, so the row settles
+on the finding it already holds. `Resolution Date` is EAO-36's own `resolutiondate` of
+22-Oct-2026, which is also the day the owner closed it -- **the one time a merged
+incident takes a date with a key unresolved**, and it is the owner's instruction rather
+than the re-check's rule. The DO team's correction of the SMI AMTEK coordinates stays
+recorded as unconfirmed, because it is.
+
 **Two things could not be verified and were not guessed.** Jira attachments are not
 readable from here -- the content endpoint returns 403, no credential is available to the
 shell, and the MCP exposes no download tool -- so where an RCA lives only in an attached
