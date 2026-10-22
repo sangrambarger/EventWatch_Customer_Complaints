@@ -2046,6 +2046,40 @@ incident takes a date with a key unresolved**, and it is the owner's instruction
 than the re-check's rule. The DO team's correction of the SMI AMTEK coordinates stays
 recorded as unconfirmed, because it is.
 
+**EAO-25's three RCAs arrived on 22-Oct-2026 and one of them moved a row across
+owners.** The ticket covers three events and carries three separate RCA documents, which
+is why one shared sentence was never going to be right for all of them.
+
+* **Laredo World Trade Bridge** -- a keyword gap in the feed harvesting algorithm; the
+  articles were never captured, so the event never entered AI classification or human
+  review. Confirms `Product` / `Keyword Update`.
+* **FXI de Cuautitlan** -- "an upstream source coverage gap, rather than an AI
+  classification or human review error"; the sources were not in the vendor's monitoring
+  network. Confirms `Product` / `Source Coverage`.
+* **Nemak Santa Catarina** -- the pipeline captured the articles, the AI models attached
+  them to an existing cluster instead of identifying a distinct incident, and the
+  reporting team accepted that at review and marked the feeds Not Impactful. The RCA
+  names the root cause as "a combination of incorrect AI event clustering and
+  insufficient validation during human review". **Moved from `People` / `Review` to
+  `Product` / `Clustering / Duplication Defect`**, with routing and focus following.
+
+**The Nemak move is the EAO-9 precedent applied, not a new judgement.** Caterpillar's
+Isselguss row is the same shape -- captured, wrongly clustered with an unrelated fire,
+the analyst did not catch it -- and the owner settled that on 18-Oct as a Product
+clustering defect rather than an analyst failure. **Where an RCA names two failures, the
+row carries the one the failure originated in**, which is this file's existing rule that
+a record carries the failure that stopped delivery and not every failure in the
+incident. It is the first time a headline figure moved on an RCA rather than on a
+ruling: Product misses 51 to 52, People 35 to 34, total still 86.
+
+**And the FXI contradiction is now in two RCA documents, both sent to Ford.** EAO-25's
+says the sources were not in the vendor's network and the articles were never captured;
+EAO-13's says EventWatch captured multiple public reports and the models misjudged them.
+**This is no longer a tracker inconsistency that a reader might notice -- it is two
+customer-facing documents about one fire that say opposite things.** Row 95 names it.
+Settling it is the owner's, and whichever way it goes one of the two RCAs was wrong when
+it was sent.
+
 **Two things could not be verified and were not guessed.** Jira attachments are not
 readable from here -- the content endpoint returns 403, no credential is available to the
 shell, and the MCP exposes no download tool -- so where an RCA lives only in an attached
