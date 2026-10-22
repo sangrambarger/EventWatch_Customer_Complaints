@@ -342,6 +342,13 @@ its own denominator rather than treating a blank as zero. Backfill came from eac
 ticket's Jira `resolutiondate` via the connector -- never guessed, and never taken for
 a merged incident unless every one of its keys resolved.
 
+**And never taken when it would date the close BEFORE the email that raised it.** EAO-5
+resolved on 22-Jun-2026 against a row dated 26-Jun-2026, so the ticket's own date would
+write a negative cycle time -- which `validate.py`'s `resolution_date` rule fails on,
+correctly. The row keeps its blank: which of the two dates is wrong is a judgement about
+the record, not something a re-check may settle. **Expect it on every re-check** and
+leave it until somebody rules on it.
+
 `date_filter()` is one control in the sidebar, not one per page. Every page used to own a
 private copy, so narrowing Executive Summary to September and then opening Root cause
 showed the full year with nothing to say the two disagreed -- a reader comparing the
