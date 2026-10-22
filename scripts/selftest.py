@@ -288,6 +288,35 @@ def break_issue_type(csv: Path, xlsx: Path) -> None:
     raise SystemExit("no confirmed miss to mislabel; fixture is stale")
 
 
+def break_stale_status(csv: Path, xlsx: Path) -> None:
+    """A closed row whose own RCA text still says the record stays Pending.
+
+    This is the shape the rule was written for, and the one it met on real data: the
+    daily re-check moved `Short Term Fix Status` off `Pending` when the ticket settled
+    and left the sentence beside it untouched, so EAO-40 ended its RCA with "so the
+    record stays Pending" under a status of `RCA Shared`.
+
+    It picks a row that is NOT Pending, so the fault is a contradiction rather than a
+    row agreeing with itself, and appends the clause rather than replacing the text --
+    the rule has to find the claim inside a paragraph, which is where it lives.
+    """
+    lines = csv_lines(csv)
+    header = next(csv_module.reader([lines[0]]))
+    status, rca = header.index("Short Term Fix Status"), header.index("RCA Details")
+    for i, line in enumerate(lines[1:], start=1):
+        if not line.strip():
+            continue
+        fields = next(csv_module.reader([line]))
+        if fields[status] not in ("", "Pending") and fields[rca].strip():
+            fields[rca] = fields[rca].rstrip() + " The record stays Pending."
+            buf = io.StringIO()
+            csv_module.writer(buf, lineterminator="").writerow(fields)
+            lines[i] = buf.getvalue()
+            write_lines(csv, lines)
+            return
+    raise SystemExit("no closed row with an RCA to contradict; fixture is stale")
+
+
 CASES: list[tuple] = [
     ("mojibake_adjacent", "mojibake", break_mojibake_adjacent),
     ("mojibake_lone_arrow", "mojibake", break_mojibake_lone),
@@ -312,6 +341,7 @@ CASES: list[tuple] = [
     ("cause_agreement", "cause_agreement", break_cause_agreement, "warn"),
     ("reason_categories", "reason_categories", break_reason_categories),
     ("issue_type", "issue_type", break_issue_type, "warn"),
+    ("stale_status", "stale_status", break_stale_status, "warn"),
 ]
 
 

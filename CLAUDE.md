@@ -330,7 +330,14 @@ settle them. `update_row.py` carries established causes back either way. **No AP
 connector belongs to the scheduled session, not to the app, which is why `app.py` still
 makes no network calls. Appended rows follow the house convention for pre-triage
 records: `Comments` opens with `Staged from Jira EAO-NN (<status>).` so a row a human
-has not yet reviewed is identifiable at a glance. If any gate fails the run opens a PR
+has not yet reviewed is identifiable at a glance. **Clearing that preamble is part of
+reviewing the row, and nothing was doing it.** Twenty-seven rows still carried it with a
+status frozen at staging time -- seventeen of them stale, four Ford-facing and reading
+`(Open)` on tickets closed weeks earlier -- while every one of them had since been
+classified, had its RCA written and in most cases been closed. A marker that says "no
+human has looked at this" on a row a human has settled is worse than no marker: it is
+read on a customer call. **Strip it when you review the row**; `Short Term Fix Status`
+is the field that carries whether the work is open, and it does not go stale. If any gate fails the run opens a PR
 instead of pushing, so a bad row cannot reach the dashboard silently.
 
 `Resolution Date` is what makes any timing metric possible, and the app treats it as
@@ -1964,6 +1971,28 @@ filed down to pass.
 `Methodology Weakness` carries no rows. It stays defined, for the same reason
 `Captured Late` does. `WarRoom Creation` carried none until the Spain row moved onto it.
 
+**EAO-25's three rows carried ONE shared RCA sentence, and it was wrong on two of
+them.** All three read "Source articles for the Laredo World Trade Bridge closure, the
+Nemak Monterrey fire and the FXI Cuautitlan fire were not captured on the portal ...
+no RCA has been issued yet" -- written on 04-Aug-2026 while Engineering still had the
+ticket, and never revisited. Ankit Gupta settled all three on 21-Aug: **Laredo was a
+keyword miss** ("it has been added and we were able to capture now"), **FXI was a vendor
+source miss**, and **Nemak was captured** -- Sagar Date traced it to the existing
+`factory_fire_mx_nuevo_leon_santa_catarina` cluster, attached as an update and later
+marked Not Impactful by an analyst. The three `Sub-type`s were already right; it was the
+RCA text that said the opposite of two of them, under a status of `RCA Shared` that the
+same sentence denied. Each row carries its own cause now, with a supersession sentence
+per the EAO-13 rule.
+
+**The FXI Cuautitlan fire sits on two Ford-facing rows with two opposite causes, and
+that is named on the record rather than left to be found on a call.** CSV row 74 is
+EAO-13 (`Model Classification Defect`: captured, then misjudged by the model) and row 95
+is EAO-25 (`Source Coverage`: not captured by the vendor). **Two rows is correct** -- a
+row is a customer email and these are two emails -- but the causes contradict, this file
+has recorded the contradiction as unresolved since the October rulings, and nothing on
+the records said so. Row 95's `Comments` now names it. **Settling it is the owner's
+call**, and nothing here should reclassify either row to make the pair look tidy.
+
 **Two things could not be verified and were not guessed.** Jira attachments are not
 readable from here -- the content endpoint returns 403, no credential is available to the
 shell, and the MCP exposes no download tool -- so where an RCA lives only in an attached
@@ -2413,6 +2442,24 @@ time. An event reported eleven days late *was* reported, so it is not `Event mis
 but it did not reach them in time, so it is a miss. The other 15 are 11 reported late,
 2 supplier not linked, 1 classified wrongly, 1 published but not visible, and a caption
 under the table spells that out rather than leaving a reader to subtract.
+
+**`validate.py`'s `stale_status` warns when a row's own prose says it is still pending
+and its status field says otherwise.** The free-text columns carry sentences written
+when the row was last touched; the daily re-check moves `Short Term Fix Status` when the
+ticket settles and **rewrites nothing beside it**, so the row asserts one thing in a
+field and the opposite in the paragraph under it. EAO-40 ended its RCA with "so the
+record stays Pending" against `RCA Shared` and a resolution date of 05-Oct-2026, and
+EAO-50 said "the ticket is still open" about a ticket closed on the 14th -- both
+Ford-facing, both on the record card where a reader meets the field and the text
+together.
+
+**It matches only sentences about the ROW, never about the ticket**, and that narrowing
+is the rule earning its place rather than being filed down. "The Jira ticket is still
+open" is true on EAO-53 while `RCA Shared` is also true, by the owner's rule that an RCA
+shared ends the job: the row holds no ticket state for this rule to compare that
+sentence against, so firing there would be the rule reporting on something it cannot
+see. A warning, not a failure, because the match is on wording -- read the hit before
+rewriting it.
 
 **`validate.py`'s `issue_type` warns when a confirmed miss is logged as an inquiry.**
 A record flagged `Missed_Flag = Yes` is one we failed on, so it cannot also be one where
