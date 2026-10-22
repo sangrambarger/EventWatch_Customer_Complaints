@@ -254,6 +254,7 @@ PLAIN_SUBTYPE = {
     "Deliberate Rule": "Worked as our published rule intends",
     "Platform Bug": "A confirmed platform defect",
     "Mapping / Routing Defect": "Wrong data sent it to the wrong place",
+    "Incorrect Geocode": "The site's coordinates put it in the wrong place",
     "Supplier / Site Not Shared": "The site was never shared with us",
     "Analyst Review Miss": "We saw it and closed it without a careful look",
     "Supplier Selection Miss": "Supplier left off the WarRoom at creation",
@@ -411,6 +412,11 @@ DRIVERS = {
     ("Process", "Supplier / Site Not Shared"): ("Customer Data Gap", "The site was never shared with us, so nothing matched"),
     ("Product", "Platform Bug"): ("Platform Bug", "A confirmed platform or data-processing defect"),
     ("Product", "Mapping / Routing Defect"): ("Mapping / Routing Defect", "Wrong data routed it to the wrong customer or site"),
+    # The geofence and the automated selection were both correct; the coordinates on
+    # the site record were not, so a site outside the affected area was attached. It
+    # is its own driver rather than part of the one above because the owner differs:
+    # supplier geocoding is the Data team's, tenant and entity linkage is Platform's.
+    ("Product", "Incorrect Geocode"): ("Incorrect Geocode", "The site's own coordinates put it inside the affected area"),
     ("Product", "Clustering / Duplication Defect"): ("Clustering / Duplication Defect", "Stories grouped, split or duplicated wrongly"),
     ("Product", "Model Classification Defect"): ("Model Miss", "The model classified the story wrongly"),
 }

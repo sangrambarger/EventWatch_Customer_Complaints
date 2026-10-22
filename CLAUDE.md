@@ -1502,6 +1502,43 @@ branch is not merged until the third commit closes it.
 | `Supplier Selection Miss` | the supplier was on file and left off the initial selection | People |
 | `Clustering / Duplication Defect` | stories grouped, split or duplicated wrongly | Product |
 | `Model Classification Defect` | an automated model assigned the wrong event, relevance or impact | Product |
+| `Incorrect Geocode` | the site's stored coordinates do not match its address, so a correct geofence selected it | Product |
+
+**`Incorrect Geocode` was added on 22-Oct-2026, and it is the worked example of adding
+a value on ONE row.** The evidence was searched before it was added, not after: the text
+of all 52 EAO tickets, and every one of the 70 pre-EAO rows. Incorrect geocoding appears
+**once in the whole book** -- CSV row 104, EAO-35/EAO-36 -- and the four pre-EAO rows that
+mention geofences or polygons are all analyst judgement or methodology questions, not
+coordinates. Four tickets' worth of geo language, one actual geocode.
+
+**One row was enough because the test is the owner of the fix, not the count.**
+`Mapping / Routing Defect` held two rows that share no owner: CAN-3263 is cross-tenant
+contamination, where a `site_shareable` record pointed at the HITACHI ENERGY demo org and
+demo sites leaked into a production portal -- Platform's; and row 104 is a supplier site
+carrying two sets of coordinates, one pinning it near Chandigarh -- **the Data team's**,
+who own supplier geocoding. A VP reading one label could not tell which team to call.
+That is the same argument that keeps `Review` split across two `MISS_BUCKETS`, and it does
+not wait for a second instance.
+
+**The old definition had to be narrowed in the same commit**, because it said "Covers
+geocoding and address-to-coordinate mismatches" in terms -- so without that edit two
+definitions would claim one failure, which is the ambiguity the split exists to remove.
+There is no script to edit a Definitions row, so it was the direct zip-member patch:
+two inline strings on sheet3 row 160, replaced in place, leaving the row, its styles,
+`DefinitionsTable`'s ref and the sheet `dimension` untouched.
+
+**The three commits are the order this file already prescribes, and the middle one is
+visibly broken on purpose**: Definitions, then the row, then `DRIVERS` and
+`PLAIN_SUBTYPE`. `export_definitions.py` prunes to terms in use, so after commit one the
+term reports as pruned and `definitions.json` does not change -- which is correct, not a
+failure. It appears at commit two, when a record carries it.
+
+**What was deliberately NOT moved.** `Missed_Flag` stays No: the bulletin reached both
+customers and the complaint is over-inclusion. `Standard Automation Focus` stays
+`AI-Assisted Geofencing` although the geofence was the one thing that worked --
+`Entity & Supplier Resolution` is where CAN-3263's sits and is arguably right here too,
+but that is a judgement field and the owner has not ruled on it. **An open loose end,
+named rather than quietly fixed**, like the Eason row's mapping-theory remedy.
 
 **A documented root cause is not a delivered RCA, and the two fields say different
 things.** EAO-49's cause is established -- the analyst did not research beyond Bangkok --
