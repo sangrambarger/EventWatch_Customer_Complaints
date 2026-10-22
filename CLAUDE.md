@@ -2115,6 +2115,16 @@ notification was owed, and the remedy is how site data is gathered from the cust
 rather than a platform change. This supersedes both its original `Source Coverage` filing
 and the `Product` / `Mapping` reading taken earlier the same day.
 
+**A contradicting article can still be owed, and EAO-54's third row is the case.** The
+04-May DigiTimes report says GaAs and InP supply *still meets* production demand, which
+reads as the counterpoint to the shortage the other two rows describe -- so the obvious
+reading is that it was never something we owed Belden, and a miss filed against it is a
+miss invented against ourselves. The owner's ruling on 22-Oct-2026 is that **all three
+articles were owed**: the supply-adequacy report is part of the picture Belden was owed
+on GaAs and InP availability, not material outside scope. **The owed test is about the
+customer's exposure to the subject, not about whether an article agrees with the others**
+-- an assessment that the risk is lower is still the assessment they were owed.
+
 **EAO-54 (Belden) is three rows, not two.** The ticket carries three reportable events
 and the third -- DigiTimes of 04-May-2026, WIN Semiconductors saying GaAs and InP supply
 still meets production demand -- had no row. It is the supply-adequacy counterpoint in
