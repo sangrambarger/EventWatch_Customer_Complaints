@@ -18,7 +18,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 
-from dashboard.styles import BLUE_RAMP, CAT_SLATE, ROOT_COLOURS, esc
+from dashboard.styles import BLUE_RAMP, CAT_SLATE, ROOT_COLOURS, UNKNOWN_OWNER, esc
 from dashboard.taxonomy import CATEGORY_MEANING, NEEDS_REVIEW, ROOT_OWNERSHIP, driver_of, failure_label, labels_for, owner_pills, plural, reason_category, shorten
 from dashboard.filters import customer_names, names_match
 
@@ -937,27 +937,111 @@ ANALYST_ACTIONS = (
      "On file, never selected, so no WarRoom"),
 )
 
+def what_happened(row):
+    """One line saying what actually went wrong on this record, in its OWN words.
+
+    **Derived, never typed.** Seventeen hand-written explanations would be seventeen
+    strings that go stale the day a ticket moves, which is the fault this file exists
+    to prevent. This takes the first sentence of `RCA Details`, falling back to
+    `Comments`, and strips the `Staged from Jira EAO-NN (status).` preamble the daily
+    Routine writes -- so the line is what somebody recorded on the record, and it
+    corrects itself when they correct it.
+
+    A record with no cause recorded says so rather than inventing one. Two of the
+    seventeen are in that position today and the honest reading is that the ticket
+    never carried a root cause.
+    """
+    text = str(row.get("RCA Details", "") or "").strip()
+    if text in ("", "nan"):
+        text = str(row.get("Comments", "") or "").strip()
+    text = re.sub(r"^Staged from Jira [A-Z]+-\d+ \([^)]*\)\.\s*", "", text)
+    first = re.split(r"(?<=[a-z0-9\)])\.\s+", text)[0].rstrip(".").strip()
+    return first if first and first != "nan" else "No cause recorded on the ticket"
+
+
+def bulletin_errors(df):
+    """The complaints where the event DID reach the customer and the bulletin was wrong.
+
+    `Missed_Flag` No and `Issue Type` Complaint -- 17 records on the current tracker,
+    the half of the 103 that "Why the events were missed" does not cover. Together the
+    two blocks are every complaint, which is why the caption prints `86 + 17 = 103`.
+
+    Grouped by `WRONG_GROUPS`, the same fold the delivered-but-wrong popup uses, so the
+    section and that popup cannot tell the 17 two different ways.
+
+    **Pills fold on (customer, owner), never on the customer alone.** Two identical
+    pills on one row is repetition rather than a finding -- the owner named it -- so
+    `Eaton` twice becomes `Eaton x2` and the row count still prints the real total.
+    Folding on the name alone would hide a customer that appears under two owners on
+    one failure, which is a real split and not a repeat.
+
+    Returns `{"total", "rows", "groups"}`; a group is
+    `(label, note, [(customer, owner, colour, repeats, what)], count)`.
+    """
+    if df.empty or not {"Issue Type", "Missed_Flag", "Sub-type"} <= set(df.columns):
+        return {"total": 0, "rows": pd.DataFrame(), "groups": []}
+    issue = df["Issue Type"].fillna("").astype(str).str.strip()
+    flag = df["Missed_Flag"].fillna("").astype(str).str.strip()
+    rows = df[issue.eq("Complaint") & flag.ne("Yes")].copy()
+    if rows.empty:
+        return {"total": 0, "rows": rows, "groups": []}
+    sub = rows["Sub-type"].fillna("").astype(str).str.strip()
+    claimed = {}
+    for label, members, note in WRONG_GROUPS:
+        for m in members:
+            claimed.setdefault(m, (label, note if isinstance(note, str) else ""))
+    rows["Failure"] = [claimed.get(s, (s, ""))[0] for s in sub]
+    rows["Why"] = [claimed.get(s, (s, ""))[1] for s in sub]
+    rows["Owner"] = rows["Root Cause"].fillna("").astype(str).str.strip()
+    rows["What happened"] = [what_happened(r) for _, r in rows.iterrows()]
+    groups = []
+    for label in rows["Failure"].value_counts().index:
+        part = rows[rows["Failure"] == label].sort_values("Owner")
+        folded = {}
+        for _, r in part.iterrows():
+            key = (str(r["Customer"]).strip(), r["Owner"])
+            if key in folded:
+                folded[key][0] += 1
+            else:
+                folded[key] = [1, ROOT_COLOURS.get(r["Owner"], UNKNOWN_OWNER), r["What happened"]]
+        pills = [(cust, owner, colour, n, what)
+                 for (cust, owner), (n, colour, what) in folded.items()]
+        note = part["Why"].iloc[0]
+        groups.append((label, note, pills, len(part)))
+    return {"total": len(rows), "rows": rows, "groups": groups}
+
+
 WRONG_GROUPS = (
-    # **`Incorrect Geocode` is its OWN group and must not rejoin the one below.** It
-    # was folded into "The supplier list was wrong" for one commit, and that group also
-    # holds `Supplier Selection Miss` -- an analyst leaving a supplier off a WarRoom.
-    # Grouping them prints a Product data defect under a label that names an analyst
-    # action, which is the owner's correction: a wrong geocode is Product's, and the
-    # panel has to say so. The label names the DATA, not an actor, for the same reason
-    # no label names an actor where a sub-type spans owners.
-    ("The coordinates were wrong", ("Incorrect Geocode",),
-     "A correct geofence picked the wrong site"),
-    ("The supplier list was wrong",
-     ("Supplier Selection Miss", "Mapping", "Mapping / Routing Defect"),
-     "It went out naming the wrong suppliers"),
-    ("They could not see it", ("Visibility", "Industry selection", "Tagging"),
-     "Published, and not on their portal"),
-    ("We called the event wrong", ("Review", "Relevancy", "Model Classification Defect"),
-     "The scope or the impact was wrong"),
-    ("Sent twice, or merged wrong", ("Duplication", "Strategy", "Clustering / Duplication Defect"),
-     "One event, two bulletins"),
-    ("No WarRoom was raised", ("WarRoom Creation",), "The bulletin went out on its own"),
-    ("A confirmed software bug", ("Platform Bug", "Alerting Gap"), NAME_THEM),
+    # **Every label is a TERM, never a sentence, and the sentence is the hover.** They
+    # read "The supplier list was wrong", "We called the event wrong", "Sent twice, or
+    # merged wrong" until the owner named the fault: a label competing with its own
+    # number is a label nobody scans. The explanation did not disappear -- it moved to
+    # `note`, which the pills hover and the popup prints under the figure. Rename one
+    # here and the popup and the bulletin-error pills both follow, which is the point:
+    # ONE vocabulary for the 17, told in two places.
+    #
+    # **Three groups were split out of broader ones when the pills were built**, each
+    # because the owner of the fix differs. `Incorrect geocode` left the supplier group
+    # (Data team, not an analyst). `Wrong routing data` left it too (tenant linkage is
+    # Platform's). And `Wrong industry tag` left `Not visible on portal`, because a tag
+    # an analyst set is not a portal that failed to render.
+    ("Incorrect geocode", ("Incorrect Geocode",),
+     "Stored coordinates did not match the site's address"),
+    ("Wrong routing data", ("Mapping / Routing Defect",),
+     "Entity linkage sent it to the wrong customer"),
+    ("Incorrect suppliers selected", ("Supplier Selection Miss", "Mapping"),
+     "On file, and left off the WarRoom"),
+    ("Not visible on portal", ("Visibility",),
+     "Published, and it never reached their portal"),
+    ("Wrong industry tag", ("Industry selection", "Tagging"),
+     "The tag kept it off this customer's portal"),
+    ("Wrong impact call", ("Review", "Relevancy", "Model Classification Defect"),
+     "The scope or the impact we published was wrong"),
+    ("Duplicate bulletins", ("Duplication", "Strategy", "Clustering / Duplication Defect"),
+     "One event, published twice"),
+    ("WarRoom not raised", ("WarRoom Creation",),
+     "The bulletin went out with no WarRoom attached"),
+    ("Platform bug", ("Platform Bug", "Alerting Gap"), NAME_THEM),
 )
 
 # The one short name for a cause, in the words the stat cards use. A popup that names

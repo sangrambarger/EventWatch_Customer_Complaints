@@ -63,6 +63,24 @@ h1,h2,h3,h4,h5,h6,p,span,div,label{color:var(--ink)!important}.page-hero,.sectio
 .excel-table.grid td.wrap>.cell::-webkit-scrollbar{width:8px}
 .excel-table.grid td.wrap>.cell::-webkit-scrollbar-thumb{background:var(--line2);border-radius:4px;border:2px solid transparent;background-clip:content-box}
 .excel-table.grid td.wrap>.cell::-webkit-scrollbar-track{background:rgba(255,255,255,.04);border-radius:4px}
+/* The bulletin-error pills. One pill is one complaint, and the pill is TAPERED --
+   the owner's colour starts solid at the left edge and fades out across the chip, so
+   the hue lands where the eye does and the customer name stays legible all the way
+   across. A flat fill strong enough to read as a colour was too strong to read text
+   on; a flat fill quiet enough for the text stopped telling Product from Analyst
+   apart. The gradient is the only version that does both.
+   Drawn in HTML rather than as plotly markers on purpose: these are chips, not a
+   plot, and the markers read as a different product next to the KPI cards. */
+.fault-row{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.fault-name{width:192px;min-width:192px;text-align:right;font-size:12.5px;color:var(--ink);line-height:1.3}
+.fault-pills{display:flex;gap:7px;flex-wrap:wrap}
+.fault-pill{height:27px;border-radius:999px;display:inline-flex;align-items:center;padding:0 12px;font-size:11.5px;color:var(--ink);white-space:nowrap;border:1px solid color-mix(in srgb,var(--c) 40%,transparent);background:linear-gradient(90deg,color-mix(in srgb,var(--c) 42%,transparent) 0%,color-mix(in srgb,var(--c) 6%,transparent) 100%)}
+.fault-pill b{color:var(--c);font-weight:800;margin-left:6px;font-size:11px}
+.fault-count{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;min-width:16px}
+.fault-legend{display:flex;gap:16px;margin-top:13px;padding-left:202px}
+.fault-key{display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--muted)}
+.fault-swatch{width:24px;height:13px;border-radius:999px;border:1px solid color-mix(in srgb,var(--c) 40%,transparent);background:linear-gradient(90deg,color-mix(in srgb,var(--c) 42%,transparent),color-mix(in srgb,var(--c) 6%,transparent))}
+@media(max-width:900px){.fault-name{width:128px;min-width:128px;font-size:12px}.fault-legend{padding-left:0}}
 @media(max-width:1200px){.kpi-grid{grid-template-columns:repeat(2,minmax(180px,1fr))}.insight-row{grid-template-columns:1fr}}@media(max-width:760px){.kpi-grid{grid-template-columns:1fr}}
 /* The card popups. One anatomy on all eight; colour carries only who fixes it, and
    every stat card prints its own number and label so nothing rests on colour alone.
