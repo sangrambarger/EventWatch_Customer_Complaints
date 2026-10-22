@@ -938,7 +938,8 @@ ANALYST_ACTIONS = (
 )
 
 WRONG_GROUPS = (
-    ("The supplier list was wrong", ("Supplier Selection Miss", "Mapping", "Mapping / Routing Defect"),
+    ("The supplier list was wrong",
+     ("Supplier Selection Miss", "Mapping", "Mapping / Routing Defect", "Incorrect Geocode"),
      "It went out naming the wrong suppliers"),
     ("They could not see it", ("Visibility", "Industry selection", "Tagging"),
      "Published, and not on their portal"),
@@ -977,6 +978,7 @@ SHORT_CAUSE = {
     "Clustering / Duplication Defect": "grouped under the wrong story",
     "Visibility": "published, not visible",
     "Mapping / Routing Defect": "sent to the wrong place",
+    "Incorrect Geocode": "wrong coordinates on the site",
     "Review": "an analyst judged it not impactful",
     "Analyst Review Miss": "an analyst judged it not impactful",
     "Published Late": "notified late",
