@@ -811,6 +811,54 @@ def check_issue_type(df: pd.DataFrame, rep: Report) -> None:
     rep.note(f"all {int((missed == 'Yes').sum())} confirmed miss(es) are logged as complaints")
 
 
+def check_stale_status(df: pd.DataFrame, rep: Report) -> None:
+    """A row whose own prose says it is Pending while its status field says otherwise.
+
+    The free-text columns carry sentences written when the row was last touched -- "so
+    the record stays Pending", "Short Term Fix Status set to Pending until CS responds",
+    "the ticket is still open". The daily re-check moves `Short Term Fix Status` when the
+    ticket settles and **nothing rewrites the sentence beside it**, so the row ends up
+    asserting one thing in a field and the opposite in the paragraph under it.
+
+    Four rows were in that state when this rule was written, two of them Ford-facing and
+    both read on a customer call: EAO-40 ended its RCA with "so the record stays Pending"
+    against a status of `RCA Shared` and a resolution date of 05-Oct-2026, and EAO-50 said
+    "the ticket is still open" about a ticket that closed on the 14th. The record card
+    shows both the field and the text, so a reader meets the contradiction directly.
+
+    **It matches only sentences about the ROW**, never about the ticket. "The Jira
+    ticket is still open" is true on EAO-53 while `RCA Shared` is also true, by the
+    owner's rule that an RCA shared ends the job -- the row holds no ticket state for
+    this rule to compare that sentence against, so firing there would be the rule
+    reporting on something it cannot see. That is how a warning stops being read.
+
+    A **warning**, not a failure, because the match is on wording rather than on a fact:
+    a sentence may legitimately say a *different* thing is pending -- an approval, a
+    separate question -- on a row whose own answer has gone back. Read the hit before
+    rewriting it. The point is that nobody finds these by scrolling.
+    """
+    cols = [c for c in ("RCA Details", "Comments") if c in df.columns]
+    if "Short Term Fix Status" not in df.columns or not cols:
+        return
+    status = df["Short Term Fix Status"].fillna("").astype(str).str.strip()
+    claim = re.compile(r"(?:row|record|status|it)\s+(?:stays?|remains?|is still)\s+Pending"
+                       r"|set to Pending|left (?:at|as) Pending", re.I)
+    off = []
+    for i, row in df.iterrows():
+        if status.get(i, "") == "Pending":
+            continue
+        for col in cols:
+            if claim.search(str(row.get(col, "") or "")):
+                off.append((int(i) + 2, col))
+                break
+    if off:
+        rep.warn("stale_status", f"{len(off)} row(s) whose own text claims they are still "
+                                 f"pending while the status field says otherwise, at "
+                                 f"{off[:5]}; the re-check moves the field and not the sentence")
+        return
+    rep.note(f"no closed row contradicts its own status in {len(cols)} free-text column(s)")
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--csv", type=Path, default=DEFAULT_CSV)
@@ -835,6 +883,7 @@ def main() -> int:
     check_cause_agreement(df, rep)
     check_reason_categories(df, rep)
     check_issue_type(df, rep)
+    check_stale_status(df, rep)
 
     if args.xlsx.exists():
         blocks = dashboard_blocks(args.xlsx)
