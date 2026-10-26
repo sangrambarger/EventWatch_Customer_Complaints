@@ -553,7 +553,7 @@ def render_event_types(page):
         # themselves. The page's owner said the block confused them, which is the right
         # reading of two rankings of one population drawn as though they were a
         # comparison.
-        f_flow = flow_bar(flow, "Event type", x_title="Customer emails")
+        f_flow = flow_bar(flow, "Event type", x_title="Customer complaints")
         # The table is the SAME columns the month table prints, from the same function.
         # It used to carry `Complaints / Inquiries / Emails / Misses` under a chart split
         # `Product / Analyst / Process / Wrong / Inquiry` -- a chart and the table beneath

@@ -553,6 +553,50 @@ eight cards carry the concentration, the trend section carries the movement, and
 root-cause table carries the recurring failure with its own denominator beside it. A
 panel that restates the page in different words is a panel a reader has to reconcile.
 
+## Inquiries are in the data and not in the graphs
+
+**The owner's call of 26-Oct-2026: a VP does not want inquiries in the charts, so keep
+them in the tables and the cards and stop drawing them.** They are not dropped from the
+tracker, from any count table, or from the KPI cards, where the email total still prints
+beside its complaint and inquiry split. The earlier instruction is not contradicted --
+*"do not drop because it tells how many customer emails we receive and all of them are
+not complains or our fault"* was about the data, and the data keeps them.
+
+**`MONTH_PARTS` is four segments, not five, and that changes what a bar MEANS.** Every
+chart built from it -- `monthly_stack()` and `flow_bar()` -- now sums to **complaints**
+rather than emails. So both scale to `Complaints`, both title their axis with it, and
+`monthly_note()` opens by saying which figure the picture carries and which the table
+does. **A chart whose segments add to one total under a caption naming another is the
+fault this file keeps recording**, and it would have landed here silently: the bars
+would simply have come up short against the Emails column beside them.
+
+**The rings open on complaints, because an email whole cannot show its inquiry half.**
+Ring one was 127 emails = 103 complaints + 24 inquiries on the inside; take the
+inquiries out and the inner ring is one slice filling the circle, which is no chart at
+all. It now carries 103 = 86 + 17 inside and 86 = 51 + 35 outside, and ring two is
+unchanged. **Ring one's outer band repeating ring two's inner split is the join, not a
+duplication** -- that was already the design, which is why ring two's centre prints ring
+one's outer slice. `RING_TEAL` and `RING_TEAL_DEEP` went with the inquiry slices; no
+caller remained.
+
+**The email count is not lost and must not be put back into a chart to prove it.** It is
+the first KPI card, with its complaint and inquiry split on the cards beside it and in
+every table on the page. A reader who wants emails has them in four places.
+
+**`smoke_app.EXPECTED` for All customer emails went 6 to 5, and the missing table is a
+real absence.** The sixth is "Under investigation", which renders only while some row
+carries `Short Term Fix Status = Pending`. The owner closed the last four Pending rows
+the same day, so `records.py` draws its `st.info` fallback instead. Checked before
+lowering, which is what this file requires of every lowered minimum; it returns to 6 on
+its own the next time the daily Routine stages a row.
+
+**`selftest.py`'s `resolution_dates` fixture had to stop depending on the live data.**
+It hunted for a row already marked `Pending` and gave it a date -- which worked only
+while some row was Pending, and raised "no Pending row to break" the moment the last one
+closed. **A fixture that depends on the tracker holding a particular value is a fixture
+the tracker can retire**, and a rule nobody can run is a rule nobody trusts. It now takes
+any dated row and sets the status itself, building both halves of the contradiction.
+
 ## The card popups
 
 Clicking any of the eight cards opens that card's own breakdown in an `st.dialog`;

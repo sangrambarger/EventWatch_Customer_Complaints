@@ -580,15 +580,27 @@ def detail_panel(card):
 # adjacent in this stack the day the first Process miss lands. Every segment prints its
 # own count and the table beneath carries all of them, which is the secondary encoding
 # that makes the pair legal -- but it is a real constraint, not a non-issue.
+# **Four segments, not five: the graphs draw COMPLAINTS and the inquiry segment is
+# gone.** The owner's call -- a VP does not want inquiries in the charts. They are not
+# dropped from the tracker, from any table or from the KPI cards, where the email total
+# still prints with its complaint and inquiry split; they are simply not drawn. The
+# earlier instruction this sits next to still holds and is not contradicted: inquiries
+# were never to be dropped from the data, "because it tells how many customer emails we
+# receive and all of them are not complains or our fault".
+#
+# **The consequence is that a bar is no longer an email count.** Every chart built from
+# this tuple sums to complaints, so `monthly_stack()` scales to `Complaints` and titles
+# its axis with it, `flow_bar()` does the same, and `monthly_note()` says which figure
+# the picture carries and which the table does. A chart whose segments add to one total
+# under a caption naming another is the fault this file keeps recording in other words.
 MONTH_PARTS = (
     ("Product", ROOT_COLOURS["Product"], "Product & Platform investigate it"),
     ("Analyst", ROOT_COLOURS["People"], "EventWatch Ops investigate it"),
     ("Process", ROOT_COLOURS["Process"], "A workflow or control failure"),
     ("Wrong", CAT_SLATE, "Reported in time, and something about it was wrong"),
-    ("Inquiries", "#80cbc4", "A question, not a complaint"),
 )
 MONTH_NAMES = {"Wrong": "Reported, but wrong", "Product": "Product miss", "Analyst": "Analyst miss",
-               "Process": "Process miss", "Inquiries": "Inquiry"}
+               "Process": "Process miss"}
 
 
 def monthly_stack(frame, key=None):
@@ -613,7 +625,10 @@ def monthly_stack(frame, key=None):
         st.info("Chart cannot be rendered because required fields are missing: Month.")
         return None, None
     months = list(frame["Month"])
-    top = max([int(v) for v in frame["Emails"]] or [1])
+    # Complaints, not Emails: the inquiry segment is not drawn, so the tallest bar is
+    # the biggest complaint month and scaling to the email count would leave a band of
+    # empty plot above every bar the size of that month's inquiries.
+    top = max([int(v) for v in frame["Complaints"]] or [1])
     # A segment under about a sixteenth of the tallest bar is too short to hold its own
     # label: plotly clips the digit vertically rather than dropping it, and a clipped
     # "1" reads as a stray mark on the bar. `uniformtext` does not catch it, because the
@@ -645,7 +660,7 @@ def monthly_stack(frame, key=None):
                           + f" — {esc(meaning)}<extra></extra>")
     for _, r in frame.iterrows():
         fig.add_annotation(
-            x=r["Month"], y=int(r["Emails"]) + top * 0.04, showarrow=False,
+            x=r["Month"], y=int(r["Complaints"]) + top * 0.04, showarrow=False,
             text=f"{float(r['Miss %']):.0f}%",
             font=dict(size=12, color="#808894" if bool(r["Thin"]) else "#f3f4f6"))
     fig.update_layout(
@@ -657,7 +672,7 @@ def monthly_stack(frame, key=None):
     fig.update_xaxes(categoryorder="array", categoryarray=months,
                      tickfont=dict(size=12, color="#f3f4f6"), gridcolor="#303846", title="")
     fig.update_yaxes(tickfont=dict(size=12, color="#f3f4f6"), gridcolor="#303846",
-                     title="Customer emails", range=[0, top * 1.16])
+                     title="Customer complaints", range=[0, top * 1.16])
     if not key:
         st.plotly_chart(fig, width="stretch")
         return fig, None
@@ -913,10 +928,10 @@ def _on_fill(colour):
     return "#f3f4f6" if (lum + 0.05) / 0.062 < 0.945 / (lum + 0.05) else "#1b1f26"
 
 
-def flow_bar(frame, label_col, title="", x_title="Customer emails"):
+def flow_bar(frame, label_col, title="", x_title="Customer complaints"):
     """A horizontal bar split the way the month chart splits a month.
 
-    Same five segments, same colours, same order, straight off `MONTH_PARTS` -- so a
+    Same four segments, same colours, same order, straight off `MONTH_PARTS` -- so a
     Product miss is the same blue here, on the month chart and on the cards, and a
     reader who has learned the month chart has already learned this one. It replaced
     two bar charts of the same categories ranked two different ways, which is a block
@@ -926,7 +941,8 @@ def flow_bar(frame, label_col, title="", x_title="Customer emails"):
         st.info(f"Chart cannot be rendered because required fields are missing: {label_col}.")
         return None
     rows = list(frame[label_col].astype(str))
-    widest = max([int(v) for v in frame["Emails"]] or [1])
+    # Complaints, for the reason `monthly_stack()` scales to them: no inquiry segment.
+    widest = max([int(v) for v in frame["Complaints"]] or [1])
     floor = max(widest * 0.045, 1.5)
     fig = go.Figure()
     for part, colour, meaning in MONTH_PARTS:
