@@ -168,7 +168,18 @@ def break_duplicates(csv: Path, xlsx: Path) -> None:
 
 
 def break_resolution_dates(csv: Path, xlsx: Path) -> None:
-    """A Pending record given a resolution date: a closure that has not happened."""
+    """A Pending record given a resolution date: a closure that has not happened.
+
+    **The fixture builds both halves of the contradiction instead of hunting for one
+    half in the data, and that is a correction.** It used to look for a row already
+    marked `Pending` and give it a date -- which worked only while some row was Pending.
+    The owner closed the last four on 26-Oct-2026 and the fixture raised "no Pending row
+    without a resolution date to break", so a rule that still works perfectly reported
+    as unverifiable. **A fixture that depends on the live data holding a particular
+    value is a fixture the data can retire**, and a gate nobody can run is a gate nobody
+    trusts. It now takes the first dated row, sets the status to `Pending` and keeps the
+    date, which is the same fault built from whatever the tracker happens to contain.
+    """
     # Quoted commas are everywhere in Comments, so parse rather than split.
     lines = csv_lines(csv)
     header = next(csv_module.reader([lines[0]]))
@@ -177,14 +188,14 @@ def break_resolution_dates(csv: Path, xlsx: Path) -> None:
         if not line.strip():
             continue
         fields = next(csv_module.reader([line]))
-        if fields[status] == "Pending" and not fields[resolved]:
-            fields[resolved] = "01-Jan-2026"
+        if fields[resolved] and fields[status] != "Pending":
+            fields[status] = "Pending"
             buf = io.StringIO()
             csv_module.writer(buf, lineterminator="").writerow(fields)
             lines[i] = buf.getvalue()
             break
     else:
-        raise AssertionError("no Pending row without a resolution date to break")
+        raise AssertionError("no closed row carrying a resolution date to break")
     write_lines(csv, lines)
 
 

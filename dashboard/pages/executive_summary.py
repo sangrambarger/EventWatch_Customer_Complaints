@@ -139,6 +139,13 @@ def render(df, filtered, selected_page):
     # added up and nothing has to be spotted. The one join a reader still makes by hand
     # is between the rings, which is why the second ring's centre prints the first
     # ring's outer slice in words.
+    #
+    # **The rings open on complaints, not on emails, because inquiries are not drawn.**
+    # The owner's call is that a VP does not want inquiries in the charts, and an email
+    # whole that cannot show its inquiry half is a whole whose parts do not add up -- the
+    # exact fault that killed the single donut. The email count is not lost: it is the
+    # first KPI card above, with its complaint and inquiry split on the cards beside it
+    # and in every table on this page.
     rings = inbox_rings(f)
     add_section("How the numbers above fit together", "", "#8ab4f8")
     left, right = st.columns(2)

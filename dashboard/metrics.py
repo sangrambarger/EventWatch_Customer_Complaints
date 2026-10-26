@@ -1578,7 +1578,14 @@ def monthly_note(frame, unit="month"):
         return ""
     w = {c: int(frame[c].sum()) for c in ("Emails", "Complaints", "Inquiries", "Misses",
                                           "Product", "Analyst", "Process", "Wrong")}
-    return (f"Emails {w['Emails']} = complaints {w['Complaints']} + inquiries {w['Inquiries']} · "
+    # **The chart draws complaints and the table carries emails, so the line says both.**
+    # The inquiry segment left the graphs on the owner's call, which makes a bar sum to
+    # complaints while the Emails column beside it still counts every email. A reader who
+    # adds the segments and checks them against the first column has to be told that
+    # once, here, rather than find it.
+    return (f"The chart shows the {w['Complaints']} complaints; the table also carries the "
+            f"{w['Inquiries']} inquiries, which are not drawn. Emails {w['Emails']} = "
+            f"complaints {w['Complaints']} + inquiries {w['Inquiries']} · "
             f"complaints {w['Complaints']} = misses {w['Misses']} + reported but wrong {w['Wrong']} · "
             f"misses {w['Misses']} = Product {w['Product']} + Analyst {w['Analyst']} + "
             f"Process {w['Process']}. Miss rate is of that {unit}'s emails; "
@@ -1623,21 +1630,29 @@ def inbox_totals(df):
 # otherwise be free -- blue and red -- are already spoken for one ring to its right.
 RING_CHANNEL = "#3f4f6b"
 RING_CHANNEL_LIGHT = "#5b7097"
-RING_TEAL_DEEP = "#3e6360"
-RING_TEAL = "#80cbc4"
 RING_ANALYST_DEEP = "#8a4e4a"
 
 
 def inbox_rings(t):
     """The three-level nest as TWO nested rings, inner parent and outer parts.
 
-    **A ring draws one whole split into parts, and the cards are three wholes nested
-    inside each other** -- which is why a single donut was wrong here twice, and why
-    three stacked bars called a funnel were wrong a third time. Two rings, each drawing
-    two levels at once, is what covers it: the first ring carries 127 = 103 + 24 on the
-    inside and 103 = 86 + 17 on the outside, the second carries 86 = 51 + 35 inside and
-    51 = 42 + 9 outside. Between them every figure on the eight cards is drawn, each one
-    sitting inside the number it is part of, and nothing has to be added by the reader.
+    **A ring draws one whole split into parts, and the cards are wholes nested inside
+    each other** -- which is why a single donut was wrong here twice, and why three
+    stacked bars called a funnel were wrong a third time. Two rings, each drawing two
+    levels at once, is what covers it: the first carries 103 = 86 + 17 on the inside and
+    86 = 51 + 35 on the outside, the second carries 86 = 51 + 35 inside and 51 = 42 + 9
+    outside.
+
+    **The email level is no longer drawn, because inquiries are not drawn.** Ring one
+    used to open on 127 emails = 103 complaints + 24 inquiries; the owner's call is that
+    a VP does not want inquiries in the charts, and an email total that cannot show its
+    inquiry half is a whole whose parts do not add up. So the rings start at complaints.
+    The email count did not go anywhere -- it is the first KPI card, with its complaint
+    and inquiry split on the card beside it and in every table on the page.
+
+    **Ring one's outer band repeating ring two's inner split is the join, not a
+    duplication.** That was already the design: ring two's centre prints ring one's outer
+    slice so the one hand-made join is named on the face of the chart.
 
     The inner ring of the second is the one join a reader has to make -- its 86 is the
     first ring's outer slice -- so the second ring's centre prints that 86 in words.
@@ -1649,17 +1664,17 @@ def inbox_rings(t):
     return [
         {
             "key": "inbox",
-            "title": "What customers sent us",
-            "centre": (t["emails"], "emails"),
-            "inner": [("Complaints", t["complaints"], RING_CHANNEL),
-                      ("Inquiries", t["inquiries"], RING_TEAL_DEEP)],
-            "outer": [("Confirmed misses", t["missed"], RING_CHANNEL_LIGHT),
-                      ("Reported, but wrong", t["wrong"], CAT_SLATE),
-                      ("Inquiries, not a complaint", t["inquiries"], RING_TEAL)],
-            "equation": (f"{t['emails']} emails = {t['complaints']} complaints + "
-                         f"{t['inquiries']} inquiries, and the {t['complaints']} "
-                         f"complaints = {t['missed']} confirmed misses + {t['wrong']} "
-                         f"reported, but wrong."),
+            "title": "What customers complained about",
+            "centre": (t["complaints"], "complaints"),
+            "inner": [("Confirmed misses", t["missed"], RING_CHANNEL),
+                      ("Reported, but wrong", t["wrong"], CAT_SLATE)],
+            "outer": [("No person saw it", t["never"] + t["lost"], RING_CHANNEL_LIGHT),
+                      ("A person had it", t["seen"], RING_ANALYST_DEEP),
+                      ("Reported, but wrong", t["wrong"], CAT_SLATE)],
+            "equation": (f"{t['complaints']} complaints = {t['missed']} confirmed misses "
+                         f"+ {t['wrong']} reported, but wrong, and the {t['missed']} "
+                         f"misses = {t['never'] + t['lost']} no person saw + "
+                         f"{t['seen']} a person had."),
         },
         {
             "key": "misses",
