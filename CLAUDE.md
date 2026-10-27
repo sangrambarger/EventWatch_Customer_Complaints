@@ -1850,6 +1850,35 @@ where CAN-3263 already sits and what the row's own `Automation Opportunity` prop
 **`Missed_Flag` stays No**: the bulletin reached both customers and the complaint is
 over-inclusion.
 
+## `Improvement VS Bug`: a confirmed defect reads Bug
+
+**The owner's ruling of 27-Oct-2026.** The field read `Improvement` on records whose own
+RCA names a defect and a shipped fix, which is the field saying the opposite of what the
+record establishes. Two rows moved:
+
+* **CAN-3377** (Ford, the Credit Suisse alert missing from the News Dashboard). Fixed and
+  verified on Azure staging on 28-Jul-2026.
+* **CAN-3433** (Hitachi, the Disruption Agent returning Tier 1 only). Leading and trailing
+  spaces in the values it matched on, stripped under TENAR-45367 and verified on stage.
+  **This one was not on the list put to the owner and is the clearest `Bug` in the book**
+  -- it carries a root cause, a fix ticket and a verification date. Moving the other
+  rows and leaving it would have left the column wrong in the one place it is least
+  arguable.
+
+**EAO-56 was on that list and did NOT move, because its own RCA refuses it.** The
+document says the reporting team assessed the storm correctly and created the right
+WarRoom, and that an error of judgement about timing issued the Supplier Impact
+Notification early; the row's own `Comments` record that the Platform Bug reading was
+considered and rejected -- *"no software defect is involved"*. Writing `Bug` there would
+make the row contradict the RCA that settles it, which is the TS-22695 fault exactly: a
+field and the sentence under it arguing on the same record card. **The list it was on
+was mine and it was wrong to put it there** -- it has no shipped fix and no defect.
+
+**The test for this field: can you name the defect and what was changed?** CAN-3377 and
+CAN-3433 can. CAN-3298 reads `Bug` already although its RCA records that no root cause
+was ever documented -- which is the one genuinely arguable row, and it is left as the
+owner has it.
+
 **`Incorrect Geocode` is its own `WRONG_GROUPS` card, and folding it in once was the
 error the owner caught.** It shipped inside `The supplier list was wrong`, a group that
 also holds `Supplier Selection Miss` -- an analyst leaving a supplier off a WarRoom. So
@@ -1957,9 +1986,12 @@ that emptied `Event Identification`: a record's own `Comments` describe the symp
   and impact-confirmation requests went to 41. The four omitted Tier 2 sites met the
   customer settings and the impact-region criteria, so **the targets were on file and
   the system did not send to them** -- an engineering shortfall, not a mapping gap.
-  `Product` / `Platform Bug`, still a miss. Its `Improvement VS Bug` still reads
-  `Improvement`; the row's own RCA records that no root cause was ever documented, so
-  the field was not flipped to `Bug` on inference.
+  `Product` / `Platform Bug`, still a miss. **It reads `Bug` now** -- that was settled
+  at some point after this note was written, and the note went on claiming
+  `Improvement` until the owner's 27-Oct-2026 ruling sent somebody to look. **A
+  "still reads X" sentence about a field is a sentence that goes stale the moment the
+  field moves**, which is the same fault as a stale `Staged from Jira` preamble: check
+  the column before quoting this file about it.
 * **META, Samsung DRAM (EAO-15).** This one crosses owners, and it is the case for
   reading a normalization RCA sceptically. The RCA said the Samsung Electronics sites
   are normalized under Samsung and that normalization "was not applied during the
