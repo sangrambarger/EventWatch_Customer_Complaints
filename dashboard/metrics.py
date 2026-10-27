@@ -1093,6 +1093,13 @@ WRONG_GROUPS = (
      "One event, published twice"),
     ("WarRoom not raised", ("WarRoom Creation",),
      "The bulletin went out with no WarRoom attached"),
+    # EAO-56: the WarRoom was right and the supplier outreach went before landfall, which
+    # the guideline puts after it. It is not a wrong impact call -- the impact call was
+    # correct -- and it is not a portal or supplier failure, so it takes its own group
+    # rather than being folded into the nearest one. The label is general because
+    # `Policy/Logic` is, and the sentence is what the hover carries.
+    ("Wrong action taken", ("Policy/Logic",),
+     "The action did not follow the guideline's own trigger"),
     ("Platform bug", ("Platform Bug", "Alerting Gap"), NAME_THEM),
 )
 

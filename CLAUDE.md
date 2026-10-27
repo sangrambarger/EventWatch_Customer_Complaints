@@ -2201,6 +2201,63 @@ the owner's earlier ruling pointing the other way, which is why it is kept here:
 RCAs on one incident can disagree, both can reach the customer, and nothing in the
 tracker will tell you unless somebody reads them side by side.**
 
+**EAO-56 is the worked example of an RCA reversing a staged reading in one step**, and
+the owner settled it on 27-Oct-2026 from the document: **analyst error, not an inquiry.**
+The RCA is unambiguous and it exonerates two things the staging reading suspected. The
+reporting team assessed the storm's intensification correctly and the WarRoom was right.
+The guidelines are sound and say exactly what Collins said they say: a customer impact
+notification may go when the forecast path is known, while a Supplier Impact Confirmation
+request waits for landfall. **What failed was the judgement about timing** -- the request
+went out on 07-Oct against a landfall of the 9th -- and an internal Nonconformity was
+raised to document it.
+
+So the row moved on five fields at once: `Inquiry` to **Complaint** (a named guideline
+was broken, which is the complaint test), `Process` to **People**, `Process Clarification`
+to **`Policy/Logic`**, the `Reason` from a clarification wording to **`Incorrect Action`**,
+and routing to EventWatch Ops. `Missed_Flag` stays **No**: the WarRoom was created and
+the notification reached Collins. It went early, not missing.
+
+**The `Reason` had to move with the `Issue Type`, and that is the trap.**
+`WarRoom Timing/Trigger Criteria Clarification` folds to `Question about coverage`, which
+this file records as holding inquiries only -- "a record in it that turned out to be a
+failure belongs somewhere else". Flipping the row to a complaint and leaving the wording
+would have put the first complaint into that category and quietly falsified the line
+above. `Incorrect Action` folds to `Classified wrongly` and is what the RCA establishes.
+
+**`Policy/Logic` is the SECOND sub-type whose meaning turns on its owner**, and it needed
+`OWNED_SUBTYPE` for the same reason `Mapping` did. Under Product it is the rule being
+wrong, which is what `PLAIN_SUBTYPE` says and what the Ford Trinseo row means. Under
+People the rule was right and a person did not follow it, so the Product wording --
+"our scoring or rules got it wrong" -- would **blame the guideline this RCA exonerates**.
+It reads `The wrong action was taken on the event` under People now, which is what
+`DRIVERS` already said for that pair.
+
+**It also took its own `WRONG_GROUPS` card rather than being folded into the nearest
+one.** `Wrong impact call` was the tempting home and is false: the impact call was
+correct. The group is `Wrong action taken / The action did not follow the guideline's own
+trigger`, worded generally because `Policy/Logic` is general. The delivered-but-wrong
+block goes nine groups to ten and 17 records to 18.
+
+**Baseline on 27-Oct-2026:**
+
+```
+129 emails     = 104 complaints + 25 inquiries
+104 complaints =  86 confirmed misses + 18 process issues
+ 86 misses     =  50 Product + 36 Analyst
+```
+
+**Jira attachments cannot be read from here, and this is what was actually tried.** The
+connector returns attachment *metadata* -- `getJiraIssue` with `fields=["attachment"]`
+gives the filename, size, author, mime type and a content URL. Fetching that URL from the
+shell returns **403 `You do not have permission to view attachment with id: ...`**,
+because the request goes out unauthenticated: there is no Atlassian credential in this
+environment and the connector's session does not extend to a plain HTTP GET. The MCP
+exposes eighteen Atlassian tools -- issue CRUD, comments, worklogs, transitions, search,
+links, metadata -- and **none of them reads an attachment's contents**. So an RCA that
+lives only in a `.docx` reaches the tracker one way: somebody pastes it. That is how
+EAO-14, 21, 23, 26, 48, 25, 53, 55 and now 56 got their causes, and it is worth asking
+for rather than working around.
+
 ## The definitions, settled against the original tracker
 
 **When a classification is in doubt, read the 80 rows the humans filed before any of
