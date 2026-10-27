@@ -1017,6 +1017,15 @@ def bulletin_errors(df):
                  for (cust, owner), (n, colour, notes) in folded.items()]
         pill_total += sum(p[3] for p in pills)
         note = part["Why"].iloc[0]
+        # **One record in the group means the record answers for itself.** The group
+        # note is a sentence true of every row under the label -- right for the summary,
+        # where `Not visible on portal` pools three unrelated production faults, and
+        # needlessly vague inside a month dialog, where it is one of them. So a group
+        # holding a single record whose ticket carries a reason prints that reason.
+        if len(part) == 1:
+            own = record_why(part["Jira Key"].iloc[0] if "Jira Key" in part else "")
+            if own:
+                note = own[0].upper() + own[1:]
         groups.append((label, note, pills, len(part)))
     return {"total": len(rows), "rows": rows, "groups": groups, "pills": pill_total}
 
@@ -1079,14 +1088,20 @@ WRONG_GROUPS = (
     # an analyst set is not a portal that failed to render.
     ("Incorrect geocode", ("Incorrect Geocode",),
      "Stored coordinates did not match the site's address"),
-    ("Wrong routing data", ("Mapping / Routing Defect",),
-     "Entity linkage sent it to the wrong customer"),
+    # **"Wrong routing data" named a data field, not an event.** The one record is
+    # Molex / CAN-3263: an Arrow Electronics site belonging to another tenant appeared
+    # inside Molex's own portal. A reader could not get from the old label to that.
+    ("Another customer's sites appeared", ("Mapping / Routing Defect",),
+     "A shared-site record pointed at the wrong tenant"),
     ("Incorrect supplier selection", ("Supplier Selection Miss", "Mapping"),
      "On file, and left off the WarRoom"),
     ("Not visible on portal", ("Visibility",),
      "Published, and it never reached their portal"),
-    ("Wrong industry tag", ("Industry selection", "Tagging"),
-     "The tag kept it off this customer's portal"),
+    # It is industry SELECTION, and on the one record the tag was **missing** rather
+    # than wrong: Ford, 02-Apr, "Missing Automotive tag". The label now says which
+    # field, and the note allows for either shape.
+    ("Wrong industry selection", ("Industry selection", "Tagging"),
+     "A missing or wrong industry tag kept it off their alerts"),
     # **The direction is one way, and the label has to say which.** "Wrong impact
     # call" left a reader asking whether we raised impact that was not needed or
     # failed to raise impact that was. All three records are over-inclusion -- Winter
@@ -1171,6 +1186,62 @@ SHORT_CAUSE = {
     "Strategy": "how we group events",
     "Deliberate Rule": "the rule applied",
 }
+# **Why each cause happened, in one standing line.** `SHORT_CAUSE` names the failure
+# and the owner's question was the next one down: "it never surfaced to an analyst --
+# why?". A reason that is a DEFINITION of the cause is true of every row in it and
+# cannot go stale, which a count or a per-row paraphrase cannot promise. Where the rows
+# under one cause genuinely differ -- a platform bug, a portal that did not render --
+# `RECORD_WHY` below carries the record's own answer instead.
+CAUSE_WHY = {
+    "Source Coverage": "the outlet is not in our monitoring network",
+    "Keyword Update": "the story arrived; our terms did not catch it",
+    "Model Classification Defect": "a model called it not impactful",
+    "Relevancy": "a model judged it out of this customer's scope",
+    # All four Alerting Gap rows say the same thing in their own words, and two carry
+    # it as a field: "Captured Feed Surfaced Late" and "Feed/Application-to-Analyst
+    # Handoff Gap". The failure sits between ingestion and the analyst queue.
+    "Alerting Gap": "captured, but it never reached the analyst queue",
+    "Clustering / Duplication Defect": "filed against a cluster nobody worked",
+    "Visibility": "we published it; their portal did not show it",
+    "Mapping / Routing Defect": "a shared-site record pointed at the wrong tenant",
+    "Incorrect Geocode": "the site's stored coordinates were wrong",
+    "Review": "it reached the portal before a person closed it",
+    "Analyst Review Miss": "it reached the portal before a person closed it",
+    "Published Late": "it went out after the window to act",
+    "Captured Late": "our first usable capture came too late",
+    "Prioritization": "held behind other work, and went out late",
+    "Tagging": "a missing or wrong industry tag",
+    "Industry selection": "a missing or wrong industry tag",
+    "Supplier Selection Miss": "on file, and left off the selection",
+    "Mapping": "never shared with us, so nothing matched",
+    "WarRoom Creation": "no WarRoom was attached",
+    "Duplication": "one event, published more than once",
+    "Policy/Logic": "the action missed the guideline's own trigger",
+    "Process Clarification": "the rule applied; we explained it",
+    "Deliberate Rule": "the published rule applied as written",
+    "Strategy": "how we group events, not a fault",
+}
+
+# **Where one standing line would be false, the record answers for itself.** Three
+# `Visibility` rows are three unrelated production faults and the two `Platform Bug`
+# rows are two unrelated defects, so a per-cause sentence there would describe one row
+# and mislead about the others. Keyed on the ticket rather than on a title or a row
+# position, because the ticket is the one identifier that does not move when a row is
+# re-sorted or re-worded.
+#
+# **These are the owner's own condensations, not derived text.** `what_happened()`
+# takes the first sentence of `RCA Details`, which on CAN-3377 is "The ticket carries
+# no root-cause statement" -- true, and useless as a tooltip line. A short line a human
+# wrote is the honest answer; the cost is that it is typed, so it is kept to the five
+# records that need it and nowhere near a figure.
+RECORD_WHY = {
+    "CAN-3433": "impact was issued to Tier 1 suppliers only",
+    "CAN-3298": "no root cause was ever documented on the ticket",
+    "CAN-3242": "supplier impact notifications failed on a query timeout",
+    "CAN-3278": "the WarRoom was published empty, a backend fault",
+    "CAN-3377": "a technical fault kept the bulletin out of their news dashboard; fixed later",
+}
+
 SHORT_OWNED = {
     ("Product", "Review"): "the model judged it not impactful",
     ("People", "Mapping"): "a supplier was missed",
@@ -1201,24 +1272,67 @@ def named_causes(df, mask, top=2, name_bugs=False):
     such a row contributes its own `defect_name()` instead. It is opt-in rather than
     the default because a defect name is long, and the card popups' lines are short.
     """
-    root = df.get("Root Cause", pd.Series(dtype=str)).reindex(df.index).fillna("").astype(str)
-    sub = df.get("Sub-type", pd.Series(dtype=str)).reindex(df.index).fillna("").astype(str)
-    title = df.get("Event/Bulletin Title", pd.Series(dtype=str)).reindex(df.index).fillna("").astype(str)
-    counts = {}
-    for r, t, head in zip(root[mask], sub[mask], title[mask]):
-        name = short_cause(r, t)
-        if name_bugs and t.strip() == "Platform Bug" and head.strip():
-            name = defect_name(head).lower()
-        counts[name] = counts.get(name, 0) + 1
-    ranked = sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))
+    ranked = _cause_ranking(df, mask, name_bugs=name_bugs)
     shown = ranked if top is None else ranked[:top]
-    line = " · ".join(f"{esc(n)} {v}" for n, v in shown)
-    rest = 0 if top is None else sum(v for _, v in ranked[top:])
+    line = " · ".join(f"{esc(n)} {v}" for n, v, _ in shown)
+    rest = 0 if top is None else sum(v for _, v, _ in ranked[top:])
     return line + (f" · and {rest} more" if rest else "")
 
 
+def _cause_ranking(df, mask, name_bugs=False):
+    """`[(name, count, why)]` under `mask`, biggest first.
+
+    **A cause splits into two entries where its rows do not share one answer.** The
+    key is `(name, why)`, not the name alone, so the three `Visibility` rows -- a query
+    timeout, an empty WarRoom, a dashboard that did not render -- never collapse under
+    one sentence describing whichever of them happened to be first.
+    """
+    root = df.get("Root Cause", pd.Series(dtype=str)).reindex(df.index).fillna("").astype(str)
+    sub = df.get("Sub-type", pd.Series(dtype=str)).reindex(df.index).fillna("").astype(str)
+    title = df.get("Event/Bulletin Title", pd.Series(dtype=str)).reindex(df.index).fillna("").astype(str)
+    keys = df.get("Jira Key", pd.Series(dtype=str)).reindex(df.index).fillna("").astype(str)
+    counts = {}
+    for r, t, head, key in zip(root[mask], sub[mask], title[mask], keys[mask]):
+        name = short_cause(r, t)
+        if name_bugs and t.strip() == "Platform Bug" and head.strip():
+            name = defect_name(head).lower()
+        why = record_why(key) or CAUSE_WHY.get(t.strip(), "")
+        counts[(name, why)] = counts.get((name, why), 0) + 1
+    return [(n, v, w) for (n, w), v in
+            sorted(counts.items(), key=lambda kv: (-kv[1], kv[0][0]))]
+
+
+def record_why(key):
+    """The owner's own one-line reason for a record, by ticket; "" where none exists.
+
+    A cell may carry slash-separated keys for a merged incident, so each is tried.
+    """
+    for part in str(key).replace(",", "/").split("/"):
+        hit = RECORD_WHY.get(part.strip())
+        if hit:
+            return hit
+    return ""
+
+
+def _bullets(entries, width=76):
+    """`[(name, count, why)]` as plotly hover bullets, one per line, wrapped.
+
+    **Plotly's hover label does not wrap and is not clipped to the panel**, which is
+    the fault already recorded on the driver bars: at a third of the page width the
+    text ran off both edges and lost its own ends. So the wrap happens here, before
+    the string reaches plotly, and a continuation line is indented under its bullet.
+    """
+    out = []
+    for name, count, why in entries:
+        text = f"{name} {count}" + (f" \u2014 {why}" if why else "")
+        lines = textwrap.wrap(text, width=width) or [text]
+        out.append("\u2022 " + esc(lines[0]))
+        out.extend("\u00a0\u00a0\u00a0" + esc(ln) for ln in lines[1:])
+    return "<br>".join(out)
+
+
 def wrong_causes(df, mask):
-    """The `WRONG_GROUPS` labels under `mask`, biggest first, as "name N · name N".
+    """The `WRONG_GROUPS` labels under `mask` as hover bullets, biggest first.
 
     The delivered-but-wrong segment folds eighteen records onto ten groups, and the
     month hover used to print one constant sentence over all of them -- "reported in
@@ -1226,17 +1340,35 @@ def wrong_causes(df, mask):
     was named as such. This reads the same fold the pills and the card popup use, so
     the three cannot tell the 18 in three different ways.
     """
+    return _bullets(wrong_ranking(df, mask))
+
+
+def wrong_ranking(df, mask):
+    """`[(label, count, why)]` for the delivered-but-wrong rows under `mask`.
+
+    Split on `(label, why)` for the same reason `_cause_ranking()` is: `Not visible on
+    portal` holds three unrelated production faults, and one of them standing for all
+    three is the vagueness this whole pass exists to remove.
+    """
     sub = df.get("Sub-type", pd.Series(dtype=str)).reindex(df.index).fillna("").astype(str).str.strip()
+    keys = df.get("Jira Key", pd.Series(dtype=str)).reindex(df.index).fillna("").astype(str)
     claimed = {}
-    for label, members, _ in WRONG_GROUPS:
+    for label, members, note in WRONG_GROUPS:
         for m in members:
-            claimed.setdefault(m, label)
+            claimed.setdefault(m, (label, note if isinstance(note, str) else ""))
     counts = {}
-    for t in sub[mask]:
-        name = claimed.get(t) or failure_label("", t)
-        counts[name] = counts.get(name, 0) + 1
-    ranked = sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))
-    return " · ".join(f"{esc(n.lower())} {v}" for n, v in ranked)
+    for t, key in zip(sub[mask], keys[mask]):
+        label, note = claimed.get(t, (failure_label("", t), CAUSE_WHY.get(t, "")))
+        # Never lower-cased. These labels carry product nouns -- "WarRoom" became
+        # "warroom" the one time this matched the miss bullets' casing, which reads as
+        # a typo on a leadership panel.
+        why = record_why(key) or note
+        # Sentence case throughout this section: the group notes are written that way
+        # and `RECORD_WHY` is not, so a bullet list mixing the two reads as a slip.
+        entry = (label, (why[0].upper() + why[1:]) if why else "")
+        counts[entry] = counts.get(entry, 0) + 1
+    return [(n, v, w) for (n, w), v in
+            sorted(counts.items(), key=lambda kv: (-kv[1], kv[0][0]))]
 
 
 def month_causes(df):
@@ -1262,12 +1394,12 @@ def month_causes(df):
     for month in label.dropna().unique():
         m = label == month
         out[str(month)] = {
-            "Product": named_causes(df, m & part["missed"] & root.eq("Product"),
-                                    top=None, name_bugs=True),
-            "Analyst": named_causes(df, m & part["missed"] & root.eq("People"),
-                                    top=None, name_bugs=True),
-            "Process": named_causes(df, m & part["missed"] & root.eq("Process"),
-                                    top=None, name_bugs=True),
+            "Product": _bullets(_cause_ranking(df, m & part["missed"] & root.eq("Product"),
+                                               name_bugs=True)),
+            "Analyst": _bullets(_cause_ranking(df, m & part["missed"] & root.eq("People"),
+                                               name_bugs=True)),
+            "Process": _bullets(_cause_ranking(df, m & part["missed"] & root.eq("Process"),
+                                               name_bugs=True)),
             "Wrong": wrong_causes(df, m & issue.eq("Complaint") & ~part["missed"]),
         }
     return out

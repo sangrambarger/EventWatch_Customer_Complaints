@@ -1130,6 +1130,42 @@ built from, not the sum of the strings in it.
    the cap hid nothing and only invited the question. The card popups keep `top=2`
    because they pool the whole year, where the tail is real.
 
+   **Every bullet carries a reason, and the hover is multi-line.** The owner's next
+   questions after the causes landed were the right ones: *"it never surfaced to an
+   analyst -- why?"* and *"platform bug also needs some supporting detail."* A cause
+   with no reason is a term a reader has to already know. The hover is now one bullet
+   per cause, each `cause N - why`, wrapped at 76 characters before it reaches plotly
+   because **plotly's hover label does not wrap and is not clipped to the panel** --
+   the fault already recorded on the driver bars. Worst month is 13 lines.
+
+   **`CAUSE_WHY` is a DEFINITION per sub-type, not a paraphrase per row.** A definition
+   is true of every row under that cause and cannot go stale; a per-row summary would
+   be four lines where a cause holds four records and would move every time a ticket is
+   edited. All four `Alerting Gap` rows prove the point -- they say the same thing in
+   their own words and two carry it as a field (*Captured Feed Surfaced Late*,
+   *Feed/Application-to-Analyst Handoff Gap*), so the one line is "captured, but it
+   never reached the analyst queue".
+
+   **`RECORD_WHY` is the exception, and it exists because one line would be false.**
+   The three `Visibility` rows are three unrelated production faults -- a query timeout
+   (Eaton CAN-3242), a WarRoom published empty (Danaher CAN-3278), a bulletin missing
+   from the news dashboard (Ford CAN-3377) -- and the two `Platform Bug` rows are two
+   unrelated defects. So those five records carry the owner's own one-line answer,
+   keyed on the **ticket**, which is the one identifier that does not move when a row is
+   re-sorted or re-worded. It is typed text, which this file normally refuses: the
+   justification is that `what_happened()` reads the first sentence of `RCA Details`,
+   and on CAN-3377 that is "The ticket carries no root-cause statement" -- true, and
+   useless as a tooltip. Kept to five records and nowhere near a figure.
+
+   **`_cause_ranking()` and `wrong_ranking()` key on `(name, why)`, never the name
+   alone**, so a cause whose rows do not share one answer splits into two bullets
+   instead of one of them standing for all three.
+
+   **`audit_pages.month_panel_problems()` fails on a bullet with no reason.**
+   `CAUSE_WHY` has no fallback and `_bullets()` simply omits the clause, so a sub-type
+   added tomorrow would print a bare bullet silently. Proved by deleting one entry and
+   watching it fire on eight months.
+
    **`name_bugs=True` answers "what bug?".** `SHORT_CAUSE` gives `Platform Bug` the
    category "a confirmed software bug", which names no defect anyone can act on -- the
    same objection `NAME_THEM` exists for on the card popups. With the flag such a row
@@ -1178,11 +1214,21 @@ built from, not the sum of the strings in it.
    thinner ones. And the figure the owner asked this to look like shows two owners side
    by side, which is a month, not a segment.
 
-   **`selected` and `unselected` marker opacity are both pinned to 1.** Streamlit's
-   selection styling dims every bar the reader did not click, so the chart sat washed
-   out behind the dialog and **stayed that way after it closed**, reading as broken
-   rather than as a selection. Verified by reading computed opacity back off every bar
-   after an Escape, not by assuming.
+   **`selected` and `unselected` pin the MARKER and the TEXTFONT, and pinning only
+   the marker was a shipped bug.** Streamlit's selection styling dims every point the
+   reader did not click -- bars and their labels alike. The first fix named `marker`
+   and stopped there, so the bars stayed solid, **21 of the 22 in-bar counts dropped to
+   `fill-opacity: 0.2`, and they stayed faded after the dialog closed**: a reader
+   clicked one month and the numbers vanished off every other month of a chart that
+   otherwise looked fine. The owner reported it as "the divisions of complaints
+   disappeared", which is exactly what it looks like.
+
+   **A half-pinned selection is worse than an unpinned one**, because the half that
+   works hides the half that does not -- the bars looked right, so nothing suggested a
+   selection was the cause. Measured both times by reading `fill-opacity` back off
+   every bar AND every label after an Escape; the first pass read it off the bars only,
+   which is why it passed. **Anything on this trace that plotly can dim -- text, a
+   marker line, error bars -- has to be named in both dicts.**
 
    **Only the Executive Summary passes `clickable=True`.** The chart's widget key is one
    piece of session state; two pages sharing it would have a month opened here open
@@ -1468,6 +1514,21 @@ supplier group (the Data team, not an analyst), `Wrong routing data` left it too
 linkage is Platform's), and `Wrong industry tag` left `Not visible on portal`, because a
 tag an analyst set is not a portal that failed to render. Seven groups became nine.
 
+**Three more labels were renamed on the owner's reading, and the test each time was
+whether a reader could get from the label to the record.**
+
+* **`Wrong routing data` is `Another customer's sites appeared`.** The old label named
+  a data field. The one record is Molex / CAN-3263, where an **Arrow Electronics site
+  belonging to another tenant showed inside Molex's own portal** -- which no reader
+  could have recovered from "wrong routing data".
+* **`Wrong industry tag` is `Wrong industry selection`.** The owner asked whether the
+  two meant the same thing; they do, and the field is selection. On the one record
+  (Ford, 02-Apr) the tag was **missing**, not wrong, so the reason allows for either.
+* **`Not visible on portal` KEPT its label and gained three reasons.** The label is
+  accurate -- we published it and their portal did not show it -- and what was missing
+  was the why, which differs on all three rows. That is the case `RECORD_WHY` was
+  built for.
+
 **`Wrong impact call` is `Wrong sites called impacted`, and the rename fixes an
 unanswerable label.** The owner's question was the test: does it mean we raised impact
 that was not needed, or failed to raise impact that was? **All three records are
@@ -1499,14 +1560,24 @@ carefully and moved it to Not Impactful*. `SHORT_OWNED` keeps the Product readin
 `Review`, which is the **model** deciding, so the word "analyst" can never print over a
 Product row.
 
-**Every label is a TERM now, and the sentence moved to the hover.** They read "The
-supplier list was wrong", "We called the event wrong", "Sent twice, or merged wrong"
-until the owner named the fault: a label competing with its own number is a label nobody
-scans. **This reverses the earlier decision** recorded further down, where `PLAIN_SUBTYPE`
-was deliberately rewritten *into* plain-English sentences because a bare term said
-nothing to a VP -- and it only works because the sentence is still there, on the hover
-and in `note`. **Keep both halves or neither**: terms as labels with no hover is the
-state that instruction was written against.
+**Every label is a TERM, and its sentence is a VISIBLE line under it -- not a hover.**
+They read "The supplier list was wrong", "We called the event wrong", "Sent twice, or
+merged wrong" until the owner named the fault: a label competing with its own number is
+a label nobody scans. So the sentence moved to `note` -- **and `note` was only a `title`
+attribute**, which is how "Not visible on portal" and "Platform bug" came to sit on the
+page as bare terms the owner then asked about twice. **A term that needs a hover to be
+understood is a term nobody scans either**, which is the same objection one step on.
+`fault-why` prints it under the label, quieter and smaller, so the term carries the row
+and the sentence answers it. The `title` hover stays on the **pills**, where it does the
+job a title is actually good for: the per-complaint date, ticket, event and finding.
+
+**Keep both halves or neither**: terms as labels with no sentence beside them is the
+state that instruction was written against, and the hover-only version was half of it.
+
+**A group holding ONE record prints that record's own reason**, from `RECORD_WHY`. The
+group note is a sentence true of every row under the label, which is right on the
+summary -- where `Not visible on portal` pools three unrelated production faults -- and
+needlessly vague inside a month dialog, where it is one of them.
 
 **The hover names the complaint, not the row the pill is sitting in.** The first cut
 printed the failure, the owner and the customer -- and the failure is already the label
