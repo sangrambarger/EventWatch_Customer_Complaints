@@ -19,7 +19,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from dashboard.styles import BLUE_RAMP, CAT_SLATE, ROOT_COLOURS, UNKNOWN_OWNER, esc
-from dashboard.taxonomy import CATEGORY_MEANING, NEEDS_REVIEW, ROOT_OWNERSHIP, driver_of, failure_label, labels_for, owner_pills, plural, reason_category, shorten
+from dashboard.taxonomy import CAUSE_WHY, CATEGORY_MEANING, NEEDS_REVIEW, RECORD_WHY, ROOT_OWNERSHIP, SHORT_CAUSE, SHORT_OWNED, driver_of, failure_label, labels_for, owner_pills, plural, reason_category, record_why, short_cause, shorten
 from dashboard.filters import customer_names, names_match
 
 
@@ -1154,109 +1154,6 @@ LOST_GROUPS = (
     ("A confirmed software bug", ("Platform Bug",), NAME_THEM),
 )
 
-SHORT_CAUSE = {
-    "Source Coverage": "no monitored source",
-    "Keyword Update": "keywords missed it",
-    "Model Classification Defect": "the model judged it not impactful",
-    "Relevancy": "the model judged it not relevant",
-    "Alerting Gap": "it never surfaced to an analyst",
-    "Platform Bug": "a confirmed software bug",
-    "Clustering / Duplication Defect": "grouped under the wrong story",
-    "Visibility": "published, not visible",
-    "Mapping / Routing Defect": "sent to the wrong place",
-    "Incorrect Geocode": "wrong coordinates on the site",
-    # The owner's own words for this failure: the story reached the portal and the
-    # analyst did not look at it carefully before moving it to Not Impactful. "An
-    # analyst judged it not impactful" is the softer reading of the same rows, and it
-    # reads as a decision taken rather than a look not taken. `SHORT_OWNED` keeps the
-    # Product reading of `Review`, which is the MODEL deciding, so this never prints
-    # "analyst" over a Product row.
-    "Review": "the analyst overlooked it",
-    "Analyst Review Miss": "the analyst overlooked it",
-    "Published Late": "notified late",
-    "Captured Late": "notified late",
-    "Prioritization": "notified late",
-    "Tagging": "wrong industry tag",
-    "Industry selection": "wrong industry tag",
-    "Supplier Selection Miss": "a supplier was missed",
-    "Mapping": "supplier not on file",
-    "WarRoom Creation": "no WarRoom raised",
-    "Duplication": "sent twice",
-    "Process Clarification": "we clarified the rule",
-    "Strategy": "how we group events",
-    "Deliberate Rule": "the rule applied",
-}
-# **Why each cause happened, in one standing line.** `SHORT_CAUSE` names the failure
-# and the owner's question was the next one down: "it never surfaced to an analyst --
-# why?". A reason that is a DEFINITION of the cause is true of every row in it and
-# cannot go stale, which a count or a per-row paraphrase cannot promise. Where the rows
-# under one cause genuinely differ -- a platform bug, a portal that did not render --
-# `RECORD_WHY` below carries the record's own answer instead.
-CAUSE_WHY = {
-    "Source Coverage": "the outlet is not in our monitoring network",
-    "Keyword Update": "the story arrived; our terms did not catch it",
-    "Model Classification Defect": "a model called it not impactful",
-    "Relevancy": "a model judged it out of this customer's scope",
-    # All four Alerting Gap rows say the same thing in their own words, and two carry
-    # it as a field: "Captured Feed Surfaced Late" and "Feed/Application-to-Analyst
-    # Handoff Gap". The failure sits between ingestion and the analyst queue.
-    "Alerting Gap": "captured, but it never reached the analyst queue",
-    "Clustering / Duplication Defect": "filed against a cluster nobody worked",
-    "Visibility": "we published it; their portal did not show it",
-    "Mapping / Routing Defect": "a shared-site record pointed at the wrong tenant",
-    "Incorrect Geocode": "the site's stored coordinates were wrong",
-    "Review": "it reached the portal before a person closed it",
-    "Analyst Review Miss": "it reached the portal before a person closed it",
-    "Published Late": "it went out after the window to act",
-    "Captured Late": "our first usable capture came too late",
-    "Prioritization": "held behind other work, and went out late",
-    "Tagging": "a missing or wrong industry tag",
-    "Industry selection": "a missing or wrong industry tag",
-    "Supplier Selection Miss": "on file, and left off the selection",
-    "Mapping": "never shared with us, so nothing matched",
-    "WarRoom Creation": "no WarRoom was attached",
-    "Duplication": "one event, published more than once",
-    "Policy/Logic": "the action missed the guideline's own trigger",
-    "Process Clarification": "the rule applied; we explained it",
-    "Deliberate Rule": "the published rule applied as written",
-    "Strategy": "how we group events, not a fault",
-}
-
-# **Where one standing line would be false, the record answers for itself.** Three
-# `Visibility` rows are three unrelated production faults and the two `Platform Bug`
-# rows are two unrelated defects, so a per-cause sentence there would describe one row
-# and mislead about the others. Keyed on the ticket rather than on a title or a row
-# position, because the ticket is the one identifier that does not move when a row is
-# re-sorted or re-worded.
-#
-# **These are the owner's own condensations, not derived text.** `what_happened()`
-# takes the first sentence of `RCA Details`, which on CAN-3377 is "The ticket carries
-# no root-cause statement" -- true, and useless as a tooltip line. A short line a human
-# wrote is the honest answer; the cost is that it is typed, so it is kept to the five
-# records that need it and nowhere near a figure.
-RECORD_WHY = {
-    "CAN-3433": "impact was issued to Tier 1 suppliers only",
-    "CAN-3298": "no root cause was ever documented on the ticket",
-    "CAN-3242": "supplier impact notifications failed on a query timeout",
-    "CAN-3278": "the WarRoom was published empty, a backend fault",
-    "CAN-3377": "a technical fault kept the bulletin out of their news dashboard; fixed later",
-}
-
-SHORT_OWNED = {
-    ("Product", "Review"): "the model judged it not impactful",
-    ("People", "Mapping"): "a supplier was missed",
-    ("Process", "Mapping"): "they asked about mapping",
-}
-
-
-def short_cause(root, subtype):
-    """The short name for one cause, owner-aware, falling back to the plain label."""
-    key = (str(root).strip(), str(subtype).strip())
-    if key in SHORT_OWNED:
-        return SHORT_OWNED[key]
-    return SHORT_CAUSE.get(key[1]) or failure_label(key[0], key[1]).lower()
-
-
 def named_causes(df, mask, top=2, name_bugs=False):
     """The causes under `mask`, biggest first, as "name N · name N · and K more".
 
@@ -1300,18 +1197,6 @@ def _cause_ranking(df, mask, name_bugs=False):
         counts[(name, why)] = counts.get((name, why), 0) + 1
     return [(n, v, w) for (n, w), v in
             sorted(counts.items(), key=lambda kv: (-kv[1], kv[0][0]))]
-
-
-def record_why(key):
-    """The owner's own one-line reason for a record, by ticket; "" where none exists.
-
-    A cell may carry slash-separated keys for a merged incident, so each is tried.
-    """
-    for part in str(key).replace(",", "/").split("/"):
-        hit = RECORD_WHY.get(part.strip())
-        if hit:
-            return hit
-    return ""
 
 
 def _bullets(entries, width=76):
