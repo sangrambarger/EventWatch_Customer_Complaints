@@ -1136,13 +1136,32 @@ built from, not the sum of the strings in it.
    detail"* -- and the first answer put the reason on each hover bullet. That was
    wrong, and the owner named it: *text heavy, miss matching and very confusing.*
 
-   **Screenshotting it showed three faults that were not about wording at all.** Three
-   separate boxes, 360 / 381 / 396px wide, **covering four whole months** of the chart
-   they explained; **no month header** on any of them; and read top-down in **reverse**,
-   `reported, but wrong` first and `product misses` last, against both the legend and
-   the stack. Plus three that were: the count buried mid-line, two registers in one box
-   (lowercase verb phrases against capitalised terms), and a redundant line whenever a
-   segment held one cause.
+   **Screenshotting it showed six faults, and THREE OF THEM WERE THE PROBE LYING.**
+   What the screenshot caught was three separate boxes, 360 / 381 / 396px wide, covering
+   four months of the chart; no month header on any of them; and a reverse reading order,
+   `reported, but wrong` first and `product misses` last. All three were written up here
+   as defects. **The owner then sent a screenshot of the real thing and none of them
+   exists**: a real mouse draws **one unified box, headed with the month, reading
+   Product then Analyst then Wrong** -- the legend's own order.
+
+   **`Plotly.Fx.hover(gd, [{curveNumber, pointNumber}, ...])` does not exercise
+   `hovermode="x unified"`.** Passing explicit points takes plotly's per-trace path, so
+   it draws one box per trace, positions each by its own y value and drops the shared
+   header. That is the probe's layout, not the page's. The array form is still the right
+   way to read a hovertemplate's TEXT back -- which is what this file already prescribes
+   it for, and what it got right -- but **a unified hover's layout cannot be judged from
+   it**, and `mouse.move` fires nothing here, so the only way to see it is a human with
+   a mouse.
+
+   **The lesson is the one this file keeps relearning in other costumes: a measurement
+   taken down a different code path is not a measurement of the thing.** Three
+   screenshot-derived "defects" went into a commit message and a PR before anyone saw
+   the real render. What survived the correction were the three faults that were about
+   the content rather than the frame: the count buried mid-line, two registers in one
+   box (lowercase verb phrases against capitalised terms), and a redundant line whenever
+   a segment held one cause. Those were real, the rewrite was still right, and the
+   box-size figures below describe the probe's boxes -- useful as a before-and-after of
+   the same path, not as the page's own dimensions.
 
    **The division now is: the hover answers WHAT and HOW MANY, the panel answers WHY.**
    A hover is transient -- nobody reads a paragraph before the mouse moves -- and the
@@ -1180,11 +1199,11 @@ built from, not the sum of the strings in it.
    this file already records against ellipsis truncation on the record grid. The cap is
    a guard against a future long entry, not a trim of the current ones.
 
-   **One thing could not be verified from here**: whether a real mouse draws ONE unified
-   box or the three the screenshot caught. Playwright fires no hover on these charts --
-   already recorded -- so the probe drives `Plotly.Fx.hover`, and that path may be what
-   splits them. The compaction helps either way, which is why it was not made to depend
-   on the answer.
+   **That open question is closed, by the owner's own screenshot of the live page.**
+   One box, headed `Jun 2026`, trace order correct, ten lines for the worst month on
+   screen, sitting over about two neighbouring bars rather than four. The compaction was
+   deliberately written not to depend on the answer, which is the only reason the wrong
+   diagnosis cost nothing.
 
    **`CAUSE_WHY` is a DEFINITION per sub-type, not a paraphrase per row.** A definition
    is true of every row under that cause and cannot go stale; a per-row summary would
