@@ -1206,21 +1206,48 @@ def _cause_ranking(df, mask, name_bugs=False):
             sorted(counts.items(), key=lambda kv: (-kv[1], kv[0][0]))]
 
 
-def _bullets(entries, width=76):
-    """`[(name, count, why)]` as plotly hover bullets, one per line, wrapped.
+def _hover_lines(entries):
+    """One segment's causes as hover text: count FIRST, no prose, one register.
 
-    **Plotly's hover label does not wrap and is not clipped to the panel**, which is
-    the fault already recorded on the driver bars: at a third of the page width the
-    text ran off both edges and lost its own ends. So the wrap happens here, before
-    the string reaches plotly, and a continuation line is indented under its bullet.
+    **Reasons do not belong in a hover and that is what this removes.** Each line read
+    `cause N - why`, wrapped, so the worst month ran thirteen lines and covered four
+    other months of the chart it was explaining. A hover is transient: nobody reads a
+    paragraph before the mouse moves. The reasons are in the panel a click away, under
+    the bars, where they stay still.
+
+    **The count leads.** `no monitored source 3 - the outlet is...` buried the number
+    mid-line, which is the fault already recorded on the stat cards: the words get read
+    and the number does not.
+
+    **One register: sentence case, which is the `PLAIN_SUBTYPE` form.** The miss causes
+    are lowercase verb phrases and the delivered-but-wrong labels are capitalised terms,
+    so one box carried two grammars -- the "mismatching" the owner named. Lower-casing
+    everything was the obvious fix and it is wrong: it prints `warroom not raised`,
+    flattening a product noun. Capitalising the first character instead gives one
+    register AND makes a hover line read identically to the same failure's label on
+    Analysis, which is the whole point of deriving one from the other.
+
+    **A segment with ONE cause folds onto the segment's own line**, because
+    `1 product miss` followed by `1 no monitored source` prints the same number twice.
+    Returns the text that follows `%{y} <segment>`, so the caller appends it.
     """
-    out = []
-    for name, count, why in entries:
-        text = f"{name} {count}" + (f" \u2014 {why}" if why else "")
-        lines = textwrap.wrap(text, width=width) or [text]
-        out.append("\u2022 " + esc(lines[0]))
-        out.extend("\u00a0\u00a0\u00a0" + esc(ln) for ln in lines[1:])
-    return "<br>".join(out)
+    if not entries:
+        return ""
+    if len(entries) == 1:
+        return " \u2014 " + esc(_sentence(entries[0][0]))
+    return "".join(
+        f"<br>\u00a0\u00a0<b>{count}</b>\u00a0\u00a0" + esc(_sentence(name))
+        for name, count, _ in entries)
+
+
+def _sentence(value):
+    """First character up, the rest untouched -- never `.capitalize()`.
+
+    `.capitalize()` lower-cases the tail, which turns `WarRoom not raised` into
+    `Warroom not raised` and `GaAs` into `Gaas`.
+    """
+    text = str(value)
+    return text[:1].upper() + text[1:]
 
 
 def wrong_causes(df, mask):
@@ -1232,7 +1259,7 @@ def wrong_causes(df, mask):
     was named as such. This reads the same fold the pills and the card popup use, so
     the three cannot tell the 18 in three different ways.
     """
-    return _bullets(wrong_ranking(df, mask))
+    return _hover_lines(wrong_ranking(df, mask))
 
 
 def wrong_ranking(df, mask):
@@ -1286,12 +1313,12 @@ def month_causes(df):
     for month in label.dropna().unique():
         m = label == month
         out[str(month)] = {
-            "Product": _bullets(_cause_ranking(df, m & part["missed"] & root.eq("Product"),
-                                               name_bugs=True)),
-            "Analyst": _bullets(_cause_ranking(df, m & part["missed"] & root.eq("People"),
-                                               name_bugs=True)),
-            "Process": _bullets(_cause_ranking(df, m & part["missed"] & root.eq("Process"),
-                                               name_bugs=True)),
+            "Product": _hover_lines(_cause_ranking(df, m & part["missed"] & root.eq("Product"),
+                                                   name_bugs=True)),
+            "Analyst": _hover_lines(_cause_ranking(df, m & part["missed"] & root.eq("People"),
+                                                   name_bugs=True)),
+            "Process": _hover_lines(_cause_ranking(df, m & part["missed"] & root.eq("Process"),
+                                                   name_bugs=True)),
             "Wrong": wrong_causes(df, m & issue.eq("Complaint") & ~part["missed"]),
         }
     return out

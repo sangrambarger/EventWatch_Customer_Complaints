@@ -19,7 +19,7 @@ import streamlit as st
 
 from dashboard.config import DESCRIPTIONS, PAGE_KICKERS
 from dashboard.styles import BLUE_RAMP, CAT_SLATE, RED_BLUE, ROOT_COLOURS, TAGS, UNKNOWN_OWNER, esc
-from dashboard.taxonomy import plural
+from dashboard.taxonomy import plural, shorten
 
 
 
@@ -359,7 +359,14 @@ def driver_bar(frame, colour, title="", slots=None, xmax=None):
 
     One hue per chart on purpose: the root cause is already named on the card above, so
     colouring the drivers against each other would say a difference that is not there.
-    The plain-English meaning rides on the hover so the bar stays a bar.
+
+    **The meaning is a second line under each driver, not only a hover.** It was on the
+    hover alone, and when the month chart's tooltip was cut back to counts the reasons
+    had to land somewhere that stays still -- a hover inside a dialog is the same
+    transient thing one level down. The driver carries the row in full size and the
+    reason sits under it quieter and smaller, which is the `fault-why` arrangement the
+    delivered-but-wrong rows already use. The hover keeps it too, for the count and the
+    share.
     """
     if frame is None or frame.empty:
         st.caption("No confirmed miss for this root cause in the current filter.")
@@ -371,14 +378,26 @@ def driver_bar(frame, colour, title="", slots=None, xmax=None):
     data["_hover"] = data["What it means"].map(
         lambda t: "<br>".join(textwrap.wrap(str(t), 44)) or "")
     data["_count"] = data["Misses"].map(lambda n: plural(int(n), "confirmed miss", "confirmed misses"))
-    fig = px.bar(data, x="Misses", y="Driver", orientation="h", text="Misses",
+    # The tick label is two lines. `automargin` sizes the gutter to whichever is wider,
+    # so neither is clipped. The cap is 56 because the longest `CAUSE_WHY` is 48: at 46
+    # it cut two of them mid-word ("captured, but it never reached the analyst...") and
+    # a sentence that stops mid-thought is the fault this repo already records against
+    # ellipsis truncation. It is a guard against a future long entry, not a trim of the
+    # current ones -- nothing is shortened today.
+    data["_tick"] = [
+        f"{esc(str(d))}<br><span style='font-size:10.5px;color:#808894'>"
+        f"{esc(shorten(str(w), 56))}</span>" if str(w).strip() else esc(str(d))
+        for d, w in zip(data["Driver"], data["What it means"])]
+    fig = px.bar(data, x="Misses", y="_tick", orientation="h", text="Misses",
                  title=title, color_discrete_sequence=[colour],
-                 custom_data=["_hover", "% of Total", "_count"],
-                 category_orders={"Driver": list(data["Driver"])})
+                 custom_data=["_hover", "% of Total", "_count", "Driver"],
+                 category_orders={"_tick": list(data["_tick"])})
     fig.update_traces(opacity=.93, marker_line_width=0, cliponaxis=False,
                       textposition="outside", textfont=dict(size=12, color="#f3f4f6"),
-                      hovertemplate="<b>%{y}</b> — %{customdata[2]}, %{customdata[1]}"
-                                    "<br>%{customdata[0]}<extra></extra>")
+                      # `%{y}` is now the two-line HTML label, so the hover reads the
+                      # plain driver out of customdata instead of repeating the markup.
+                      hovertemplate="<b>%{customdata[3]}</b> — %{customdata[2]}, "
+                                    "%{customdata[1]}<br>%{customdata[0]}<extra></extra>")
     fig.update_yaxes(tickfont=dict(size=12.5, color="#f3f4f6"), gridcolor="#303846", title="",
                      automargin=True, ticklabelposition="outside")
     # One x scale across all three panels. Each chart used to autoscale, so Process's
@@ -404,7 +423,8 @@ def driver_bar(frame, colour, title="", slots=None, xmax=None):
                       hoverlabel=dict(bgcolor="#11151b", bordercolor=colour, align="left",
                                       font=dict(color="#f3f4f6", size=12)),
                       margin=dict(l=0, r=40, t=8, b=6),
-                      height=max(160, rows * 38 + 36))
+                      # 46 a row, not 38: every tick is two lines now.
+                      height=max(180, rows * 46 + 36))
     st.plotly_chart(fig, width="stretch")
     return fig
 
@@ -678,15 +698,14 @@ def monthly_stack(frame, key=None, causes=None):
             # `hovermode="x unified"` already prints the month as the box's header, so a
             # row that repeats it reads "May 2026 · 9 product miss" under a heading that
             # says May 2026.
-            # The segment name, then its causes on their OWN lines. Joined with an
-            # em dash the first cut read "1 product miss - * no monitored source 1 -
-            # the outlet is not...", which is two separators doing different jobs in
-            # one run of text. The fallback meaning keeps the dash, because it is one
-            # clause rather than a list.
+            # The segment name, then whatever `month_causes()` appends -- either
+            # " - one cause" or a short indented list, count first. The formatting
+            # decision lives there because it is about the vocabulary; this line only
+            # joins. The fallback meaning keeps the dash: it is one clause, not a list.
             customdata=[
                 esc((MONTH_NAMES if v == 1 else MONTH_PLURAL).get(part, part).lower())
-                + ("<br>" + (causes or {}).get(m, {}).get(part)
-                   if (causes or {}).get(m, {}).get(part) else " \u2014 " + esc(meaning))
+                + ((causes or {}).get(m, {}).get(part)
+                   or " \u2014 " + esc(meaning))
                 for m, v in zip(months, values)],
             hovertemplate="%{y} %{customdata}<extra></extra>")
     for _, r in frame.iterrows():
