@@ -61,8 +61,10 @@ def miss_buckets(df: pd.DataFrame) -> dict[str, int]:
     out = {
         PLAIN_SUBTYPE["Source Coverage"]: int((sub == "Source Coverage").sum()),
         PLAIN_SUBTYPE["Keyword Update"]: int((sub == "Keyword Update").sum()),
-        "An analyst let it through": int((sub.isin(surfaced) & (root == "People")).sum()),
-        "The model did not spot it": int((sub.isin(surfaced) & (root == "Product")).sum()),
+        # Derived, like the two above. Hardcoding these is how the audit comes to
+        # recompute a bucket under a name the app stopped using and call the app wrong.
+        failure_label("People", "Review"): int((sub.isin(surfaced) & (root == "People")).sum()),
+        failure_label("Product", "Review"): int((sub.isin(surfaced) & (root == "Product")).sum()),
     }
     rest = missed[~((sub == "Source Coverage") | (sub == "Keyword Update")
                     | (sub.isin(surfaced) & root.isin(["People", "Product"])))]

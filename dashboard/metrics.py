@@ -19,7 +19,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from dashboard.styles import BLUE_RAMP, CAT_SLATE, ROOT_COLOURS, UNKNOWN_OWNER, esc
-from dashboard.taxonomy import CAUSE_WHY, CATEGORY_MEANING, NEEDS_REVIEW, RECORD_WHY, ROOT_OWNERSHIP, SHORT_CAUSE, SHORT_OWNED, driver_of, failure_label, labels_for, owner_pills, plural, reason_category, record_why, short_cause, shorten
+from dashboard.taxonomy import CAUSE_WHY, CATEGORY_MEANING, NEEDS_REVIEW, PLAIN_SUBTYPE, RECORD_WHY, ROOT_OWNERSHIP, SHORT_CAUSE, SHORT_OWNED, driver_of, failure_label, labels_for, owner_pills, plural, reason_category, record_why, short_cause, shorten
 from dashboard.filters import customer_names, names_match
 
 
@@ -171,10 +171,17 @@ def record_labels(frame):
 # `Other`. A residue bucket is how eleven real failures (a supplier never linked, a
 # WarRoom never created, a bulletin published but never shown) became one grey slice
 # nobody could act on, and it also hides a sub-type added to the tracker tomorrow.
+# **All four labels are DERIVED, and this file used to claim two of them already were.**
+# The prose said "the first two take their wording from `PLAIN_SUBTYPE` rather than
+# repeating it"; they were literal strings, so the buckets went on printing "Source not
+# in our vendor or monitoring network" and "Keyword Miss" after that map had been
+# rewritten -- a fourth wording for failures the hover, the bars and the tables now name
+# one way. A claim in a comment is not a mechanism. They are computed now, so the claim
+# is true because it cannot be false.
 MISS_BUCKETS = (
-    ("Source not in our vendor or monitoring network", ("Source Coverage",), (), "#8ab4f8",
+    (PLAIN_SUBTYPE["Source Coverage"], ("Source Coverage",), (), "#8ab4f8",
      "The event never entered our system · Product"),
-    ("Keyword Miss", ("Keyword Update",), (), "#4e7bb8",
+    (PLAIN_SUBTYPE["Keyword Update"], ("Keyword Update",), (), "#4e7bb8",
      "A source we monitor carried it; no keyword matched · Product"),
     # These two are the only labels on the page that may name an actor, because the
     # owner is part of the rule that selects the rows rather than a property of the
@@ -183,9 +190,9 @@ MISS_BUCKETS = (
     # owner's call. `Model Classification Defect` takes its place rather than the rule
     # losing a member: the Product rule exists to say "the model misjudged a captured
     # event", and that sub-type is now the only Product-rooted value that means it.
-    ("An analyst let it through", ("Review", "Model Classification Defect", "Analyst Review Miss"), ("People",), "#f28b82",
+    (failure_label("People", "Review"), ("Review", "Model Classification Defect", "Analyst Review Miss"), ("People",), "#f28b82",
      "An analyst saw this event and chose not to report it · EventWatch Ops"),
-    ("The model did not spot it", ("Review", "Model Classification Defect", "Analyst Review Miss"), ("Product",), "#f6c177",
+    (failure_label("Product", "Review"), ("Review", "Model Classification Defect", "Analyst Review Miss"), ("Product",), "#f6c177",
      "The model had this event and did not flag it as reportable · Product"),
 )
 
