@@ -1152,12 +1152,25 @@ WRONG_GROUPS = (
 # makes elsewhere: `Review` under Product is the model deciding and under People is a
 # person deciding, which is the whole reason `MISS_BUCKETS` splits it in two.
 LOST_GROUPS = (
+    # **"No person was asked to look again" was false, and the owner caught it on a
+    # screenshot.** Not Impactful stories ARE checked by an analyst; what makes these
+    # rows Product's is that the model's call was the FIRST error, which is why they
+    # count as a Product miss rather than an analyst one. The note says that instead.
+    # The rule it stands for: a note may say which failure came first, never that a
+    # step nobody skipped was skipped.
     ("The model judged it not impactful", ("Model Classification Defect", "Review", "Relevancy"),
-     "No person was asked to look again"),
-    ("It never surfaced to an analyst", ("Alerting Gap", "Visibility"),
+     "The model's call was the first error"),
+    # `Visibility` is not in this group: those rows are "we published it and their
+    # portal did not show it", so "never surfaced to an analyst" would be false of
+    # them. None is a miss today; one that landed falls through to its own plain
+    # label, which is the accurate one.
+    ("It never surfaced to an analyst", ("Alerting Gap",),
      "Captured, and never put in front of anyone"),
+    # Both rows (Isselguss, Nemak) were captured and clustered onto an existing
+    # story, and on Nemak the reporting team accepted that at review -- so "a cluster
+    # nobody worked" says a person was absent where the RCA records one.
     ("Grouped under the wrong story", ("Clustering / Duplication Defect",),
-     "Filed with a cluster nobody worked"),
+     "Attached to an existing cluster, not its own event"),
     ("A confirmed software bug", ("Platform Bug",), NAME_THEM),
 )
 
@@ -1519,7 +1532,7 @@ def card_details(df):
         "chain": [(chain_complaints, False), (chain_misses, False),
                   (f"{platform} lost before an analyst", True)],
         "hero": f"{platform}", "base": f"of {missed} misses<br>{pct(platform, missed)}",
-        "lead": "It reached our system and no person ever got to see it.",
+        "lead": "We had the story, and the first error was the platform's.",
         "blocks": [_block(lost, cols=2, partition=True)],
         "proof": _equation(lost, platform) if lost else None,
         "foot_left": _equation(lost, platform) if lost else "",
@@ -1823,25 +1836,25 @@ def inbox_rings(t):
             "centre": (t["complaints"], "complaints"),
             "inner": [("Confirmed misses", t["missed"], RING_CHANNEL),
                       ("Reported, but wrong", t["wrong"], CAT_SLATE)],
-            "outer": [("No person saw it", t["never"] + t["lost"], RING_CHANNEL_LIGHT),
+            "outer": [("Failed in the system", t["never"] + t["lost"], RING_CHANNEL_LIGHT),
                       ("A person had it", t["seen"], RING_ANALYST_DEEP),
                       ("Reported, but wrong", t["wrong"], CAT_SLATE)],
             "equation": (f"{t['complaints']} complaints = {t['missed']} confirmed misses "
                          f"+ {t['wrong']} reported, but wrong, and the {t['missed']} "
-                         f"misses = {t['never'] + t['lost']} no person saw + "
+                         f"misses = {t['never'] + t['lost']} failed in the system + "
                          f"{t['seen']} a person had."),
         },
         {
             "key": "misses",
             "title": "Where those misses stopped",
             "centre": (t["missed"], "misses"),
-            "inner": [("No person saw it", t["never"] + t["lost"], BLUE_RAMP[2]),
+            "inner": [("Failed in the system", t["never"] + t["lost"], BLUE_RAMP[2]),
                       ("A person had it", t["seen"], RING_ANALYST_DEEP)],
             "outer": [("Never reached us", t["never"], BLUE_RAMP[4]),
                       ("Lost before an analyst", t["lost"], BLUE_RAMP[3]),
                       ("An analyst saw it", t["seen"], ROOT_COLOURS["People"])],
-            "equation": (f"{t['missed']} misses = {t['never'] + t['lost']} no person "
-                         f"ever saw + {t['seen']} a person had it, and the "
+            "equation": (f"{t['missed']} misses = {t['never'] + t['lost']} failed in "
+                         f"the system + {t['seen']} a person had it, and the "
                          f"{t['never'] + t['lost']} = {t['never']} never reached us + "
                          f"{t['lost']} lost before an analyst."),
         },

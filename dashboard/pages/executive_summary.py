@@ -112,7 +112,7 @@ def render(df, filtered, selected_page):
     second = clickable_kpis([("Never reached us", f"{never} of {max(missed, 1)}",
            "no source carried it, or our keywords missed it", "#8ab4f8"),
           ("Lost before an analyst", f"{lost} of {max(missed, 1)}",
-           "we had the story and no person ever saw it", "#8ab4f8"),
+           "we had the story and our own system stopped it", "#8ab4f8"),
           ("An analyst saw it", f"{seen} of {max(missed, 1)}",
            "a person had it, and it still did not go out", "#f28b82"),
           ("Last three months",
