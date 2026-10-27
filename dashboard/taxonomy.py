@@ -288,6 +288,16 @@ PLAIN_SUBTYPE = {
 OWNED_SUBTYPE = {
     ("People", "Mapping"): "Supplier mapped, but left off the WarRoom",
     ("Process", "Mapping"): "Supplier mapping queried by the customer",
+    # **`Policy/Logic` is the second sub-type whose meaning turns on its owner.** Under
+    # Product it is the rule itself being wrong, which is what `PLAIN_SUBTYPE` says -- the
+    # Ford Trinseo row, where no Supplier Impact Confirmation fires for financial-risk
+    # events because the rule says so. Under People the rule was right and a person did
+    # not follow it: EAO-56's RCA states that the guidelines are clear, that customer
+    # impact notifications may go when the forecast path is known while supplier impact
+    # requests wait for landfall, and that the error was in the judgement about timing.
+    # Printing "our scoring or rules got it wrong" over that row would blame the guideline
+    # the RCA exonerates, which is the same fault `Mapping` was given this map for.
+    ("People", "Policy/Logic"): "The wrong action was taken on the event",
 }
 
 
