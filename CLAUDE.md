@@ -972,8 +972,32 @@ built from, not the sum of the strings in it.
    `_account_share()` went with it.
 
    **Every foot says what the number means in plain words**, not what field it came
-   from: `we did not get the event to them in time`, `we had the story and no person
-   ever saw it`, `a person had it, and it still did not go out`.
+   from: `we did not get the event to them in time`, `we had the story and our own
+   system stopped it`, `a person had it, and it still did not go out`.
+
+   **The middle card's foot used to read `we had the story and no person ever saw
+   it`, and that is false.** Three of its nine rows are `Model Classification
+   Defect`, and **Not Impactful stories ARE checked by an analyst** -- the owner's
+   correction, on a screenshot of the popup. What makes those rows Product's is that
+   **the model's call was the FIRST error**, not that nobody looked. The same claim
+   had reached four places (the foot, the popup's lead, the popup's own stat-card
+   note, and both nested rings, where the slice read `No person saw it`) and all four
+   were corrected together, because a wrong sentence hidden on one panel while two
+   others still carry it is the state this file already refuses for a wrong figure.
+   The ring slice is `Failed in the system` now, which is true of every row under it.
+
+   **The rule: a note may say which failure came FIRST; it may never say a step was
+   skipped that nobody skipped.** Checking who was absent is cheap -- read the RCAs
+   under the group before writing a sentence about them -- and the cost of getting it
+   wrong is the owner reading it aloud to a customer. `Filed with a cluster nobody
+   worked` was the same fault on the clustering group: the Nemak RCA records the
+   reporting team accepting the cluster at review, so a person was there.
+
+   **`Lost before an analyst` is the card's own eyebrow and it is left as it stands,
+   deliberately.** On the three model rows an analyst did see the story, so the label
+   is loose in the same direction -- but the eight cards are what the VP asked for and
+   are not changed without the owner saying so. It is named here rather than quietly
+   edited or quietly ignored.
 
    **A card's eyebrow is its popup's title.** The dialog is headed with the words on
    the card the reader clicked; a panel headed something else reads as the wrong panel.

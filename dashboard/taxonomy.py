@@ -233,7 +233,7 @@ CAUSE_WHY = {
     # it as a field: "Captured Feed Surfaced Late" and "Feed/Application-to-Analyst
     # Handoff Gap". The failure sits between ingestion and the analyst queue.
     "Alerting Gap": "captured, but it never reached the analyst queue",
-    "Clustering / Duplication Defect": "filed against a cluster nobody worked",
+    "Clustering / Duplication Defect": "attached to an existing cluster, not its own event",
     "Visibility": "we published it; their portal did not show it",
     "Mapping / Routing Defect": "a shared-site record pointed at the wrong tenant",
     "Incorrect Geocode": "the site's stored coordinates were wrong",
