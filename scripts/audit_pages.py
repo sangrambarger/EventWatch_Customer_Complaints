@@ -386,13 +386,15 @@ def month_panel_problems(df: pd.DataFrame) -> tuple[list[str], int]:
         each owner's driver bars sum to that owner's card
         the arithmetic line at the top of the panel is true, both clauses
         the delivered-but-wrong groups sum to that month's wrong count
+        every cause the hover prints carries a reason
 
     A month whose cards did not add up to its own headline is exactly the fault the
     `42 + 9 + 35 = 86` row made visible on the cards, one level down.
     """
     sys.path.insert(0, str(REPO))
-    from dashboard.metrics import (bulletin_errors, monthly_breakdown, root_drivers,
-                                   root_summary)
+    from dashboard.metrics import (_cause_ranking, _miss_parts, bulletin_errors,
+                                   monthly_breakdown, root_drivers, root_summary,
+                                   wrong_ranking)
     # The scrape reads the CSV raw, where `Month Label` does not exist -- the app derives
     # it in `data.py` from the first of Reporting Month / Month / Email/JIRA Date that is
     # present. Mirrored here in the same order, because a check that silently found no
@@ -452,6 +454,21 @@ def month_panel_problems(df: pd.DataFrame) -> tuple[list[str], int]:
         if drawn != wrong:
             problems.append(f"month panel {month!r}: the wrong-bulletin groups sum to "
                             f"{drawn}, the month holds {wrong}")
+        # **A bullet with no reason is the fault this pass was asked to fix**, and a
+        # sub-type added tomorrow would print one silently: `CAUSE_WHY` has no
+        # fallback and `_bullets()` simply omits the clause. So every cause the hover
+        # would draw this month is checked for one, at both levels.
+        issue = part.get("Issue Type", pd.Series(dtype=str)).reindex(part.index) \
+            .fillna("").astype(str).str.strip()
+        miss = _miss_parts(part)["missed"]
+        for name, _, why in _cause_ranking(part, miss, name_bugs=True):
+            if not why:
+                problems.append(f"month panel {month!r}: cause {name!r} prints no reason "
+                                f"(add it to CAUSE_WHY or RECORD_WHY)")
+        for name, _, why in wrong_ranking(part, issue.eq("Complaint") & ~miss):
+            if not why:
+                problems.append(f"month panel {month!r}: wrong-bulletin group {name!r} "
+                                f"prints no reason")
     return problems, checked
 
 

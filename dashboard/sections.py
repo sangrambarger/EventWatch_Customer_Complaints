@@ -297,11 +297,17 @@ def _open_month(page, frame, month):
         # Inquiries are named in words and drawn nowhere: not a segment, not a slice,
         # not a hover. That is the same rule the chart follows -- the bars sum to
         # complaints -- and it is what keeps the email total from being lost.
+        # `plural()` on every term: the first cut read "9 emails = 8 complaints + 1
+        # inquiries", and a leadership panel does not print that.
         head = (f"<div class='pop-chain'>"
-                f"<span>{emails} emails = {complaints} complaints + {inquiries} inquiries</span>"
+                f"<span>{plural(emails, 'email', 'emails')} = "
+                f"{plural(complaints, 'complaint', 'complaints')} + "
+                f"{plural(inquiries, 'inquiry', 'inquiries')}</span>"
                 f"<span class='pop-sep'>&rsaquo;</span>"
-                f"<span class='pop-here'>{complaints} complaints = {misses} confirmed "
-                f"misses + {wrong} reported, but wrong</span></div>")
+                f"<span class='pop-here'>"
+                f"{plural(complaints, 'complaint', 'complaints')} = "
+                f"{plural(misses, 'confirmed miss', 'confirmed misses')} + "
+                f"{wrong} reported, but wrong</span></div>")
 
     def panel():
         if head:

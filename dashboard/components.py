@@ -678,9 +678,15 @@ def monthly_stack(frame, key=None, causes=None):
             # `hovermode="x unified"` already prints the month as the box's header, so a
             # row that repeats it reads "May 2026 · 9 product miss" under a heading that
             # says May 2026.
+            # The segment name, then its causes on their OWN lines. Joined with an
+            # em dash the first cut read "1 product miss - * no monitored source 1 -
+            # the outlet is not...", which is two separators doing different jobs in
+            # one run of text. The fallback meaning keeps the dash, because it is one
+            # clause rather than a list.
             customdata=[
                 esc((MONTH_NAMES if v == 1 else MONTH_PLURAL).get(part, part).lower())
-                + " — " + ((causes or {}).get(m, {}).get(part) or esc(meaning))
+                + ("<br>" + (causes or {}).get(m, {}).get(part)
+                   if (causes or {}).get(m, {}).get(part) else " \u2014 " + esc(meaning))
                 for m, v in zip(months, values)],
             hovertemplate="%{y} %{customdata}<extra></extra>")
     for _, r in frame.iterrows():
@@ -712,11 +718,21 @@ def monthly_stack(frame, key=None, causes=None):
     # two stop overlapping -- cheaper than hiding the modebar, which would take the
     # download and zoom buttons with it.
     fig.update_layout(modebar=dict(orientation="v"))
-    # Selected and unselected both at full opacity. Streamlit's selection styling dims
-    # every bar the reader did not click, so the chart sat washed out behind the dialog
-    # and stayed that way after it closed -- which reads as broken, not as a selection.
-    fig.update_traces(selected=dict(marker=dict(opacity=1)),
-                      unselected=dict(marker=dict(opacity=1)))
+    # Selected and unselected both at full opacity -- **the bars AND their labels.**
+    # A plotly selection dims every unselected point, and the first cut of this pinned
+    # `marker` and left `textfont` alone. So the bars stayed solid, the twenty-two
+    # in-bar counts dropped to `fill-opacity: 0.2`, and they STAYED faded after the
+    # dialog closed: the reader clicked one month and the numbers on every other month
+    # vanished off a chart that otherwise looked fine. Measured, not inferred -- 21 of
+    # 22 labels at 0.2 with the bars at 1.
+    #
+    # **A half-pinned selection is worse than an unpinned one**, because the half that
+    # still works hides the half that does not. Anything added to this trace that can
+    # be dimmed (text, error bars, a marker line) has to be named here too.
+    text_colour = "#1b1f26"
+    fig.update_traces(
+        selected=dict(marker=dict(opacity=1), textfont=dict(color=text_colour)),
+        unselected=dict(marker=dict(opacity=1), textfont=dict(color=text_colour)))
     event = st.plotly_chart(fig, width="stretch", key=key, on_select="rerun",
                             selection_mode="points")
     points = (event or {}).get("selection", {}).get("points", []) if event else []
@@ -868,8 +884,14 @@ def fault_pills(groups, colours):
             f"title='{_pill_title(cust, owner, label, note, notes)}'>"
             f"{esc(cust)}{f'<b>&times;{k}</b>' if k > 1 else ''}</span>"
             for cust, owner, colour, k, notes in pills)
+        # **The reason is a line, not a hover.** It was the `title` attribute only, so
+        # "Not visible on portal" and "Platform bug" sat on the page as bare terms and
+        # the owner asked, twice, what they meant. A term that needs a hover to be
+        # understood is a term nobody scans. The hover stays for the per-complaint
+        # detail on the pills themselves, which is what a `title` is good for.
         rows.append(f"<div class='fault-row'>"
-                    f"<div class='fault-name' title='{esc(note)}'>{esc(label)}</div>"
+                    f"<div class='fault-name'>{esc(label)}"
+                    f"<span class='fault-why'>{esc(note)}</span></div>"
                     f"<div class='fault-pills'>{chips}</div>"
                     f"<div class='fault-count'>{n}</div></div>")
     key = "".join(f"<div class='fault-key'><span class='fault-swatch' style='--c:{c}'></span>"
