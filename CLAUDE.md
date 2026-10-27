@@ -2001,6 +2001,46 @@ mapping (`Mapping Clarification`) and no change to the row. **Check this after a
 migration**: a correctly classified row sitting in `Needs Review` turns a data-quality
 signal into noise, and a reader who learns to ignore it will ignore the real one.
 
+**`driver_of()` returns the dashboard's ONE cause vocabulary, and `DRIVERS` is now the
+map that decides `Needs Review` rather than the map that supplies the words.** The month
+panel put the fault beyond argument: its hover said `no monitored source`, `keywords
+missed it`, `the analyst overlooked it`, and the driver bars two inches below said
+`Source Miss`, `Keyword Miss`, `People / Analyst Miss` -- same failures, same records,
+same panel, two sets of words. That is the fault this file already records for Ford
+reading "Source Coverage" on one tab and the plain label on another, now inside a single
+dialog. The bars read `short_cause()` and their meaning reads `CAUSE_WHY`, so the hover,
+the bars, the card popups and the delivered-but-wrong pills all say a failure one way.
+
+**The membership test stays and that is load-bearing.** `short_cause()` falls back to
+`failure_label()`, which never returns empty, so an unmapped pair would take a
+plausible-looking name instead of the data-quality signal it owes. `driver_of()`
+therefore checks `DRIVERS` first and only then takes the wording from elsewhere.
+
+**The grouping moves with the wording, which is the point of having one.**
+`root_drivers()` groups on the term, so pairs sharing a `short_cause()` share a bar:
+Product `Review` and `Model Classification Defect` club exactly as they did under
+`Model Miss`, and `Published Late` / `Captured Late` / `Prioritization` now club where
+`DRIVERS` split them -- the same clubbing `PLAIN_SUBTYPE` already applies to that trio.
+Totals are untouched: the owner bars still sum to the owner card, which
+`audit_pages.month_panel_problems()` asserts.
+
+**`SHORT_CAUSE`, `SHORT_OWNED`, `CAUSE_WHY`, `RECORD_WHY`, `short_cause()` and
+`record_why()` moved from `metrics` to `taxonomy` to make that possible**, and the move
+is the import-graph rule applied rather than worked around: `driver_of()` lives in
+`taxonomy`, `metrics` already imports `taxonomy`, and reading the vocabulary from
+`metrics` would have closed the loop. **The symbol moved; no function-local import was
+added.** They belong there on the merits too -- they are classification wordings, the
+same kind of thing as `PLAIN_SUBTYPE` and `DRIVERS`.
+
+**`audit_pages.py` reads `driver_of()`, never `DRIVERS` directly, and the first run
+after this change is why that is written down.** It computed the map's raw terms, found
+none of them on the page, and recorded **ten labels as "not rendered"** -- which this
+audit treats as non-fatal. So the gate silently stopped checking ten labels and still
+printed PASS: 65 reconciled became 55, and only the shape of that number said anything
+was wrong. **A "not rendered" count that moves is a gate going blind, not a page getting
+smaller** -- read it on every run. Pointing the audit at the accessor restored 65.
+**The accessor is the contract; the map behind it is not.**
+
 **`DRIVERS` is keyed on `(Root Cause, Sub-type)` -- never on the display wording.**
 It gives each pair EventWatch's own name for the failure and the same thing in plain
 English: the term is what the chart prints, the plain English rides on the hover and
@@ -2121,7 +2161,11 @@ about its contents. Do not reach for it.
 
 `Root Cause` and `Missed_Flag` are **independent axes**. A Product defect that did not
 stop delivery is a Process Issue with a Product root cause -- CAN-3242 is one, where a
-query timeout kept a delivered notification off the supplier portal. "Product Miss" means
+query timeout kept a delivered notification off the supplier portal. **The owner's
+reading of that row, 27-Oct-2026: it is a Product issue because the analyst did report
+the event and a platform query timeout is what stopped it being seen.** The root cause
+already said Product; what the record had not said in plain words was that the analyst
+was not at fault, which is what its reason line now carries. "Product Miss" means
 Product root cause **and** `Missed_Flag = Yes`, not Product fault alone.
 
 **Baseline on 18-Oct-2026**, and every figure below reconciles:
@@ -2332,6 +2376,23 @@ articles were owed**: the supply-adequacy report is part of the picture Belden w
 on GaAs and InP availability, not material outside scope. **The owed test is about the
 customer's exposure to the subject, not about whether an article agrees with the others**
 -- an assessment that the risk is lower is still the assessment they were owed.
+
+**EAO-54 closed on the owner's call of 27-Oct-2026**: the PM has addressed the
+investigation and one shared RCA is being issued across all three events, so the three
+rows move from `Clarification Provided` to `RCA Shared` on the standing rule that
+attaching the RCA completes the record. **`Resolution Date` stays blank on all three**
+-- the ticket is still at `Sent to PM` and carries no `resolutiondate`, and a guessed
+one is worse than none. The two open questions the rows carried go with them: the
+gallium row stays `Keyword Update` rather than taking the FT Mercati source miss as its
+cause, and the two DigiTimes rows settle on the evidence that exists rather than waiting
+for capture evidence the vendor's 100-day retention cannot produce.
+
+**EAO-56's Nonconformity and EAO-35's SMI AMTEK coordinate correction are closed on the
+same call, and the rule behind it is worth keeping**: *once the RCA is shared, the
+record ends.* The NC runs in the quality system and the coordinate correction sits with
+the DO team; neither is a loose end the tracker carries, and recording them as open on a
+settled row is the same fault as a stale `Staged from Jira` preamble -- a marker saying
+"unfinished" on something a human has finished.
 
 **EAO-54 (Belden) is three rows, not two.** The ticket carries three reportable events
 and the third -- DigiTimes of 04-May-2026, WIN Semiconductors saying GaAs and InP supply

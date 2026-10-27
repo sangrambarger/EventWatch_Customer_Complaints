@@ -108,12 +108,19 @@ def expectations(df: pd.DataFrame) -> dict[str, dict[str, int]]:
     # "Why the events were missed" names each miss by EventWatch's own term for it,
     # keyed on the (Root Cause, Sub-type) pair the record actually carries. Counted here
     # from the CSV; only the label map is imported, as with the buckets above.
+    #
+    # **It goes through `driver_of()`, not through `DRIVERS` directly.** Reading the
+    # map's raw term was right while that term was what the page printed; once
+    # `driver_of()` started returning the dashboard's one cause vocabulary, this block
+    # went on computing the old names and the audit recorded ten of them as "not
+    # rendered" -- which is NOT a failure here, so the gate quietly stopped checking ten
+    # labels and still printed PASS. That is the exact blindness this file warns about
+    # one paragraph up. The accessor is the contract; the map behind it is not.
     sys.path.insert(0, str(REPO))
-    from dashboard.taxonomy import DRIVERS, NEEDS_REVIEW
+    from dashboard.taxonomy import driver_of
     drivers: collections.Counter = collections.Counter()
     for _, row in missed.iterrows():
-        pair = (str(row["Root Cause"]).strip(), str(row["Sub-type"]).strip())
-        drivers[DRIVERS.get(pair, (NEEDS_REVIEW, ""))[0]] += 1
+        drivers[driver_of(str(row["Root Cause"]).strip(), str(row["Sub-type"]).strip())[0]] += 1
     assert sum(drivers.values()) == len(missed), "drivers do not sum to the misses"
     assert sum(miss_cats.values()) == len(missed), "miss buckets do not sum to the misses"
 
