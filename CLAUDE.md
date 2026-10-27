@@ -2553,6 +2553,41 @@ Applied on the owner's instruction:
 
 ## The vocabulary, and the two rules that hold it together
 
+**`PLAIN_SUBTYPE` and `OWNED_SUBTYPE` are DERIVED from `SHORT_CAUSE` and
+`SHORT_OWNED`, sentence-cased, and that is what finally makes one vocabulary stick.**
+The two maps said the same failures in different words -- "Source not in our vendor or
+monitoring network" against "no monitored source", "Keyword Miss" against "keywords
+missed it" -- so after the month panel was unified a reader moving to Analysis met a
+**third** wording for a failure they had already learned twice. Keeping two maps in step
+by hand is the discipline that had already failed twice. **Deriving one from the other
+makes the drift impossible rather than merely forbidden**, which is the only kind of
+rule this file should be writing by now.
+
+Sentence case is not a second wording: a label at the head of a row is capitalised and
+the same words inside a bullet are not. `No monitored source` on Analysis, `no monitored
+source` in the hover, one vocabulary.
+
+**Three sub-types had a plain label and no short one** -- `Policy/Logic`,
+`Methodology Weakness`, `Supplier / Site Not Shared` -- and deriving without them would
+have dropped three labels silently. Check that set before deriving a map from another.
+
+**`MISS_BUCKETS`' four labels are derived too, and this file used to CLAIM two of them
+already were.** It said "the first two take their wording from `PLAIN_SUBTYPE` rather
+than repeating it"; they were literal strings, so the buckets went on printing the old
+wording after that map changed -- a fourth telling of failures the hover, the bars and
+the tables now name one way. **A claim in a comment is not a mechanism**, and this is the
+same shape as `REASON_ALIASES` being documented as live while nothing called it. All
+four are computed now, so the claim is true because it cannot be false. The analyst and
+model buckets read `failure_label("People", "Review")` and `failure_label("Product",
+"Review")`, which keeps the one thing that was right about them: they may name an actor,
+because the owner is part of the rule that selects their rows.
+
+`audit_pages.miss_buckets()` derives the same four the same way. It hardcoded the
+analyst and model names, which is how an audit comes to recompute a bucket under a name
+the app has stopped using and then call the app wrong.
+
+The wording below is the register these labels were written in before the derivation;
+the meanings are unchanged and the words are now the short ones, sentence-cased.
 `PLAIN_SUBTYPE` was rewritten wholesale on the owner's wording. `Source Coverage` is
 **Source not in our vendor or monitoring network**, `Keyword Update` is **Keyword Miss**,
 `Review` is **We saw it and chose not to report it** -- the second pass at that label,
@@ -2583,9 +2618,14 @@ meanings are different failures rather than variants.** The owner settled this:
 
 | Owner | What actually happened | Label |
 | --- | --- | --- |
-| Product | the supplier is not in the customer's mapped supply chain at all -- they never shared the company with Resilinc, so there was nothing for the event to match against | Supplier was not mapped by the customer |
-| People | the supplier **was** mapped, and an analyst left it off the WarRoom or its geofence when the WarRoom was built | Supplier mapped, but left off the WarRoom |
-| Process | neither: the customer asked why the mapping behaved as it did, and a clarification went back | Supplier mapping queried by the customer |
+| Product | the supplier is not in the customer's mapped supply chain at all -- they never shared the company with Resilinc, so there was nothing for the event to match against | The supplier was never shared with us |
+| People | the supplier **was** mapped, and an analyst left it off the WarRoom or its geofence when the WarRoom was built | A supplier was left off the WarRoom |
+| Process | neither: the customer asked why the mapping behaved as it did, and a clarification went back | They asked about mapping |
+
+**People/`Mapping` and `Supplier Selection Miss` share that wording on purpose**, so they
+share a bar. `DRIVERS` already clubbed both under `Supplier Selection`; they are one
+failure under two sub-types, and giving them two labels would have split a bar that
+should stay whole.
 
 **The three owner counts were 6 / 2 / 3 when this was written and the tracker now holds
 one Product row and one Process row.** `Mapping` has been the collecting bucket for

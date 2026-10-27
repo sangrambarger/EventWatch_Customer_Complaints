@@ -183,6 +183,117 @@ def shorten(value, limit=110):
         return text
     head = text[:limit].rsplit(" ", 1)[0]
     return f"{head or text[:limit]}\u2026"
+SHORT_CAUSE = {
+    "Source Coverage": "no monitored source",
+    "Keyword Update": "keywords missed it",
+    "Model Classification Defect": "the model judged it not impactful",
+    "Relevancy": "the model judged it not relevant",
+    "Alerting Gap": "it never surfaced to an analyst",
+    "Platform Bug": "a confirmed software bug",
+    "Clustering / Duplication Defect": "grouped under the wrong story",
+    "Visibility": "published, not visible",
+    "Mapping / Routing Defect": "sent to the wrong place",
+    "Incorrect Geocode": "wrong coordinates on the site",
+    # The owner's own words for this failure: the story reached the portal and the
+    # analyst did not look at it carefully before moving it to Not Impactful. "An
+    # analyst judged it not impactful" is the softer reading of the same rows, and it
+    # reads as a decision taken rather than a look not taken. `SHORT_OWNED` keeps the
+    # Product reading of `Review`, which is the MODEL deciding, so this never prints
+    # "analyst" over a Product row.
+    "Review": "the analyst overlooked it",
+    "Analyst Review Miss": "the analyst overlooked it",
+    "Published Late": "notified late",
+    "Captured Late": "notified late",
+    "Prioritization": "notified late",
+    "Tagging": "wrong industry tag",
+    "Industry selection": "wrong industry tag",
+    "Supplier Selection Miss": "a supplier was left off the WarRoom",
+    "Mapping": "the supplier was never shared with us",
+    "WarRoom Creation": "no WarRoom raised",
+    "Duplication": "sent twice",
+    "Process Clarification": "we clarified the rule",
+    "Strategy": "how we group events",
+    "Deliberate Rule": "the rule applied",
+    "Policy/Logic": "our scoring or rules got it wrong",
+    "Methodology Weakness": "our reporting criteria were not strong enough",
+    "Supplier / Site Not Shared": "the site was never shared with us",
+}
+# **Why each cause happened, in one standing line.** `SHORT_CAUSE` names the failure
+# and the owner's question was the next one down: "it never surfaced to an analyst --
+# why?". A reason that is a DEFINITION of the cause is true of every row in it and
+# cannot go stale, which a count or a per-row paraphrase cannot promise. Where the rows
+# under one cause genuinely differ -- a platform bug, a portal that did not render --
+# `RECORD_WHY` below carries the record's own answer instead.
+CAUSE_WHY = {
+    "Source Coverage": "the outlet is not in our monitoring network",
+    "Keyword Update": "the story arrived; our terms did not catch it",
+    "Model Classification Defect": "a model called it not impactful",
+    "Relevancy": "a model judged it out of this customer's scope",
+    # All four Alerting Gap rows say the same thing in their own words, and two carry
+    # it as a field: "Captured Feed Surfaced Late" and "Feed/Application-to-Analyst
+    # Handoff Gap". The failure sits between ingestion and the analyst queue.
+    "Alerting Gap": "captured, but it never reached the analyst queue",
+    "Clustering / Duplication Defect": "filed against a cluster nobody worked",
+    "Visibility": "we published it; their portal did not show it",
+    "Mapping / Routing Defect": "a shared-site record pointed at the wrong tenant",
+    "Incorrect Geocode": "the site's stored coordinates were wrong",
+    "Review": "it reached the portal before a person closed it",
+    "Analyst Review Miss": "it reached the portal before a person closed it",
+    "Published Late": "it went out after the window to act",
+    "Captured Late": "our first usable capture came too late",
+    "Prioritization": "held behind other work, and went out late",
+    "Tagging": "a missing or wrong industry tag",
+    "Industry selection": "a missing or wrong industry tag",
+    "Supplier Selection Miss": "on file, and left off the selection",
+    "Mapping": "never shared with us, so nothing matched",
+    "WarRoom Creation": "no WarRoom was attached",
+    "Duplication": "one event, published more than once",
+    "Policy/Logic": "the action missed the guideline's own trigger",
+    "Process Clarification": "the rule applied; we explained it",
+    "Deliberate Rule": "the published rule applied as written",
+    "Strategy": "how we group events, not a fault",
+    # The last three exist so no pair in `DRIVERS` falls back to that map's own
+    # wording, which is a different register and would put the second vocabulary back
+    # on the panel one bar at a time. `Platform Bug` is deliberately generic here --
+    # `RECORD_WHY` names the actual defect wherever the record carries one, and takes
+    # precedence.
+    "Platform Bug": "a confirmed defect in the platform itself",
+    "Methodology Weakness": "our reporting criteria were not strong enough",
+    "Supplier / Site Not Shared": "the site was never shared with us",
+}
+
+# **Where one standing line would be false, the record answers for itself.** Three
+# `Visibility` rows are three unrelated production faults and the two `Platform Bug`
+# rows are two unrelated defects, so a per-cause sentence there would describe one row
+# and mislead about the others. Keyed on the ticket rather than on a title or a row
+# position, because the ticket is the one identifier that does not move when a row is
+# re-sorted or re-worded.
+#
+# **These are the owner's own condensations, not derived text.** `what_happened()`
+# takes the first sentence of `RCA Details`, which on CAN-3377 is "The ticket carries
+# no root-cause statement" -- true, and useless as a tooltip line. A short line a human
+# wrote is the honest answer; the cost is that it is typed, so it is kept to the five
+# records that need it and nowhere near a figure.
+RECORD_WHY = {
+    "CAN-3433": "impact was issued to Tier 1 suppliers only",
+    "CAN-3298": "no root cause was ever documented on the ticket",
+    # The owner's reading, and it is why the row is rooted in Product: the analyst did
+    # report the event; a platform query timeout is what stopped it being seen.
+    "CAN-3242": "the analyst reported it; a product query timeout stopped it showing",
+    "CAN-3278": "the WarRoom was published empty, a backend fault",
+    "CAN-3377": "a technical fault kept the bulletin out of their news dashboard; fixed later",
+}
+
+SHORT_OWNED = {
+    ("Product", "Review"): "the model judged it not impactful",
+    ("People", "Mapping"): "a supplier was left off the WarRoom",
+    ("Process", "Mapping"): "they asked about mapping",
+    # Under People the rule was right and a person did not follow it, so the Product
+    # wording would blame the guideline EAO-56's RCA exonerates.
+    ("People", "Policy/Logic"): "the wrong action was taken on the event",
+}
+
+
 
 
 # ---------------------------------------------------------------------------
@@ -215,52 +326,18 @@ def shorten(value, limit=110):
 # owner is carried beside the label, by `root_frame`'s Owner column and by the two
 # owner-split buckets in `MISS_BUCKETS`, which is the only place it can be said and be
 # true on every row.
-PLAIN_SUBTYPE = {
-    "Source Coverage": "Source not in our vendor or monitoring network",
-    "Keyword Update": "Keyword Miss",
-    "Review": "We saw it and chose not to report it",
-    # `Event Identification` was retired on the owner's call, for the reason
-    # `Prioritization` was: it named no failure of its own. The owner's definition was
-    # "the product classified it incorrectly, or the analyst", and both halves were
-    # already taken -- the model's wrong call is `Model Classification Defect`, the
-    # analyst's is `Review`. So its label, "Classified as not impactful, wrongly", read
-    # as a second wording for `Review` on every chart that drew them side by side, which
-    # is exactly how it was found.
-    #
-    # Reading the ten rows it held showed the same thing from the data end: four were
-    # not classification failures at all (two capture gaps, one clustering defect, one
-    # analyst who skipped a mapping check), and the rest were analyst judgement calls.
-    # Every one moved to a sub-type that already existed. The value stays on the
-    # Definitions sheet, as `Methodology Weakness` and `WarRoom Creation` do.
-    "Captured Late": "Captured, but notified late",
-    "Mapping": "Supplier was not mapped by the customer",
-    "Alerting Gap": "Captured, but never reached the analyst portal",
-    "Visibility": "Published, but not visible to the customer",
-    "Policy/Logic": "Our scoring or rules got it wrong",
-    "Process Clarification": "We had to clarify the reporting guidelines",
-    "Duplication": "The same event published twice",
-    "Tagging": "Incorrect industry selection",
-    "Industry selection": "Incorrect industry selection",
-    "Relevancy": "Judged not relevant to this customer",
-    "WarRoom Creation": "WarRoom Missed",
-    "Strategy": "How we group events",
-    # The V1 cause taxonomy. No label names an actor on a sub-type the tracker puts
-    # under more than one owner; these ten each sit under exactly one today, and the
-    # two that do name one (the model, the look we took) are single-owner for that
-    # reason. `plain()` still falls back to the raw value, so an eleventh added
-    # tomorrow appears as itself rather than vanishing.
-    "Published Late": "Captured and reviewed, but published late",
-    "Methodology Weakness": "Our reporting criteria were not strong enough",
-    "Deliberate Rule": "Worked as our published rule intends",
-    "Platform Bug": "A confirmed platform defect",
-    "Mapping / Routing Defect": "Wrong data sent it to the wrong place",
-    "Incorrect Geocode": "The site's coordinates put it in the wrong place",
-    "Supplier / Site Not Shared": "The site was never shared with us",
-    "Analyst Review Miss": "We saw it and closed it without a careful look",
-    "Supplier Selection Miss": "Supplier left off the WarRoom at creation",
-    "Clustering / Duplication Defect": "Stories grouped or duplicated wrongly",
-    "Model Classification Defect": "The model classified it wrongly",
-}
+# **It is DERIVED from `SHORT_CAUSE`, sentence-cased, and that is what makes one
+# vocabulary stick.** These two maps said the same failures in different words --
+# "Source not in our vendor or monitoring network" here against "no monitored source"
+# on the summary, "Keyword Miss" against "keywords missed it" -- so a reader moving
+# between the Executive Summary and Analysis met a THIRD wording for a failure they had
+# already learned twice. Keeping two maps in step by hand is the discipline that has now
+# failed twice; deriving one from the other makes the drift impossible rather than
+# merely forbidden.
+#
+# Sentence case is not a second wording: a label at the head of a row is capitalised and
+# the same words inside a bullet are not. That is ordinary English.
+PLAIN_SUBTYPE = {k: v[0].upper() + v[1:] for k, v in SHORT_CAUSE.items()}
 
 # `Mapping` is the one sub-type whose meaning CHANGES WITH ITS OWNER, and the two
 # meanings are not variants of each other -- they are different failures, with different
@@ -285,20 +362,7 @@ PLAIN_SUBTYPE = {
 # fix is not to find a wording that covers both; it is to stop pretending they are one
 # failure. `DRIVERS` already had this right (`Supplier Impact / Mapping` against
 # `Supplier Selection`), and only the sub-type label lagged.
-OWNED_SUBTYPE = {
-    ("People", "Mapping"): "Supplier mapped, but left off the WarRoom",
-    ("Process", "Mapping"): "Supplier mapping queried by the customer",
-    # **`Policy/Logic` is the second sub-type whose meaning turns on its owner.** Under
-    # Product it is the rule itself being wrong, which is what `PLAIN_SUBTYPE` says -- the
-    # Ford Trinseo row, where no Supplier Impact Confirmation fires for financial-risk
-    # events because the rule says so. Under People the rule was right and a person did
-    # not follow it: EAO-56's RCA states that the guidelines are clear, that customer
-    # impact notifications may go when the forecast path is known while supplier impact
-    # requests wait for landfall, and that the error was in the judgement about timing.
-    # Printing "our scoring or rules got it wrong" over that row would blame the guideline
-    # the RCA exonerates, which is the same fault `Mapping` was given this map for.
-    ("People", "Policy/Logic"): "The wrong action was taken on the event",
-}
+OWNED_SUBTYPE = {k: v[0].upper() + v[1:] for k, v in SHORT_OWNED.items()}
 
 
 def failure_label(root, subtype):
@@ -499,109 +563,6 @@ def plural(n, one, many=None):
 # where it belongs on the merits: these are classification wordings, the same kind of
 # thing as `PLAIN_SUBTYPE` and `DRIVERS`.
 # ---------------------------------------------------------------------------
-SHORT_CAUSE = {
-    "Source Coverage": "no monitored source",
-    "Keyword Update": "keywords missed it",
-    "Model Classification Defect": "the model judged it not impactful",
-    "Relevancy": "the model judged it not relevant",
-    "Alerting Gap": "it never surfaced to an analyst",
-    "Platform Bug": "a confirmed software bug",
-    "Clustering / Duplication Defect": "grouped under the wrong story",
-    "Visibility": "published, not visible",
-    "Mapping / Routing Defect": "sent to the wrong place",
-    "Incorrect Geocode": "wrong coordinates on the site",
-    # The owner's own words for this failure: the story reached the portal and the
-    # analyst did not look at it carefully before moving it to Not Impactful. "An
-    # analyst judged it not impactful" is the softer reading of the same rows, and it
-    # reads as a decision taken rather than a look not taken. `SHORT_OWNED` keeps the
-    # Product reading of `Review`, which is the MODEL deciding, so this never prints
-    # "analyst" over a Product row.
-    "Review": "the analyst overlooked it",
-    "Analyst Review Miss": "the analyst overlooked it",
-    "Published Late": "notified late",
-    "Captured Late": "notified late",
-    "Prioritization": "notified late",
-    "Tagging": "wrong industry tag",
-    "Industry selection": "wrong industry tag",
-    "Supplier Selection Miss": "a supplier was missed",
-    "Mapping": "supplier not on file",
-    "WarRoom Creation": "no WarRoom raised",
-    "Duplication": "sent twice",
-    "Process Clarification": "we clarified the rule",
-    "Strategy": "how we group events",
-    "Deliberate Rule": "the rule applied",
-}
-# **Why each cause happened, in one standing line.** `SHORT_CAUSE` names the failure
-# and the owner's question was the next one down: "it never surfaced to an analyst --
-# why?". A reason that is a DEFINITION of the cause is true of every row in it and
-# cannot go stale, which a count or a per-row paraphrase cannot promise. Where the rows
-# under one cause genuinely differ -- a platform bug, a portal that did not render --
-# `RECORD_WHY` below carries the record's own answer instead.
-CAUSE_WHY = {
-    "Source Coverage": "the outlet is not in our monitoring network",
-    "Keyword Update": "the story arrived; our terms did not catch it",
-    "Model Classification Defect": "a model called it not impactful",
-    "Relevancy": "a model judged it out of this customer's scope",
-    # All four Alerting Gap rows say the same thing in their own words, and two carry
-    # it as a field: "Captured Feed Surfaced Late" and "Feed/Application-to-Analyst
-    # Handoff Gap". The failure sits between ingestion and the analyst queue.
-    "Alerting Gap": "captured, but it never reached the analyst queue",
-    "Clustering / Duplication Defect": "filed against a cluster nobody worked",
-    "Visibility": "we published it; their portal did not show it",
-    "Mapping / Routing Defect": "a shared-site record pointed at the wrong tenant",
-    "Incorrect Geocode": "the site's stored coordinates were wrong",
-    "Review": "it reached the portal before a person closed it",
-    "Analyst Review Miss": "it reached the portal before a person closed it",
-    "Published Late": "it went out after the window to act",
-    "Captured Late": "our first usable capture came too late",
-    "Prioritization": "held behind other work, and went out late",
-    "Tagging": "a missing or wrong industry tag",
-    "Industry selection": "a missing or wrong industry tag",
-    "Supplier Selection Miss": "on file, and left off the selection",
-    "Mapping": "never shared with us, so nothing matched",
-    "WarRoom Creation": "no WarRoom was attached",
-    "Duplication": "one event, published more than once",
-    "Policy/Logic": "the action missed the guideline's own trigger",
-    "Process Clarification": "the rule applied; we explained it",
-    "Deliberate Rule": "the published rule applied as written",
-    "Strategy": "how we group events, not a fault",
-    # The last three exist so no pair in `DRIVERS` falls back to that map's own
-    # wording, which is a different register and would put the second vocabulary back
-    # on the panel one bar at a time. `Platform Bug` is deliberately generic here --
-    # `RECORD_WHY` names the actual defect wherever the record carries one, and takes
-    # precedence.
-    "Platform Bug": "a confirmed defect in the platform itself",
-    "Methodology Weakness": "our reporting criteria were not strong enough",
-    "Supplier / Site Not Shared": "the site was never shared with us",
-}
-
-# **Where one standing line would be false, the record answers for itself.** Three
-# `Visibility` rows are three unrelated production faults and the two `Platform Bug`
-# rows are two unrelated defects, so a per-cause sentence there would describe one row
-# and mislead about the others. Keyed on the ticket rather than on a title or a row
-# position, because the ticket is the one identifier that does not move when a row is
-# re-sorted or re-worded.
-#
-# **These are the owner's own condensations, not derived text.** `what_happened()`
-# takes the first sentence of `RCA Details`, which on CAN-3377 is "The ticket carries
-# no root-cause statement" -- true, and useless as a tooltip line. A short line a human
-# wrote is the honest answer; the cost is that it is typed, so it is kept to the five
-# records that need it and nowhere near a figure.
-RECORD_WHY = {
-    "CAN-3433": "impact was issued to Tier 1 suppliers only",
-    "CAN-3298": "no root cause was ever documented on the ticket",
-    # The owner's reading, and it is why the row is rooted in Product: the analyst did
-    # report the event; a platform query timeout is what stopped it being seen.
-    "CAN-3242": "the analyst reported it; a product query timeout stopped it showing",
-    "CAN-3278": "the WarRoom was published empty, a backend fault",
-    "CAN-3377": "a technical fault kept the bulletin out of their news dashboard; fixed later",
-}
-
-SHORT_OWNED = {
-    ("Product", "Review"): "the model judged it not impactful",
-    ("People", "Mapping"): "a supplier was missed",
-    ("Process", "Mapping"): "they asked about mapping",
-}
 
 
 def short_cause(root, subtype):
