@@ -23,8 +23,8 @@ import streamlit as st
 from dashboard.styles import CAT_SLATE, ROOT_COLOURS, esc
 from dashboard.taxonomy import ROOT_OWNERSHIP, name_subtypes, plural
 from dashboard.filters import customer_names, filter_note, names_match
-from dashboard.metrics import MISS_BUCKETS, account_failures, bulletin_errors, account_headline, count_table, customer_totals, driver_table, event_type_flow, miss_by_customer, miss_categories, miss_colours, miss_trend, monthly_breakdown, monthly_note, monthly_table, nature_table, owner_accounts, owner_insight, root_drivers, root_frame, root_recent_note, root_summary, subtype_matrix, takeaway, trend_note, trend_windows
-from dashboard.components import add_section, chart, downloads, driver_bar, fault_pills, excel_bar_table, flow_bar, grouped_bar, heatmap, kpis, monthly_stack, page_header, proportion_bar, stacked_bar, styled_table, trend_line
+from dashboard.metrics import MISS_BUCKETS, account_failures, bulletin_errors, month_causes, account_headline, count_table, customer_totals, driver_table, event_type_flow, miss_by_customer, miss_categories, miss_colours, miss_trend, monthly_breakdown, monthly_note, monthly_table, nature_table, owner_accounts, owner_insight, root_drivers, root_frame, root_recent_note, root_summary, subtype_matrix, takeaway, trend_note, trend_windows
+from dashboard.components import add_rule, add_section, chart, downloads, driver_bar, fault_pills, excel_bar_table, flow_bar, grouped_bar, heatmap, kpis, monthly_stack, page_header, proportion_bar, stacked_bar, styled_table, trend_line
 
 
 
@@ -286,24 +286,42 @@ def _open_month(page, frame, month):
     head = ""
     if not row.empty:
         r = row.iloc[0]
-        head = (f"<div class='pop-chain'><span>{int(r['Emails'])} emails</span> "
-                f"<span class='pop-sep'>&rsaquo;</span> <span>{int(r['Complaints'])} complaints</span> "
-                f"<span class='pop-sep'>&rsaquo;</span> <span class='pop-here'>"
-                f"{int(r['Misses'])} misses</span></div>")
-        # `plural()` for the same reason the driver hovers use it: a leadership panel
-        # does not print "1 complaints".
-        foot = (plural(int(r["Wrong"]),
-                       "other complaint was reported in time with something wrong on it",
-                       "other complaints were reported in time with something wrong on them")
-                + ", and "
-                + plural(int(r["Inquiries"]), "email was an inquiry", "emails were inquiries") + ".")
+        emails, complaints = int(r["Emails"]), int(r["Complaints"])
+        misses, wrong, inquiries = int(r["Misses"]), int(r["Wrong"]), int(r["Inquiries"])
+        # **Both equations, on one line, and the inquiry count lives HERE and nowhere
+        # else.** The panel used to open with a chain -- emails > complaints > misses --
+        # and close with a caption carrying the other two figures, so a reader had to
+        # hold three numbers from the top of the dialog to the bottom to check that it
+        # added up. The owner's call is one line of correct arithmetic at the top.
+        #
+        # Inquiries are named in words and drawn nowhere: not a segment, not a slice,
+        # not a hover. That is the same rule the chart follows -- the bars sum to
+        # complaints -- and it is what keeps the email total from being lost.
+        head = (f"<div class='pop-chain'>"
+                f"<span>{emails} emails = {complaints} complaints + {inquiries} inquiries</span>"
+                f"<span class='pop-sep'>&rsaquo;</span>"
+                f"<span class='pop-here'>{complaints} complaints = {misses} confirmed "
+                f"misses + {wrong} reported, but wrong</span></div>")
 
     def panel():
         if head:
             st.markdown(head, unsafe_allow_html=True)
         render_root_tier(part)
-        if head:
-            st.caption(foot)
+        # **The third section, because the bar has three and the panel had two.**
+        # `render_root_tier()` draws confirmed misses only, so a reader clicking a bar
+        # of 17 met a panel accounting for 16 and nothing on it said where the other
+        # one went -- the slate segment they could see on the chart had no
+        # representation in the dialog at all. `bulletin_errors()` is the same fold the
+        # summary's pills and the fourth card's popup use, so the 18 cannot be told
+        # three different ways on one page.
+        wrong_data = bulletin_errors(part)
+        if wrong_data["total"]:
+            add_rule()
+            st.markdown(
+                f"<div class='pop-eyebrow' style='--accent:{CAT_SLATE}'>Reported, but wrong"
+                f" &mdash; {wrong_data['total']}</div>", unsafe_allow_html=True)
+            fault_pills(wrong_data["groups"],
+                        [(k, ROOT_COLOURS[k]) for k in ("Product", "People", "Process")])
 
     st.dialog(month, width="large")(panel)()
 
@@ -334,8 +352,9 @@ def render_monthly_breakdown(page, clickable=False):
     if frame.empty:
         st.info("Monthly breakdown requires Month/Reporting Month and Issue Type fields.")
         return
-    add_section("Month by month: what came in, and where it failed", "", "#80cbc4")
-    fig, month = monthly_stack(frame, key="monthly-stack" if clickable else None)
+    add_section("Complaints by month, and where each one failed", "", "#80cbc4")
+    fig, month = monthly_stack(frame, key="monthly-stack" if clickable else None,
+                               causes=month_causes(page))
     table = monthly_table(frame)
     # A scroll box, not an expander. A collapsed expander lays out at zero height, so
     # `innerText` reads empty and `audit_pages.py` silently stops reconciling every row

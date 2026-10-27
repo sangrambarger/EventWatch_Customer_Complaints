@@ -91,6 +91,7 @@ h1,h2,h3,h4,h5,h6,p,span,div,label{color:var(--ink)!important}.page-hero,.sectio
 .pop-chain{font-size:11px;color:var(--muted)!important;border-bottom:1px solid var(--line);padding-bottom:11px}
 .pop-chain .pop-here{color:var(--ink)!important;font-weight:700}
 .pop-chain .pop-sep{color:var(--line2)!important;margin:0 3px}
+.pop-eyebrow{font-size:12px;font-weight:900;letter-spacing:.07em;text-transform:uppercase;color:var(--accent,var(--slate))!important;margin:0 0 10px}
 .pop-q{font-size:19px;font-weight:700;line-height:1.3}
 .pop-hero{display:flex;align-items:baseline;gap:13px}
 .pop-num{font-size:46px;font-weight:900;line-height:1}

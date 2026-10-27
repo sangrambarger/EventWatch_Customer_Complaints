@@ -593,17 +593,32 @@ def detail_panel(card):
 # its axis with it, `flow_bar()` does the same, and `monthly_note()` says which figure
 # the picture carries and which the table does. A chart whose segments add to one total
 # under a caption naming another is the fault this file keeps recording in other words.
+# **A meaning says what happened to the customer, never who investigates it.** These
+# read "Product & Platform investigate it" and "EventWatch Ops investigate it" until
+# the owner named the fault: that is `Routed To`, an internal routing field filled in
+# after the investigation, and it answers a question no reader of a bar is asking. The
+# fourth read "Reported in time, and something about it was wrong", which is the
+# vaguest line this page ever carried -- eighteen records over ten distinct failures
+# under one sentence, leaving the obvious "wrong how?" unanswered.
+#
+# On the month chart these are now only the FALLBACK: `metrics.month_causes()` names
+# the failures actually inside each month's segment and the hover prints those. They
+# still carry the event-type chart, which pools the year and has no per-row hover.
 MONTH_PARTS = (
-    ("Product", ROOT_COLOURS["Product"], "Product & Platform investigate it"),
-    ("Analyst", ROOT_COLOURS["People"], "EventWatch Ops investigate it"),
-    ("Process", ROOT_COLOURS["Process"], "A workflow or control failure"),
-    ("Wrong", CAT_SLATE, "Reported in time, and something about it was wrong"),
+    ("Product", ROOT_COLOURS["Product"], "Our systems never got the event to them"),
+    ("Analyst", ROOT_COLOURS["People"], "A person had it, and it did not go out"),
+    ("Process", ROOT_COLOURS["Process"], "The workflow or the guideline itself was at fault"),
+    ("Wrong", CAT_SLATE, "Delivered in time, and the scope or the detail was wrong"),
 )
 MONTH_NAMES = {"Wrong": "Reported, but wrong", "Product": "Product miss", "Analyst": "Analyst miss",
                "Process": "Process miss"}
+# A leadership panel does not print "9 product miss". The legend keeps the singular,
+# which is what names a segment; the hover counts records, so it takes the plural.
+MONTH_PLURAL = {"Wrong": "Reported, but wrong", "Product": "Product misses",
+                "Analyst": "Analyst misses", "Process": "Process misses"}
 
 
-def monthly_stack(frame, key=None):
+def monthly_stack(frame, key=None, causes=None):
     """One bar per month, split by where that month's emails ended up.
 
     The grouped complaint-against-inquiry pair this replaced was volume only: it said
@@ -614,6 +629,13 @@ def monthly_stack(frame, key=None):
     Returns `(figure, clicked month or None)`. With a `key` the bars are a click target
     and the chart reports which month the reader opened; without one it is a plain chart,
     which is what the download helper and any future caller that owns no dialog want.
+
+    **`causes` is `metrics.month_causes()` and it is what makes the hover specific.**
+    The arithmetic stays out of this module, as everything else here does: the caller
+    computes the lines off the frame on screen and passes them in, so a segment can be
+    reworded without a number moving and a number cannot move on a styling edit. A
+    month or segment missing from it falls back to that segment's own `MONTH_PARTS`
+    meaning rather than drawing an empty hover.
 
     **The miss rate rides above each bar**, so the chart answers "is it getting worse"
     without the reader going to the table. A month under `THIN_MONTH` emails prints its
@@ -656,8 +678,11 @@ def monthly_stack(frame, key=None):
             # `hovermode="x unified"` already prints the month as the box's header, so a
             # row that repeats it reads "May 2026 · 9 product miss" under a heading that
             # says May 2026.
-            hovertemplate="%{y} " + esc(MONTH_NAMES.get(part, part).lower())
-                          + f" — {esc(meaning)}<extra></extra>")
+            customdata=[
+                esc((MONTH_NAMES if v == 1 else MONTH_PLURAL).get(part, part).lower())
+                + " — " + ((causes or {}).get(m, {}).get(part) or esc(meaning))
+                for m, v in zip(months, values)],
+            hovertemplate="%{y} %{customdata}<extra></extra>")
     for _, r in frame.iterrows():
         fig.add_annotation(
             x=r["Month"], y=int(r["Complaints"]) + top * 0.04, showarrow=False,

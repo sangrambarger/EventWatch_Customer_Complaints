@@ -1081,14 +1081,24 @@ WRONG_GROUPS = (
      "Stored coordinates did not match the site's address"),
     ("Wrong routing data", ("Mapping / Routing Defect",),
      "Entity linkage sent it to the wrong customer"),
-    ("Incorrect suppliers selected", ("Supplier Selection Miss", "Mapping"),
+    ("Incorrect supplier selection", ("Supplier Selection Miss", "Mapping"),
      "On file, and left off the WarRoom"),
     ("Not visible on portal", ("Visibility",),
      "Published, and it never reached their portal"),
     ("Wrong industry tag", ("Industry selection", "Tagging"),
      "The tag kept it off this customer's portal"),
-    ("Wrong impact call", ("Review", "Relevancy", "Model Classification Defect"),
-     "The scope or the impact we published was wrong"),
+    # **The direction is one way, and the label has to say which.** "Wrong impact
+    # call" left a reader asking whether we raised impact that was not needed or
+    # failed to raise impact that was. All three records are over-inclusion -- Winter
+    # Storm Fern's geofence, Eaton's commodity alerts, Woodward's California sites
+    # pulled in by two storms merged into one WarRoom -- and the other direction
+    # cannot land here by construction: if nothing reached them it is a confirmed
+    # miss, and if a bulletin went out with a supplier left off it is the supplier
+    # group above. **The day an under-call on a delivered bulletin does land here,
+    # this label is a lie and the group needs splitting**, the way `Incorrect
+    # Geocode` was split out of the supplier group.
+    ("Wrong sites called impacted", ("Review", "Relevancy", "Model Classification Defect"),
+     "We published impact on sites that were not affected"),
     ("Duplicate bulletins", ("Duplication", "Strategy", "Clustering / Duplication Defect"),
      "One event, published twice"),
     ("WarRoom not raised", ("WarRoom Creation",),
@@ -1100,7 +1110,16 @@ WRONG_GROUPS = (
     # `Policy/Logic` is, and the sentence is what the hover carries.
     ("Wrong action taken", ("Policy/Logic",),
      "The action did not follow the guideline's own trigger"),
-    ("Platform bug", ("Platform Bug", "Alerting Gap"), NAME_THEM),
+    # **`Alerting Gap` came OUT of the bug group**, because `NAME_THEM` cannot name
+    # its defect. `defect_name()` reads the record's own `Event/Bulletin Title`, and
+    # on these rows that title names the event: "Bain Fire", "Vigo Metropolitan Area,
+    # Spain", and on the one delivered-but-wrong row of the set "No EventWatch
+    # Notification", which tells a reader nothing at all. This is the check the note
+    # on `NAME_THEM` prescribes, applied: the category sentence IS the clear answer
+    # here, so the group keeps one and the bug group keeps the defect names.
+    ("Captured, never reached an analyst", ("Alerting Gap",),
+     "We had the story and it never surfaced to an analyst"),
+    ("Platform bug", ("Platform Bug",), NAME_THEM),
 )
 
 # The one short name for a cause, in the words the stat cards use. A popup that names
@@ -1131,8 +1150,14 @@ SHORT_CAUSE = {
     "Visibility": "published, not visible",
     "Mapping / Routing Defect": "sent to the wrong place",
     "Incorrect Geocode": "wrong coordinates on the site",
-    "Review": "an analyst judged it not impactful",
-    "Analyst Review Miss": "an analyst judged it not impactful",
+    # The owner's own words for this failure: the story reached the portal and the
+    # analyst did not look at it carefully before moving it to Not Impactful. "An
+    # analyst judged it not impactful" is the softer reading of the same rows, and it
+    # reads as a decision taken rather than a look not taken. `SHORT_OWNED` keeps the
+    # Product reading of `Review`, which is the MODEL deciding, so this never prints
+    # "analyst" over a Product row.
+    "Review": "the analyst overlooked it",
+    "Analyst Review Miss": "the analyst overlooked it",
     "Published Late": "notified late",
     "Captured Late": "notified late",
     "Prioritization": "notified late",
@@ -1161,19 +1186,91 @@ def short_cause(root, subtype):
     return SHORT_CAUSE.get(key[1]) or failure_label(key[0], key[1]).lower()
 
 
-def named_causes(df, mask, top=2):
-    """The causes under `mask`, biggest first, as "name N · name N · and K more"."""
+def named_causes(df, mask, top=2, name_bugs=False):
+    """The causes under `mask`, biggest first, as "name N · name N · and K more".
+
+    **`top=None` lists every cause and folds nothing.** The month hover passes it,
+    because there is no month in the tracker where an owner carries more than three
+    distinct causes -- so a cap there hides nothing and only invites "and 2 more?",
+    which is the question that got asked. The eight card popups keep `top=2`: they
+    pool the whole year, where the tail is real.
+
+    **`name_bugs` answers "what bug?".** `SHORT_CAUSE` gives `Platform Bug` the
+    category "a confirmed software bug", which names no defect a reader could act on --
+    the same objection `NAME_THEM` was written for on the card popups. With the flag,
+    such a row contributes its own `defect_name()` instead. It is opt-in rather than
+    the default because a defect name is long, and the card popups' lines are short.
+    """
     root = df.get("Root Cause", pd.Series(dtype=str)).reindex(df.index).fillna("").astype(str)
     sub = df.get("Sub-type", pd.Series(dtype=str)).reindex(df.index).fillna("").astype(str)
+    title = df.get("Event/Bulletin Title", pd.Series(dtype=str)).reindex(df.index).fillna("").astype(str)
     counts = {}
-    for r, t in zip(root[mask], sub[mask]):
+    for r, t, head in zip(root[mask], sub[mask], title[mask]):
         name = short_cause(r, t)
+        if name_bugs and t.strip() == "Platform Bug" and head.strip():
+            name = defect_name(head).lower()
         counts[name] = counts.get(name, 0) + 1
     ranked = sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))
-    shown = ranked[:top]
+    shown = ranked if top is None else ranked[:top]
     line = " · ".join(f"{esc(n)} {v}" for n, v in shown)
-    rest = sum(v for _, v in ranked[top:])
+    rest = 0 if top is None else sum(v for _, v in ranked[top:])
     return line + (f" · and {rest} more" if rest else "")
+
+
+def wrong_causes(df, mask):
+    """The `WRONG_GROUPS` labels under `mask`, biggest first, as "name N · name N".
+
+    The delivered-but-wrong segment folds eighteen records onto ten groups, and the
+    month hover used to print one constant sentence over all of them -- "reported in
+    time, and something about it was wrong", which is the vaguest line on the page and
+    was named as such. This reads the same fold the pills and the card popup use, so
+    the three cannot tell the 18 in three different ways.
+    """
+    sub = df.get("Sub-type", pd.Series(dtype=str)).reindex(df.index).fillna("").astype(str).str.strip()
+    claimed = {}
+    for label, members, _ in WRONG_GROUPS:
+        for m in members:
+            claimed.setdefault(m, label)
+    counts = {}
+    for t in sub[mask]:
+        name = claimed.get(t) or failure_label("", t)
+        counts[name] = counts.get(name, 0) + 1
+    ranked = sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))
+    return " · ".join(f"{esc(n.lower())} {v}" for n, v in ranked)
+
+
+def month_causes(df):
+    """Per month, per bar segment, the causes inside that segment -- for the hover.
+
+    **The hover named a TEAM and not a failure, and that was the complaint.** It read
+    "Product & Platform investigate it" and "EventWatch Ops investigate it", which is
+    `Routed To` -- an internal routing field that answers whose desk the record is on,
+    not what happened to the customer. Here every segment names the failures actually
+    inside it, in the vocabulary the card popups already print.
+
+    Returns `{month: {segment: line}}` keyed on the same segment names
+    `components.MONTH_PARTS` draws, so a missing month or segment simply falls back to
+    the static meaning rather than drawing a blank hover.
+    """
+    out = {}
+    if df is None or df.empty or "Month Label" not in df.columns:
+        return out
+    label = df["Month Label"].astype(str)
+    issue = df.get("Issue Type", pd.Series(dtype=str)).reindex(df.index).fillna("").astype(str).str.strip()
+    root = df.get("Root Cause", pd.Series(dtype=str)).reindex(df.index).fillna("").astype(str).str.strip()
+    part = _miss_parts(df)
+    for month in label.dropna().unique():
+        m = label == month
+        out[str(month)] = {
+            "Product": named_causes(df, m & part["missed"] & root.eq("Product"),
+                                    top=None, name_bugs=True),
+            "Analyst": named_causes(df, m & part["missed"] & root.eq("People"),
+                                    top=None, name_bugs=True),
+            "Process": named_causes(df, m & part["missed"] & root.eq("Process"),
+                                    top=None, name_bugs=True),
+            "Wrong": wrong_causes(df, m & issue.eq("Complaint") & ~part["missed"]),
+        }
+    return out
 
 
 def _grouped(df, mask, groups, colour, tail_colour=POP_MUTED):

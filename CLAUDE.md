@@ -1039,9 +1039,18 @@ built from, not the sum of the strings in it.
    not the chart.
 
 
-3. **Month by month: what came in, and where it failed** -- `render_monthly_breakdown()`,
+3. **Complaints by month, and where each one failed** -- `render_monthly_breakdown()`,
    moved here from sixth on the owner's call. It is the view a VP comes to this page
    for, and it sat behind five other blocks.
+
+   **The heading was "Month by month: what came in, and where it failed", and it had
+   become false.** "What came in" is the inbox, and the bars stopped drawing the inbox
+   the day inquiries left the graphs -- `MONTH_PARTS` went five segments to four and
+   every bar sums to **complaints**. So the heading promised emails over a chart of
+   complaints, which is the fault this file keeps recording in other words: *a chart
+   whose segments add to one total under a caption naming another*. The computed
+   caption under the table said the right thing; the heading over it did not, and the
+   heading is what a VP reads. **Renaming it was a correctness fix, not a style edit.**
 
    **One bar per month, five segments**, and every level of the hierarchy sums into the
    one above it:
@@ -1100,11 +1109,64 @@ built from, not the sum of the strings in it.
    flex gap spaces as though it held a sentence. The one caption line is a
    reconciliation, not commentary.
 
-   **Click a month and it opens its own root-cause breakdown** in an `st.dialog`:
+   **The hover names the FAILURE, never the team.** It read `Product & Platform
+   investigate it` and `EventWatch Ops investigate it`, which is `Routed To` -- an
+   internal routing field filled in after the investigation, answering whose desk the
+   record sits on rather than what happened to the customer. The fourth read `Reported
+   in time, and something about it was wrong`, which is the vaguest line this page ever
+   carried: eighteen records over ten distinct failures under one constant sentence,
+   leaving "wrong how?" unanswered on the one segment a reader most wants explained.
+
+   `metrics.month_causes()` replaces all four with the causes actually inside that
+   month's segment, in the vocabulary the card popups already print -- so May reads
+   `9 product misses - keywords missed it 4 · no monitored source 3 · it never surfaced
+   to an analyst 2`. `MONTH_PARTS` keeps a meaning each as the **fallback**, reworded to
+   say what happened rather than who routes it; the event-type chart, which pools the
+   year and has no per-row hover, still draws on them.
+
+   **It lists every cause and folds nothing** -- `named_causes(..., top=None)`. The cap
+   was `top=2` and the owner's question was the right one: *what is 2 more?* There is no
+   month in the tracker where an owner carries more than **three** distinct causes, so
+   the cap hid nothing and only invited the question. The card popups keep `top=2`
+   because they pool the whole year, where the tail is real.
+
+   **`name_bugs=True` answers "what bug?".** `SHORT_CAUSE` gives `Platform Bug` the
+   category "a confirmed software bug", which names no defect anyone can act on -- the
+   same objection `NAME_THEM` exists for on the card popups. With the flag such a row
+   contributes its own `defect_name()`, so April reads `impact confirmation not sent for
+   4 tier 2 sites`. There is exactly **one** bug in the whole miss book (Harman,
+   CAN-3298), so this costs one line and removes one dead end. It is opt-in because a
+   defect name is long and the card popups' lines are short.
+
+   **Click a month and it opens its own breakdown** in an `st.dialog`:
    `render_root_tier()`, the owner cards and driver bars split out of
    `render_root_cause()`, run against that one month. The popup looks like the Root
    cause page because it **is** the Root cause page's code -- a second implementation of
    those cards would be a second set of numbers waiting to disagree.
+
+   **The panel carries THREE sections because the bar does, and it carried two.**
+   `render_root_tier()` draws confirmed misses only, so a reader clicking a bar of 17
+   met a panel accounting for 16 -- the slate segment visible on the chart had no
+   representation in the dialog at all, and nothing on the panel said where the missing
+   record went. It now ends with the delivered-but-wrong block for that month, drawn
+   from `bulletin_errors()`: the same fold the summary's pills and the fourth card's
+   popup use, so the 18 cannot be told three different ways on one page. `Process` is
+   zero in every month, so what a reader actually sees on the chart and in the panel is
+   Product, Analyst and Reported-but-wrong -- three each, which is the match.
+
+   **The panel opens with both equations on one line, and that is where the inquiry
+   count lives.** It used to open with a chain (`19 emails > 17 complaints > 16 misses`)
+   and close with a caption carrying the other two figures, so a reader held three
+   numbers from the top of the dialog to the bottom to check it added up. It is now
+   `19 emails = 17 complaints + 2 inquiries  ·  17 complaints = 16 confirmed misses + 1
+   reported, but wrong`. **Inquiries are named in words and drawn nowhere** -- not a
+   segment, not a slice, not a hover -- which is the owner's rule applied to the one
+   place the email total would otherwise be lost.
+
+   **`audit_pages.month_panel_problems()` gained both.** It asserted the owner cards
+   and the driver bars; it now also checks that each clause of that line is true and
+   that the wrong-bulletin groups sum to the month's own `Wrong` count. Proved by
+   seeding a dropped record and watching it fire on nine months, then restoring it.
 
    **The month is the click target, not the segment, and that is a correction to the
    obvious design.** A segment of one or two emails is about 10px tall, which is the
@@ -1405,6 +1467,37 @@ was built, each because the owner of the fix differs: `Incorrect geocode` left t
 supplier group (the Data team, not an analyst), `Wrong routing data` left it too (tenant
 linkage is Platform's), and `Wrong industry tag` left `Not visible on portal`, because a
 tag an analyst set is not a portal that failed to render. Seven groups became nine.
+
+**`Wrong impact call` is `Wrong sites called impacted`, and the rename fixes an
+unanswerable label.** The owner's question was the test: does it mean we raised impact
+that was not needed, or failed to raise impact that was? **All three records are
+over-inclusion** -- Winter Storm Fern's geofence, Eaton's commodity alerts against a
+customer who buys software supply-chain risk, and Woodward's California sites pulled in
+by two storms merged into one WarRoom. The other direction cannot land here by
+construction: if nothing reached them it is a confirmed miss, and if a bulletin went out
+with a supplier left off it is the supplier group. **The day an under-call on a
+delivered bulletin does land here, this label is a lie and the group needs splitting**,
+the way `Incorrect Geocode` was split out of the supplier group. Say it now rather than
+have it caught on a customer call. `Incorrect suppliers selected` became
+`Incorrect supplier selection` in the same pass, on the owner's wording.
+
+**`Alerting Gap` came OUT of the `Platform bug` group, and that is the `NAME_THEM`
+check being applied rather than skipped.** `NAME_THEM` prints each record's own
+`defect_name()` in place of a category line, and this file already warns to read the
+titles before putting it on a group. It was on `Alerting Gap` anyway, and those titles
+name the **event**: "Bain Fire", "Vigo Metropolitan Area, Spain", and on the one
+delivered-but-wrong row of the set "No EventWatch Notification", which tells a reader
+nothing at all. The sub-type's own sentence is the clear answer here, so it takes its
+own group -- `Captured, never reached an analyst / We had the story and it never
+surfaced to an analyst` -- and only `Platform Bug` keeps `NAME_THEM`. Ten groups now.
+
+**`Review` and `Analyst Review Miss` read `the analyst overlooked it` in `SHORT_CAUSE`,
+not `an analyst judged it not impactful`.** The second is the softer reading of the same
+rows and it describes a decision taken; the owner's own definition of this failure is a
+look not taken -- *the news came on the portal, but the analyst did not look at it
+carefully and moved it to Not Impactful*. `SHORT_OWNED` keeps the Product reading of
+`Review`, which is the **model** deciding, so the word "analyst" can never print over a
+Product row.
 
 **Every label is a TERM now, and the sentence moved to the hover.** They read "The
 supplier list was wrong", "We called the event wrong", "Sent twice, or merged wrong"
@@ -2233,8 +2326,8 @@ It reads `The wrong action was taken on the event` under People now, which is wh
 `DRIVERS` already said for that pair.
 
 **It also took its own `WRONG_GROUPS` card rather than being folded into the nearest
-one.** `Wrong impact call` was the tempting home and is false: the impact call was
-correct. The group is `Wrong action taken / The action did not follow the guideline's own
+one.** `Wrong sites called impacted` (then `Wrong impact call`) was the tempting home
+and is false: the impact call was correct. The group is `Wrong action taken / The action did not follow the guideline's own
 trigger`, worded generally because `Policy/Logic` is general. The delivered-but-wrong
 block goes nine groups to ten and 17 records to 18.
 
