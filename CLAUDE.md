@@ -1130,13 +1130,61 @@ built from, not the sum of the strings in it.
    the cap hid nothing and only invited the question. The card popups keep `top=2`
    because they pool the whole year, where the tail is real.
 
-   **Every bullet carries a reason, and the hover is multi-line.** The owner's next
-   questions after the causes landed were the right ones: *"it never surfaced to an
-   analyst -- why?"* and *"platform bug also needs some supporting detail."* A cause
-   with no reason is a term a reader has to already know. The hover is now one bullet
-   per cause, each `cause N - why`, wrapped at 76 characters before it reaches plotly
-   because **plotly's hover label does not wrap and is not clipped to the panel** --
-   the fault already recorded on the driver bars. Worst month is 13 lines.
+   **Every cause carries a reason, and the reason is in the PANEL, not the hover.**
+   The owner's questions after the causes landed were the right ones -- *"it never
+   surfaced to an analyst -- why?"*, *"platform bug also needs some supporting
+   detail"* -- and the first answer put the reason on each hover bullet. That was
+   wrong, and the owner named it: *text heavy, miss matching and very confusing.*
+
+   **Screenshotting it showed three faults that were not about wording at all.** Three
+   separate boxes, 360 / 381 / 396px wide, **covering four whole months** of the chart
+   they explained; **no month header** on any of them; and read top-down in **reverse**,
+   `reported, but wrong` first and `product misses` last, against both the legend and
+   the stack. Plus three that were: the count buried mid-line, two registers in one box
+   (lowercase verb phrases against capitalised terms), and a redundant line whenever a
+   segment held one cause.
+
+   **The division now is: the hover answers WHAT and HOW MANY, the panel answers WHY.**
+   A hover is transient -- nobody reads a paragraph before the mouse moves -- and the
+   panel is one click away and stays still. So `_hover_lines()` drops the reasons,
+   leads with the count in bold, and folds a single-cause segment onto the segment's
+   own line:
+
+   ```
+   9 product misses
+     4  Keywords missed it
+     3  No monitored source
+     2  It never surfaced to an analyst
+   1 reported, but wrong - Wrong sites called impacted
+   ```
+
+   Measured after: the boxes are **205 / 233 / 201px** against 360 / 381 / 396, the
+   worst month is **11 lines** rather than 13, and **nothing wraps**, so no line is
+   ragged and the wrap-at-76 machinery is gone with the prose.
+
+   **Sentence case, never `.lower()`.** Lower-casing everything was the obvious way to
+   get one register and it prints `warroom not raised`, flattening a product noun.
+   `_sentence()` raises the first character only -- never `.capitalize()`, which
+   lower-cases the tail and gives `Warroom` and `Gaas` -- so a hover line reads
+   **identically to that failure's label on Analysis**, which is what deriving
+   `PLAIN_SUBTYPE` from `SHORT_CAUSE` was for.
+
+   **`driver_bar()` carries the reason as a second tick line**, quieter and smaller
+   under the driver, which is the `fault-why` arrangement the delivered-but-wrong rows
+   already use. It was hover-only, and moving the month chart's reasons into a panel
+   whose own reasons are also a hover would have moved the problem one level down
+   rather than solving it. Rows go 38px to 46px to hold two lines.
+
+   **The reason cap is 56 and the longest `CAUSE_WHY` is 48.** At 46 it cut two of them
+   mid-word -- *"captured, but it never reached the analyst..."* -- which is the fault
+   this file already records against ellipsis truncation on the record grid. The cap is
+   a guard against a future long entry, not a trim of the current ones.
+
+   **One thing could not be verified from here**: whether a real mouse draws ONE unified
+   box or the three the screenshot caught. Playwright fires no hover on these charts --
+   already recorded -- so the probe drives `Plotly.Fx.hover`, and that path may be what
+   splits them. The compaction helps either way, which is why it was not made to depend
+   on the answer.
 
    **`CAUSE_WHY` is a DEFINITION per sub-type, not a paraphrase per row.** A definition
    is true of every row under that cause and cannot go stale; a per-row summary would
