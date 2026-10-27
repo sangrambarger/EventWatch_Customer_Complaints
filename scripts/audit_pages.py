@@ -384,12 +384,15 @@ def month_panel_problems(df: pd.DataFrame) -> tuple[list[str], int]:
 
         that month's owner cards sum to that month's confirmed misses
         each owner's driver bars sum to that owner's card
+        the arithmetic line at the top of the panel is true, both clauses
+        the delivered-but-wrong groups sum to that month's wrong count
 
     A month whose cards did not add up to its own headline is exactly the fault the
     `42 + 9 + 35 = 86` row made visible on the cards, one level down.
     """
     sys.path.insert(0, str(REPO))
-    from dashboard.metrics import monthly_breakdown, root_drivers, root_summary
+    from dashboard.metrics import (bulletin_errors, monthly_breakdown, root_drivers,
+                                   root_summary)
     # The scrape reads the CSV raw, where `Month Label` does not exist -- the app derives
     # it in `data.py` from the first of Reporting Month / Month / Email/JIRA Date that is
     # present. Mirrored here in the same order, because a check that silently found no
@@ -432,6 +435,23 @@ def month_panel_problems(df: pd.DataFrame) -> tuple[list[str], int]:
             if total != n:
                 problems.append(f"month panel {month!r}: {owner} driver bars sum to {total} "
                                 f"against a card of {n}")
+        # The panel now opens with two equations rather than a chain, and prints a third
+        # section for the complaints that were delivered and wrong. Both are checked
+        # here for the same reason the owner cards are: the dialog is only in the DOM
+        # after a click, so the scrape never sees either.
+        emails, complaints = int(row["Emails"]), int(row["Complaints"])
+        inquiries, wrong = int(row["Inquiries"]), int(row["Wrong"])
+        if complaints + inquiries != emails:
+            problems.append(f"month panel {month!r}: the line says {emails} emails = "
+                            f"{complaints} complaints + {inquiries} inquiries")
+        if int(row["Misses"]) + wrong != complaints:
+            problems.append(f"month panel {month!r}: the line says {complaints} complaints = "
+                            f"{int(row['Misses'])} misses + {wrong} reported, but wrong")
+        groups = bulletin_errors(part).get("groups", [])
+        drawn = sum(int(g[3]) for g in groups)
+        if drawn != wrong:
+            problems.append(f"month panel {month!r}: the wrong-bulletin groups sum to "
+                            f"{drawn}, the month holds {wrong}")
     return problems, checked
 
 
