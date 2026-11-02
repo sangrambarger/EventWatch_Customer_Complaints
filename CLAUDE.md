@@ -3572,6 +3572,33 @@ If a resave already happened, restore the four `cm="1"` attributes and
 
 ## Conventions
 
+- **`Country` is the 27th column, added 02-Nov-2026 on the owner's call, and it is
+  EMPTY until the backfill is approved.** It holds **where the event happened** -- never
+  the supplier's headquarters and never the customer's -- so the miss book can be read
+  by geography. The question it exists to answer is which regions we miss most, and
+  whether a regional pattern is a language or source-network gap rather than a volume
+  effect.
+
+  **It is a stored column rather than a derived one, which is the opposite of the call
+  made for the reason category**, and the difference is the test: a reason category is a
+  *reading* of what the customer wrote, so the app can compute it; a country is a **fact
+  about the event** that the tracker does not otherwise hold. Parsing it out of
+  `Event/Bulletin Title` and `Comments` was the alternative and it was refused -- the
+  titles name a place on some rows and the supplier's name on others, and a map built on
+  a regex would point Product at the wrong region with nothing on screen to say so.
+  **A wrong map is worse than no map.**
+
+  **Region is NOT a second column.** It is a map from country to region in `taxonomy.py`
+  the day a region view is wanted, which costs no schema change and cannot drift from
+  the country beside it.
+
+  Adding it cost what this file already quotes for a 27th column: a CSV column, a column
+  on the Data sheet with its own style on all 130 rows, `ComplaintTracker`'s ref and the
+  sheet `dimension` from `Z` to `AA`, a 27th `tableColumn`, and a Definitions row. The
+  three row scripts needed **no** change -- they read the sheet's own header for column
+  order, which is exactly why they are written that way. The Definitions row is section
+  **`Field definition`**, which is what keeps `enum_definitions` out of it: a value
+  taxonomy would demand a Definitions row per country, and this is free text.
 - Multi-customer rows use a slash: `Ford/GM`, `Penske/Ford`, `Eaton/Ford`, with `Number of
   Customers` set. One incident reported by two customers is **one row**, not two.
   A merged incident may also carry slash-separated Jira keys (`EAO-35/EAO-36`).
