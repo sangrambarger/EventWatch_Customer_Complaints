@@ -2594,6 +2594,54 @@ block goes nine groups to ten and 17 records to 18.
  86 misses     =  50 Product + 36 Analyst
 ```
 
+**EAO-57 is the worked example of a miss on an event already under coverage**, and the
+first row filed where the failure is "we had been reporting this for thirteen months
+and read the new development as more of the same". Ford asked on 27-Oct-2026 why the
+First Brands Group court-ordered liquidation and the US Government's $286M tariff claim
+were not broadcast. **It was not a capture failure in any form.** EventWatch had covered
+the bankruptcy continuously since September 2025 across **eighteen** published updates,
+the last being the sale of legacy brands to Premium Guard on 23-Apr-2026, and the new
+articles were captured and did reach review. The RCA names the cause in terms: *"the
+reporting team incorrectly assessed the newly captured articles as previously reported
+... a lapse in applying the existing review process to distinguish previously reported
+information from new material developments."* `People` / `Review`, `Missed_Flag` Yes,
+settled by the owner on 02-Nov-2026.
+
+**The staging default went 0 for 1 here and the reason is worth keeping: the default
+only ever chooses between the two CAPTURE buckets.** The row was staged
+`Product` / `Keyword Update` under the bankruptcy rule, and the one question that rule
+turns on -- was the carrying outlet monitored -- **could not have reached the right
+answer**, because both of its answers are wrong when the article was captured AND
+surfaced AND read by a person. **Before reaching for either capture bucket, ask whether
+the event was already under coverage**: eighteen prior updates on the same event is the
+signal, and it is visible on the ticket before any investigation reports.
+
+**Two product-side readings were put to the owner and neither is what the row carries.**
+Nitin Rindhe noted that the feed *"appeared as separate instead of under Suggested
+Updated Stories"*, which reads as `Clustering / Duplication Defect`, and Ankit Gupta
+proposed a **What's New** panel so the model tells an analyst why it judges a feed an
+update and what it adds against the published article. Aashray Thakkar kept that out of
+the customer-facing RCA because **it is not built**. Both sit in the row's own
+`Comments` rather than in its fields, per the rule that a record carries the failure
+that stopped delivery and not every failure in the incident -- and the RCA, which is
+what went to Ford, names the review lapse.
+
+**The Nemak precedent points the other way and does not govern.** There the RCA itself
+named *"a combination of incorrect AI event clustering and insufficient validation
+during human review"*, so the clustering half was in the customer-facing document; here
+the clustering observation is a Jira comment and the RCA names only the review lapse.
+**What the RCA says is what the row is filed under**, because the alternative is a
+tracker that contradicts a document already sent to the customer -- the EAO-13 against
+EAO-25 fault.
+
+**Baseline on 02-Nov-2026:**
+
+```
+130 emails     = 105 complaints + 25 inquiries
+105 complaints =  87 confirmed misses + 18 process issues
+ 87 misses     =  50 Product + 37 Analyst
+```
+
 **Jira attachments cannot be read from here, and this is what was actually tried.** The
 connector returns attachment *metadata* -- `getJiraIssue` with `fields=["attachment"]`
 gives the filename, size, author, mime type and a content URL. Fetching that URL from the
