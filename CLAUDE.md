@@ -3390,6 +3390,108 @@ And measure the table against its panel (`table.getBoundingClientRect().width` a
 `.table-wrap` `clientWidth`) rather than eyeballing a screenshot crop: a fixed-width crop
 cannot tell a table that overflows from one the crop simply cut.
 
+## Where the events were
+
+**The country block is on Analysis, between the two halves of the page, and it is the
+one block with its own two controls.** `render_geography()` draws `country_map()` over
+`country_exposure()`, with a `Customer` selectbox and a measure selectbox above it.
+The owner's question for it, in their own words, is **which keywords or region news we
+are missing** -- so it is a cut of the miss book by geography, not a decoration.
+
+**Its selectors are NOT a second global filter, and the distinction is the whole point.**
+The sidebar `Customer` narrows every page at once, which is right for building a
+customer deck and wrong here: the owner asked to move between accounts and between
+measures while the rest of the page holds still. The precedent was already on this page
+twice -- the sub-type heatmap and the account view each carry a selector that narrows one
+block. The sidebar filter still applies first, so narrowing the sidebar to Ford and this
+block to GM gives the intersection, which is empty and says so.
+
+**The measure control picks a COLUMN; it does not re-filter the frame.**
+`country_exposure()` returns every base on every row -- Emails, Complaints, Inquiries,
+Misses, Product, Analyst, Process, Reported timely -- so switching from All emails to
+Analyst misses recolours the map and re-ranks the table out of one computation. Narrowing
+per measure would be a second implementation of the owner split waiting to disagree with
+the eight cards. The split is read exactly as `monthly_breakdown()` reads it
+(`_miss_parts()` for the flag, `Root Cause` for the owner), so a country here cannot
+disagree with the month chart above it.
+
+**`Country` holds where the EVENT happened**, never the supplier's headquarters and never
+the customer's. Three conventions, all the owner's rulings of 05-Nov-2026:
+
+* **A border or corridor event names every country it closed.** EAO-58 is
+  `Ukraine/Romania/Turkiye`; the Laredo World Trade Bridge is `United States/Mexico`.
+  The separator is the slash `Customer` already uses.
+* **An acquisition takes the AFFECTED company's home country, not the acquirer's.**
+  EAO-61 is GE Vernova buying Trench Group; the supplier Hitachi is exposed to is Trench
+  Group, headquartered in Berlin, so the row reads `Germany`.
+* **An event with no geography reads `Global`.** The Axios npm compromise, a commodity
+  or market outlook, a policy clarification, a portal defect. Eleven rows. They are not
+  missing a country, so a blank would read as an unfilled cell rather than as the answer.
+  `Global` is a row in the table and is drawn nowhere on the map.
+
+**Six rows are genuinely BLANK and that is deliberate.** The location is not recoverable
+from the record and the mailbox does not reach back to January 2026 to settle them. The
+caption prints the coverage rather than quietly dividing by 136: *a blank is "nobody has
+established this"; `Global` is "there is nothing to establish".*
+
+**This is the SECOND table whose rows cannot add to its own foot, and it misses in both
+directions at once.** Corridor events sit on every country's row, so the rows overshoot;
+records with no country sit on no row, so they also undershoot. On the first run after it
+landed, Emails read 139 against a tracker of 136 **while Inquiries read 26 against 27, in
+the same table**. `country_totals()` returns the distinct counts and the overshoot, and
+`country_note()` says both directions out loud -- the Customers impacted rule applied to a
+second column, with a wrinkle that one did not have.
+
+**`country_note()` leads with the DISTINCT figure, and that is a correction.** Its first
+draft opened *"Confirmed misses: 95 across 28 countries"* against a tracker holding 91,
+because it summed the column. A caption whose own headline disagrees with the cards is
+the fault this file keeps recording, and it would have sat directly under the chart a VP
+reads.
+
+**`COUNTRY_ISO` is explicit and `validate.py`'s `country_iso` rule is what keeps it
+complete.** `px.choropleth(locationmode="country names")` matches by name and drops a
+name it does not recognise **silently** -- no exception, no warning, just a country
+missing from the map while its row sits in the table below saying otherwise. Three layers
+guard it: the rule blocks a tracker value with no code, `country_map()` **returns** anything
+that still fails to resolve instead of swallowing it, and `render_geography()` prints that
+as a warning. `selftest.py`'s fixture is the realistic fault -- `Turkey` for `Turkiye`,
+a perfectly reasonable spelling with no code.
+
+**`audit_pages.py` reconciles every country label and the foot**, which took two
+additions: `country_reconciled()` for the Total row (the bucket-column signature does not
+match this table, so it is keyed on a first column headed `COUNTRY`) and the per-country
+counts in `expectations()`. Analysis went 52 labels to 81 with "not rendered" unmoved at
+3 -- which is what that number is for. Proved by seeding Japan one short and watching it
+fail, then reverting.
+
+**Four render faults were found by SCREENSHOTTING, not by reasoning:**
+
+1. **The ramp starts at `BLUE_RAMP[1]`, not `[0]`.** `BLUE_RAMP` opens on `--panel`
+   (`#1b1f26`), which is exactly the land colour of a country with no emails -- so Germany
+   at 10 and China at 6 drew within a couple of points of a country nobody has ever
+   complained about, and the map's whole bottom half read as empty. The floor is `#24384f`
+   now, clearly off the unfilled land and still the same ramp the heatmap uses.
+2. **`projection_rotation_lon=0`.** Plotly's default put the dateline in the middle, so
+   Europe -- ten of the countries on this map -- was squashed against the left edge while
+   the United States sat against the right and the Atlantic was cut in half.
+3. **`lataxis_range=[-45, 78]`.** The tracker holds no event below Johannesburg or above
+   Sweden, and the uncropped projection spent a third of a 520px panel on the Southern
+   Ocean and Antarctica.
+4. **`showocean` in `#12151a`.** Plotly's default ocean blue sits a few points from
+   `--blue`, so the sea read as the darkest bucket of the scale.
+
+**The one cost, stated rather than papered over:** the United States is 40 emails against
+a median country of 2, so every other country sits in the bottom quarter of the ramp, and
+Austria, Czechia and Switzerland are a few pixels each. A choropleth cannot fix either.
+The ranked table under it carries the exact counts and the hover carries emails, misses
+and the owner split, which is the secondary encoding that makes the map legal -- **do not
+switch the colour to a rate to flatten the scale**, because the question the owner asked
+it is how many we are missing, not what share.
+
+**Region is NOT a second column.** It is a country-to-region map in `taxonomy.py` the day
+a region view is wanted, which costs no schema change and cannot drift from the country
+beside it.
+
 **The filters name the things the pages name, and nothing else.** `Severity`,
 `Short Term Fix Status` and `RCA Requested` filtered on fields no page shows any more --
 a control that narrows a population by something invisible leaves a reader unable to
@@ -3418,6 +3520,28 @@ The expander's `(N active)` label is counted off session state before the widget
 and that is only accurate because the options are stable. While they cascaded, a selection
 could be dropped during the render while session state still held it, so the label read
 "1 active" over a filter that was no longer filtering anything.
+
+**The sidebar is THREE column filters now, on the owner's call of 05-Nov-2026:
+`Customer`, `Event type`, `What went wrong`.** Seven was still past the point where a
+reader scans a column, and the page list sat below them. The test applied to each one
+was **does filtering on it leave the page readable**, and three failed it outright --
+the three a reader would most expect to find:
+
+* **`Confirmed miss` went, and that reverses the decision recorded below.** It was added
+  because the field every headline number keys on had no filter at all. In use it breaks
+  the headline: filter it to Yes and the eight cards read 91 emails = 91 complaints = 91
+  misses + 0, both nested rings collapse to single slices, and the funnel the whole page
+  is built on stops reconciling. The cut it was wanted for lives on the country block's
+  own measure control, where it narrows one block instead of the book.
+* **`Complaint or inquiry`** is the same fault, smaller: the cards already print this
+  split, so filtering on it zeroes one side of every equation on the page.
+* **`Who fixes it`** is three values, and the root-cause tier is already split by owner.
+  Filtering to Product leaves one card where there were two.
+
+`What they wrote about` went for a different reason: seven categories that exactly one
+block reads (Nature of complaints, on Analysis). Not a cut worth a permanent control.
+**`Country` is deliberately not here either** -- it is the one cut worth a control of its
+own, beside the map it narrows.
 
 What replaced them: the two **derived** vocabularies the pages are written in --
 `What they wrote about` (the reason category) and `What went wrong` (the plain

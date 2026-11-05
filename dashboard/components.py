@@ -19,7 +19,7 @@ import streamlit as st
 
 from dashboard.config import DESCRIPTIONS, PAGE_KICKERS
 from dashboard.styles import BLUE_RAMP, CAT_SLATE, RED_BLUE, ROOT_COLOURS, TAGS, UNKNOWN_OWNER, esc
-from dashboard.taxonomy import plural, shorten
+from dashboard.taxonomy import COUNTRY_ISO, GLOBAL, plural, shorten
 
 
 
@@ -1043,3 +1043,77 @@ def flow_bar(frame, label_col, title="", x_title="Customer complaints"):
                      title=x_title)
     st.plotly_chart(fig, width="stretch")
     return fig
+
+
+def country_map(frame, value_col, measure, title=""):
+    """Where the events were, on a world map, coloured by one measure.
+
+    **The codes are explicit and that is the whole reason this is not a one-liner.**
+    `px.choropleth(locationmode="country names")` matches by name and drops a name it
+    does not recognise SILENTLY -- no exception, no warning, just a country missing from
+    the map while its row sits in the table below saying otherwise. `COUNTRY_ISO` is the
+    map, `validate.py`'s `country_iso` rule fails on a tracker value with no entry in it,
+    and anything that still fails to resolve here is RETURNED rather than swallowed so
+    the caller can print it. Three layers, because a map that quietly omits a country is
+    the one failure this block must not have.
+
+    `Global` is not drawn. It is a real value on eleven records and it is not a place, so
+    it belongs in the table and in the caption; painting it onto a map would mean picking
+    a country for it, which is the invention this column exists to avoid.
+
+    Colour is `BLUE_RAMP`, the app's own ramp -- the same one the sub-type heatmap uses,
+    and for the same reason: this is one sequential magnitude, not a set of categories,
+    and a new hue here would break the one-palette rule for a single view.
+    """
+    if frame is None or frame.empty:
+        st.info("Chart cannot be rendered because required fields are missing: Country.")
+        return None, []
+    data = frame[frame["Country"] != GLOBAL].copy()
+    data = data[data[value_col] > 0]
+    if data.empty:
+        st.info(f"No {measure.lower()} in this filter carry a country.")
+        return None, []
+    data["_iso"] = data["Country"].map(COUNTRY_ISO)
+    unmapped = sorted(data.loc[data["_iso"].isna(), "Country"].unique())
+    data = data.dropna(subset=["_iso"])
+    if data.empty:
+        st.info("No country in this filter resolves to a map location.")
+        return None, unmapped
+    # **The ramp starts at BLUE_RAMP[1], not BLUE_RAMP[0], and that is a correction a
+    # screenshot forced.** `BLUE_RAMP` opens on `--panel` (#1b1f26), which is exactly the
+    # land colour of a country with no emails at all -- so Germany at 10 and China at 6
+    # drew within a couple of points of a country nobody has ever complained about, and
+    # the map's whole bottom half read as empty. The floor is #24384f now, which is
+    # clearly off the unfilled land while still being the same ramp the heatmap uses.
+    fig = px.choropleth(data, locations="_iso", color=value_col,
+                        hover_name="Country", color_continuous_scale=BLUE_RAMP[1:], title=title)
+    fig.update_traces(marker_line_color="#1b1f26", marker_line_width=0.6,
+                      customdata=data[["Emails", "Misses", "Product", "Analyst"]].values,
+                      hovertemplate="<b>%{hovertext}</b><br>%{customdata[0]} email(s)"
+                                    "<br>%{customdata[1]} confirmed miss(es)"
+                                    "<br>%{customdata[2]} product · %{customdata[3]} analyst"
+                                    "<extra></extra>")
+    # `showframe` and `showcoastlines` off, land in --panel: an unfilled country has to
+    # read as "no emails from here" rather than as a second data value, and the default
+    # ocean blue sits a few points from `--blue`, which would make the sea look like the
+    # darkest bucket of the scale.
+    # Two framing facts, both measured rather than reasoned about. Plotly's default
+    # rotation put the DATELINE in the middle, so Europe -- ten of the countries on this
+    # map -- was squashed against the left edge while the United States sat against the
+    # right and the Atlantic was cut in half; `rotation.lon = 0` restores the framing a
+    # reader expects, Americas left, Europe centre, Asia right. And the latitude range
+    # is clipped to -45..78 because the tracker holds no event below Johannesburg or
+    # above Sweden, and the uncropped projection spent a third of a 520px panel on the
+    # Southern Ocean and Antarctica.
+    fig.update_geos(showframe=False, showcoastlines=False, showcountries=True,
+                    countrycolor="#2a2f3a", landcolor="#1b1f26", lakecolor="#12151a",
+                    bgcolor="#1b1f26", showocean=True, oceancolor="#12151a",
+                    projection_type="natural earth", projection_rotation_lon=0,
+                    lataxis_range=[-45, 78], lonaxis_range=[-170, 180])
+    fig.update_layout(template="plotly_dark", paper_bgcolor="#1b1f26", plot_bgcolor="#1b1f26",
+                      font=dict(color="#f3f4f6", size=13),
+                      margin=dict(l=0, r=0, t=70, b=0), height=520,
+                      coloraxis_colorbar=dict(title="", thickness=12, len=0.6,
+                                              tickfont=dict(size=11, color="#b6beca")))
+    st.plotly_chart(fig, width="stretch")
+    return fig, unmapped

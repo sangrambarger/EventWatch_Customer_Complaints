@@ -620,3 +620,80 @@ def driver_of(root, subtype):
         return (NEEDS_REVIEW, "The root cause and sub-type on this email do not map "
                               "to a known failure driver")
     return short_cause(*key), CAUSE_WHY.get(key[1], DRIVERS[key][1])
+
+
+# ---------------------------------------------------------------------------
+# Geography
+#
+# `Country` is where the EVENT happened -- never the supplier's headquarters and never
+# the customer's. It was added as the 27th column on 02-Nov-2026 and backfilled on
+# 05-Nov-2026 on the owner's rulings, which are what these three conventions encode:
+#
+#   * **A border or corridor event names every country it closed.** EAO-58 is
+#     `Ukraine/Romania/Turkiye` and the Laredo World Trade Bridge is
+#     `United States/Mexico`, because the impact lands on each side. The separator is
+#     the slash the `Customer` column already uses, and the cost is the same: a country
+#     table double-counts those rows, so its total row is a RECONCILIATION and the
+#     caption says how far the rows overshoot. See `country_totals()`.
+#   * **An acquisition takes the AFFECTED company's home country, not the acquirer's.**
+#     EAO-61 is GE Vernova buying Trench Group, and the supplier Hitachi is exposed to
+#     is Trench Group, whose headquarters is Berlin -- so the row reads `Germany`, not
+#     `United States`.
+#   * **An event with no geography reads `Global`.** The Axios npm compromise, a
+#     commodity or market outlook, a policy clarification, a portal defect: these are
+#     real records and they are not missing a country, so a blank would read as an
+#     unfilled cell rather than as the answer. Eleven rows carry it.
+#
+# Six rows are genuinely BLANK and that is deliberate: the location is not recoverable
+# from the record and the mailbox does not reach back to January 2026 to settle them.
+# Every country block prints its own coverage line rather than quietly dividing by 136.
+# A blank is "nobody has established this"; `Global` is "there is nothing to establish".
+GLOBAL = "Global"
+
+# Country -> ISO-3166-1 alpha-3, for the choropleth. It is an EXPLICIT map and not
+# plotly's `locationmode="country names"` fuzzy match, because that match fails
+# SILENTLY: a name it does not recognise is dropped from the map with no error, so a
+# country with misses would simply not be drawn and nothing on screen would say so.
+# `validate.py`'s `country_iso` rule fails on a tracker value with no entry here, which
+# turns that silent drop into a blocked commit.
+COUNTRY_ISO = {
+    "Austria": "AUT", "Bosnia and Herzegovina": "BIH", "Canada": "CAN", "China": "CHN",
+    "Croatia": "HRV", "Czech Republic": "CZE", "France": "FRA", "Germany": "DEU",
+    "India": "IND", "Iran": "IRN", "Japan": "JPN", "Laos": "LAO", "Mexico": "MEX",
+    "Morocco": "MAR", "Romania": "ROU", "Serbia": "SRB", "South Africa": "ZAF",
+    "South Korea": "KOR", "Spain": "ESP", "Sweden": "SWE", "Switzerland": "CHE",
+    "Taiwan": "TWN", "Thailand": "THA", "Turkiye": "TUR", "Ukraine": "UKR",
+    "United Kingdom": "GBR", "United States": "USA", "Venezuela": "VEN",
+}
+
+
+def countries_on(value):
+    """Every country named in one `Country` cell, slashes split out.
+
+    The same shape as `customer_names()` and for the same reason: a corridor event
+    closed three borders and belongs on all three, so "how many misses landed in
+    Romania" has an answer. `Global` and a blank each come back as themselves, so a
+    caller can count them or drop them deliberately rather than by accident.
+    """
+    text = "" if value is None else str(value).strip()
+    if not text or text.lower() == "nan":
+        return []
+    return [part.strip() for part in text.split("/") if part.strip()]
+
+
+def country_names(series):
+    """Every distinct country in a `Country` column, sorted, `Global` last.
+
+    `Global` is not a place and sorting it among the countries puts it between Germany
+    and India, where a reader scanning an alphabetical list reads it as one. It is the
+    residue of the column, so it sits at the end the way a residue bucket would -- the
+    one difference from `miss_categories()`, which refuses a residue, being that this
+    one is a stated value on the record rather than a fold applied after the fact.
+    """
+    if series is None:
+        return []
+    seen = set()
+    for value in series.fillna("").astype(str):
+        seen.update(countries_on(value))
+    real = sorted(name for name in seen if name != GLOBAL)
+    return real + ([GLOBAL] if GLOBAL in seen else [])

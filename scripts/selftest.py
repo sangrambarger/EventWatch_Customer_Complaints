@@ -265,6 +265,29 @@ def break_cause_agreement(csv: Path, xlsx: Path) -> None:
     raise SystemExit("no source-coverage record to mislabel; fixture is stale")
 
 
+def break_country_iso(csv: Path, xlsx: Path) -> None:
+    """A country spelt a way COUNTRY_ISO does not hold.
+
+    This is the realistic fault, not an invented one: the tracker says `Turkiye` and a
+    later hand-edit writing `Turkey` would be a perfectly reasonable spelling that the
+    map has no code for. Without the rule, plotly drops it in silence and the country
+    vanishes from the map while its row stays in the table.
+    """
+    lines = csv_lines(csv)
+    header = next(csv_module.reader([lines[0]]))
+    col = header.index("Country")
+    for i in range(1, len(lines)):
+        fields = next(csv_module.reader([lines[i]]))
+        if fields[col].strip():
+            fields[col] = "Kingdom of Nowhere"
+            buf = io.StringIO()
+            csv_module.writer(buf, lineterminator="").writerow(fields)
+            lines[i] = buf.getvalue()
+            write_lines(csv, lines)
+            return
+    raise SystemExit("no record carries a country; fixture is stale")
+
+
 # (name, rule, fault) or (name, rule, fault, "warn") -- a warning-level rule leaves the
 # exit code at 0 on purpose, so asserting `code != 0` would never see it fire.
 def break_reason_categories(csv: Path, xlsx: Path) -> None:
@@ -351,6 +374,7 @@ CASES: list[tuple] = [
     ("formula_columns", "formula_columns", break_formula_columns),
     ("cause_agreement", "cause_agreement", break_cause_agreement, "warn"),
     ("reason_categories", "reason_categories", break_reason_categories),
+    ("country_iso", "country_iso", break_country_iso),
     ("issue_type", "issue_type", break_issue_type, "warn"),
     ("stale_status", "stale_status", break_stale_status, "warn"),
 ]

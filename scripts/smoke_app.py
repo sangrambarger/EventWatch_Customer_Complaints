@@ -81,7 +81,7 @@ EXPECTED: dict[str, tuple[int, int]] = {
     # The minimum is their sum, because nothing was dropped in either move -- only the
     # duplicate page heading. If this number ever has to come DOWN, confirm the missing
     # block is a real absence before lowering it.
-    "Analysis": (10, 19),
+    "Analysis": (11, 20),
 }
 
 # Streamlit renders an expander as <details>; collapsed, its contents lay out at zero
