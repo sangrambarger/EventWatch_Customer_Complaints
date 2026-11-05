@@ -69,12 +69,13 @@ EXPECTED: dict[str, tuple[int, int]] = {
     #
     # 6 -> 5 on 26-Oct-2026 when the owner closed the last four Pending rows. 5 -> 6 on
     # 05-Nov-2026 when EAO-59 landed Pending. 6 -> 5 again hours later when its RCA was
-    # shared and the tracker returned to zero Pending rows.
+    # shared. 5 -> 6 the same day when EAO-58 and EAO-61 went in Pending, awaiting
+    # Engineering.
     #
     # **Do not read a lowering here as a gate being filed down, and do not read a
     # raising as a new block.** Check the Pending count against the tracker and move
     # the number to match -- it is a property of the data on the day, not of the page.
-    "All customer emails": (0, 5),
+    "All customer emails": (0, 6),
     # Analysis is the merge of Root cause (4 charts, 12 tables) and Top customer
     # complaints (5, 5), plus Nature of complaints (1, 1) off the Executive Summary.
     # The minimum is their sum, because nothing was dropped in either move -- only the

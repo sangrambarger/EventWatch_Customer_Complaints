@@ -2650,14 +2650,26 @@ vulnerability because the Threshold and Guidelines create a WarRoom for a confir
 attack and not for a vulnerability disclosure, and the Hartwell fire because the source
 declaring the company name was not an authentic news source.
 
-**EAO-58 (Ford, Ukraine-Romania-Turkey corridors) and EAO-61 (Hitachi, GE Vernova) are NOT
-in the tracker, and the reason is arithmetic rather than caution.** Both are confirmed
-non-delivery, so `Missed_Flag` is Yes on the evidence -- but neither has a settled
-`Root Cause`, and `_miss_parts()` splits every confirmed miss into Product, Analyst and
-Process. **A miss with a blank owner sits outside all three and fails
-`audit_pages.month_panel_problems()`**, which asserts the owner cards sum to the month's
-miss count. So the choice on an unruled miss is a provisional owner, a false `Missed_Flag`,
-or holding the row. Hold the row, and name it in the handover.
+**EAO-58 (Ford, Ukraine-Romania-Turkey corridors) and EAO-61 (Hitachi, GE Vernova) went in
+as `Pending` on the owner's instruction, and the attempt to leave their `Sub-type` BLANK
+failed the gate.** Both are confirmed non-delivery, so `Missed_Flag` is Yes on the
+evidence, and both have an owner that does not depend on the open question: EAO-58 is
+`Product` because every candidate sub-type under investigation -- Source Coverage, Keyword
+Update, Model Classification Defect -- is Product-rooted, and EAO-61 is `People` because
+the model classified the feeds Event and the decision not to publish was taken at review.
+
+**A blank `Sub-type` is not the way to say "nobody has decided".** It reads as `Needs
+Review` on Analysis, which is the right words, but `audit_pages.month_panel_problems()`
+fails on it five ways: the owner cards double-count, Product and People both disagree with
+the recomputation, and `bulletin_errors()` picks up an empty group that prints no reason.
+**Tried, measured, reverted** -- the rows carry their best-evidenced sub-type instead, with
+`Comments` opening `STAGED CLASSIFICATION pending <who>` and naming what would move it.
+That is the daily Routine's own convention applied by hand, and `update_row.py` carries the
+answer back when Engineering reports.
+
+**The general rule this settles: an unruled miss gets a staged classification and a
+`Pending` status, not a hole.** The tracker has no representation for "miss with no cause",
+and inventing one by leaving a field empty breaks the arithmetic three levels down.
 
 **The Not Impactful export is the instrument that settled these, and the lesson is about
 searching it, not about the data.** EAO-58 was reported twice as "nothing captured" before
@@ -2671,9 +2683,9 @@ the event finds the event.** Pattern the event.
 **Baseline on 05-Nov-2026:**
 
 ```
-134 emails     = 107 complaints + 27 inquiries
-107 complaints =  89 confirmed misses + 18 process issues
- 89 misses     =  50 Product + 39 Analyst
+136 emails     = 109 complaints + 27 inquiries
+109 complaints =  91 confirmed misses + 18 process issues
+ 91 misses     =  51 Product + 40 Analyst
 ```
 
 **`smoke_app.EXPECTED` for All customer emails moved TWICE on 05-Nov-2026, and the
