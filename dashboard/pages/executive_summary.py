@@ -35,7 +35,7 @@ import streamlit as st
 from dashboard.filters import filter_note
 from dashboard.metrics import card_details, inbox_rings, inbox_totals, trend_windows
 from dashboard.components import add_rule, add_section, clickable_kpis, detail_panel, nested_donut, page_header
-from dashboard.sections import render_bulletin_errors, render_customers, render_event_types, render_monthly_breakdown, render_root_cause, render_trend
+from dashboard.sections import render_bulletin_errors, render_customers, render_event_types, render_geography, render_monthly_breakdown, render_root_cause, render_trend
 
 
 
@@ -193,6 +193,14 @@ def render(df, filtered, selected_page):
 
     add_rule()
     render_customers(page)
+
+    add_rule()
+    # WHERE it hit, directly under who it hit. The two are the same question asked of
+    # two columns, and geography is the one a customer meeting opens on -- it is the same
+    # `render_geography()` Analysis runs, with its own widget key, so the two pages
+    # cannot have drifted. The key matters: one piece of session state shared between
+    # two pages would have an account picked here picked again over there.
+    render_geography(page, key="summary")
 
     add_rule()
     render_event_types(page)

@@ -2014,78 +2014,119 @@ def event_type_flow(df, top=None):
 #
 # The country block exists to answer one question the owner asked it for: **which
 # regions' news are we missing**, and is a regional pattern a language or source-network
-# gap rather than a volume effect. So the frame below carries BOTH bases on every row --
-# the emails that named the country and the misses inside them -- for the reason every
-# count table on this dashboard does: 5 misses in Mexico out of 8 emails is a different
-# fact from 5 out of 30, and a ranked list of raw counts answers neither.
+# gap rather than a volume effect.
+#
+# **It is the event-type block's own frame with `Country` in place of `Event type`**,
+# which is deliberate and is why `flow_bar()` draws it unchanged: a reader who has
+# learned the month chart has learned the event-type chart and now this one too, and
+# three blocks sharing one grammar cannot drift into three vocabularies. The nest is the
+# same three lines:
+#
+#     Emails     = Complaints + Inquiries
+#     Complaints = Misses + Reported, but wrong
+#     Misses     = Product + Analyst + Process
 #
 # It splits on the slash, so a corridor event lands on each country it closed, and the
 # rows therefore double-count on purpose. `country_totals()` is what the Total row
 # prints instead of a column sum -- the same rule, and the same reason, as
 # `customer_totals()`: a total row is a reconciliation, not a sum.
-GEO_MEASURES = {
-    "All emails": "Emails",
-    "Confirmed misses": "Misses",
-    "Product misses": "Product",
-    "Analyst misses": "Analyst",
-}
 
 
-def country_exposure(df):
-    """One row per country: every base, so the measure control only has to pick a column.
+def _country_mask(df, name):
+    """Rows whose `Country` names this country, slashes split out."""
+    return df["Country"].fillna("").astype(str).map(lambda v: name in countries_on(v))
 
-    The alternative was to narrow the frame per measure and recount, which is a second
-    implementation of the miss split waiting to disagree with the cards. The owner split
-    (`Product` / `Analyst` / `Process`) is read exactly as `monthly_breakdown()` reads
-    it -- `_miss_parts()` for the flag and `Root Cause` for the owner -- so a country
-    here cannot disagree with the month chart or the eight cards above it.
+
+def country_flow(df):
+    """One row per country, split the way the month chart splits a month.
+
+    `Owner` is the extra column the map needs and the bar does not: the owner that
+    carries most of that country's confirmed misses, which is what fills the country on
+    the choropleth. A country with no misses takes `UNKNOWN_OWNER`, so the fill says
+    "emails came from here and none of them was a failure" rather than picking a hue
+    that names a team.
+
+    **A tie goes to the LARGER owner overall, not to whichever pandas met first.**
+    Alphabetical order would hand every 1-1 country to Analyst, and the owner split is
+    51 Product against 40 Analyst, so a coin-toss dressed as a rule would quietly bias
+    the map. Ties are rare and the bar beside the map shows the split in full.
     """
     cols = ["Country", "Emails", "Complaints", "Inquiries", "Misses",
-            "Product", "Analyst", "Process", "Reported timely", "Miss %"]
+            "Product", "Analyst", "Process", "Wrong", "Reported timely", "Owner"]
     if df.empty or "Country" not in df.columns:
         return pd.DataFrame(columns=cols)
     issue = df.get("Issue Type", pd.Series(dtype=str)).reindex(df.index).fillna("").astype(str).str.strip()
     root = df.get("Root Cause", pd.Series(dtype=str)).reindex(df.index).fillna("").astype(str).str.strip()
     missed = _miss_parts(df)["missed"]
+    rank = {"Product": int((missed & root.eq("Product")).sum()),
+            "People": int((missed & root.eq("People")).sum()),
+            "Process": int((missed & root.eq("Process")).sum())}
     rows = []
     for name in country_names(df["Country"]):
-        here = df["Country"].fillna("").astype(str).map(lambda v: name in countries_on(v))
-        emails = int(here.sum())
+        m = _country_mask(df, name)
+        emails = int(m.sum())
         if not emails:
             continue
+        n_miss = int((m & missed).sum())
+        complaints = int((m & issue.eq("Complaint")).sum())
+        owned = {o: int((m & missed & root.eq(o)).sum()) for o in rank}
+        top = max(owned, key=lambda o: (owned[o], rank[o])) if n_miss else None
         rows.append({
-            "Country": name, "Emails": emails,
-            "Complaints": int((here & issue.eq("Complaint")).sum()),
-            "Inquiries": int((here & issue.eq("Inquiry")).sum()),
-            "Misses": int((here & missed).sum()),
-            "Product": int((here & missed & root.eq("Product")).sum()),
-            "Analyst": int((here & missed & root.eq("People")).sum()),
-            "Process": int((here & missed & root.eq("Process")).sum()),
-            "Reported timely": emails - int((here & missed).sum()),
-            "Miss %": int((here & missed).sum()) / max(emails, 1) * 100,
-        })
-    return pd.DataFrame(rows, columns=cols)
+            "Country": name, "Emails": emails, "Complaints": complaints,
+            "Inquiries": int((m & issue.eq("Inquiry")).sum()), "Misses": n_miss,
+            "Product": owned["Product"], "Analyst": owned["People"],
+            "Process": owned["Process"], "Wrong": complaints - n_miss,
+            "Reported timely": emails - n_miss,
+            "Owner": top or UNKNOWN_OWNER})
+    return (pd.DataFrame(rows, columns=cols)
+            .sort_values(["Misses", "Emails"], ascending=False).reset_index(drop=True))
+
+
+def country_titles(df, limit=None):
+    """{country: [the titles of the events we missed there]}.
+
+    **This is the half of the block that makes it worth looking at.** A map coloured by
+    owner says Mexico is a Product problem; it does not say the Product problem in Mexico
+    is three highway blockades and a factory fire. The titles are the record's own
+    `Event/Bulletin Title`, never a summary written here, for the reason
+    `what_happened()` is derived rather than typed: a hand-written gloss per country
+    would be twenty-eight strings that go stale the day a row is re-worded.
+    """
+    out: dict[str, list[str]] = {}
+    if df.empty or "Country" not in df.columns:
+        return out
+    missed = _miss_parts(df)["missed"]
+    titles = df.get("Event/Bulletin Title", pd.Series(dtype=str)).reindex(df.index).fillna("").astype(str)
+    for name in country_names(df["Country"]):
+        here = missed & _country_mask(df, name)
+        found = [t.strip() for t in titles[here] if t.strip()]
+        if found:
+            out[name] = found[:limit] if limit else found
+    return out
 
 
 def country_totals(df):
-    """The true column totals for `country_exposure()`, and how far its rows overshoot.
+    """The true column totals for `country_flow()`, and how far its rows overshoot.
 
-    Returns `(totals, overshoot)`. `overshoot` carries the three things a caption has to
-    say and none of which may be typed: how many emails name more than one country, how
-    many of those are misses, and how many rows carry no country at all -- because the
-    rows of this table CANNOT add to the tracker and a reader who tries will challenge
-    the page otherwise. That is the Customers impacted rule applied to a second column.
+    Returns `(totals, overshoot)`. `overshoot` carries the things a caption has to say
+    and none of which may be typed: how many emails name more than one country, how many
+    of those are misses, and how many rows carry no country at all -- because the rows of
+    this table CANNOT add to the tracker and a reader who tries will challenge the page
+    otherwise. That is the Customers impacted rule applied to a second column, with a
+    wrinkle Customers impacted does not have: this one misses in BOTH directions, since a
+    record with no country sits on no row at all.
     """
     issue = df.get("Issue Type", pd.Series(dtype=str)).reindex(df.index).fillna("").astype(str).str.strip()
     root = df.get("Root Cause", pd.Series(dtype=str)).reindex(df.index).fillna("").astype(str).str.strip()
     missed = _miss_parts(df)["missed"]
-    totals = {"Emails": len(df),
-              "Complaints": int(issue.eq("Complaint").sum()),
+    complaints = int(issue.eq("Complaint").sum())
+    totals = {"Emails": len(df), "Complaints": complaints,
               "Inquiries": int(issue.eq("Inquiry").sum()),
               "Misses": int(missed.sum()),
               "Product": int((missed & root.eq("Product")).sum()),
               "Analyst": int((missed & root.eq("People")).sum()),
               "Process": int((missed & root.eq("Process")).sum()),
+              "Wrong": complaints - int(missed.sum()),
               "Reported timely": len(df) - int(missed.sum())}
     col = df.get("Country", pd.Series(dtype=str)).reindex(df.index).fillna("").astype(str).str.strip()
     multi = col.map(lambda v: len(countries_on(v)) > 1)
@@ -2098,36 +2139,68 @@ def country_totals(df):
     return totals, overshoot
 
 
-def country_note(frame, totals, over, measure):
-    """The coverage line under the map, computed in full.
+def country_insight(frame, df):
+    """One computed sentence: which regions are a capture gap and which are an analyst one.
 
-    **It leads with the DISTINCT figure, not the column sum**, and that is the fix for
-    the first draft of this line: it opened "Confirmed misses: 95 across 28 countries"
+    **This is the point of pairing region with cause**, and without it the map is an
+    atlas rather than an instrument. A country whose misses are `Source Coverage` or
+    `Keyword Update` never had the story -- that is a monitoring-network or language gap
+    and Product buys against it. A country whose misses are People-rooted did have the
+    story, and no amount of source expansion touches it. The two call for opposite
+    spending, and a map coloured by volume cannot tell them apart.
+
+    Every figure is read off the frame on screen. A region named here and not on the
+    chart above it would be the fault this file keeps recording.
+    """
+    if frame.empty or df.empty:
+        return ""
+    part = _miss_parts(df)
+    capture = part["source"] | part["keyword"]
+    rows = []
+    for name in frame.loc[frame["Misses"] > 0, "Country"]:
+        m = _country_mask(df, name)
+        n_miss = int((m & part["missed"]).sum())
+        rows.append((name, n_miss, int((m & capture).sum())))
+    if not rows:
+        return ""
+    gaps = sorted((r for r in rows if r[2] * 2 >= r[1]), key=lambda r: -r[2])[:4]
+    seen = sorted((r for r in rows if r[1] - r[2] > r[2]), key=lambda r: -(r[1] - r[2]))[:4]
+    bits = []
+    if gaps:
+        bits.append("**The story never arrived** in " + ", ".join(
+            f"{n} ({c} of {t})" for n, t, c in gaps) +
+            " — those are monitoring-network and keyword gaps, and source expansion is "
+            "what moves them")
+    if seen:
+        bits.append("**We had the story** in " + ", ".join(
+            f"{n} ({t - c} of {t})" for n, t, c in seen) +
+            " — review and escalation, which no amount of source coverage touches")
+    return ". ".join(bits) + "." if bits else ""
+
+
+def country_note(frame, totals, over):
+    """The coverage line under the pair, computed in full.
+
+    **It leads with the DISTINCT figure, not a column sum**, and that is the fix for the
+    first draft of this line: it opened "Confirmed misses: 95 across 28 countries"
     against a tracker holding 91, because the rows double-count corridor events. A
     caption whose own headline disagrees with the cards is the fault this file keeps
     recording, and it would have sat directly under the chart a VP reads.
 
-    Four things then have to be said and every one of them moves with the data, so none
-    is typed: how much of the book carries a country at all, what `Global` is doing in
-    the table and not on the map, and why the rows cannot add to the foot -- in both
-    directions, which is this table's own wrinkle. The blank count is the honest half:
-    six records whose location nobody has established, and printing it is what stops a
-    reader taking the map for the whole tracker.
+    The blank count is the honest half -- records whose location nobody has established
+    -- and printing it is what stops a reader taking the map for the whole tracker.
     """
     if frame.empty:
         return ""
-    col = GEO_MEASURES.get(measure, "Emails")
-    here = frame[frame[col] > 0]
-    places = int((here["Country"] != GLOBAL).sum())
-    bits = [f"**{measure}: {totals.get(col, 0)}**, spread over "
-            f"{plural(places, 'named country', 'named countries')}"]
-    glob = here.loc[here["Country"] == GLOBAL, col]
-    if len(glob) and int(glob.iloc[0]):
+    places = int((frame["Country"] != GLOBAL).sum())
+    bits = [f"**{totals['Misses']} confirmed misses** of {totals['Emails']} emails, "
+            f"spread over {plural(places, 'named country', 'named countries')}"]
+    glob = frame.loc[frame["Country"] == GLOBAL, "Emails"]
+    if len(glob):
         n = int(glob.iloc[0])
-        bits.append(f"{n} more carry `{GLOBAL}` — the event "
-                    f"has no geography (a software supply-chain compromise, a market outlook, a "
-                    f"policy question, a portal defect), so it is a row in the table and nothing "
-                    f"on the map")
+        bits.append(f"{n} more carry `{GLOBAL}` — the event has no geography (a software "
+                    f"supply-chain compromise, a market outlook, a policy question, a portal "
+                    f"defect), so it is a bar in the chart and nothing on the map")
     bits.append(f"{over['covered']} of {totals['Emails']} emails in this filter carry a country "
                 f"at all; the other {over['blank']} have no location on the record "
                 f"({over['blank_misses']} of them confirmed misses)")

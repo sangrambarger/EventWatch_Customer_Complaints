@@ -61,7 +61,7 @@ EXPECTED: dict[str, tuple[int, int]] = {
     # complaints that section 5 does not cover. It adds NO chart on either page -- the
     # pills are HTML chips, not a plot -- so the chart counts are unchanged, which is
     # itself the check that nothing was quietly redrawn as plotly.
-    "Executive Summary": (8, 6),
+    "Executive Summary": (10, 7),
     # **This number tracks whether ANY row is `Pending`, and it moved twice in one
     # day.** The sixth table is "Under investigation", which renders only while some
     # row carries `Short Term Fix Status = Pending`; with none left, `records.py` draws
@@ -81,7 +81,7 @@ EXPECTED: dict[str, tuple[int, int]] = {
     # The minimum is their sum, because nothing was dropped in either move -- only the
     # duplicate page heading. If this number ever has to come DOWN, confirm the missing
     # block is a real absence before lowering it.
-    "Analysis": (11, 20),
+    "Analysis": (12, 20),
 }
 
 # Streamlit renders an expander as <details>; collapsed, its contents lay out at zero

@@ -805,7 +805,7 @@ def check_country_iso(df: pd.DataFrame, rep: Report) -> None:
         return
     sys.path.insert(0, str(REPO))
     try:
-        from dashboard.taxonomy import COUNTRY_ISO, GLOBAL, countries_on
+        from dashboard.taxonomy import COUNTRY_ISO, COUNTRY_LATLON, GLOBAL, countries_on
     except Exception as exc:                       # pragma: no cover - import guard
         rep.fail("country_iso", f"could not read COUNTRY_ISO from dashboard/taxonomy.py: {exc}")
         return
@@ -816,7 +816,15 @@ def check_country_iso(df: pd.DataFrame, rep: Report) -> None:
     if missing:
         rep.fail("country_iso",
                  f"{len(missing)} country value(s) have no ISO code in COUNTRY_ISO, so the "
-                 f"Analysis map would drop them without saying so: {missing[:4]}")
+                 f"map would drop them without saying so: {missing[:4]}")
+        return
+    # A country with a code and no label anchor draws on the map unnamed, which is the
+    # same silent half-failure as one that does not draw at all.
+    unlabelled = sorted(used - set(COUNTRY_LATLON) - {GLOBAL})
+    if unlabelled:
+        rep.fail("country_iso",
+                 f"{len(unlabelled)} country value(s) have no anchor in COUNTRY_LATLON, so "
+                 f"they would fill on the map with no label: {unlabelled[:4]}")
         return
     blank = int(sum(1 for v in df["Country"].fillna("") if not countries_on(v)))
     rep.note(f"all {len(used - {GLOBAL})} distinct country value(s) carry an ISO code; "

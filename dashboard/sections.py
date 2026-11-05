@@ -23,8 +23,8 @@ import streamlit as st
 from dashboard.styles import CAT_SLATE, ROOT_COLOURS, esc
 from dashboard.taxonomy import ROOT_OWNERSHIP, name_subtypes, plural
 from dashboard.filters import customer_names, filter_note, names_match
-from dashboard.metrics import GEO_MEASURES, MISS_BUCKETS, account_failures, bulletin_errors, month_causes, account_headline, count_table, customer_totals, driver_table, event_type_flow, miss_by_customer, miss_categories, miss_colours, miss_trend, monthly_breakdown, monthly_note, monthly_table, nature_table, owner_accounts, owner_insight, root_drivers, root_frame, root_recent_note, root_summary, subtype_matrix, takeaway, trend_note, trend_windows, country_exposure, country_note, country_totals
-from dashboard.components import add_rule, add_section, chart, country_map, downloads, driver_bar, fault_pills, excel_bar_table, flow_bar, grouped_bar, heatmap, kpis, monthly_stack, page_header, proportion_bar, stacked_bar, styled_table, trend_line
+from dashboard.metrics import MISS_BUCKETS, account_failures, bulletin_errors, month_causes, account_headline, count_table, customer_totals, driver_table, event_type_flow, miss_by_customer, miss_categories, miss_colours, miss_trend, monthly_breakdown, monthly_note, monthly_table, nature_table, owner_accounts, owner_insight, root_drivers, root_frame, root_recent_note, root_summary, subtype_matrix, takeaway, trend_note, trend_windows, country_flow, country_insight, country_note, country_titles, country_totals
+from dashboard.components import GEO_WINDOWS, add_rule, add_section, chart, country_map, downloads, driver_bar, fault_pills, excel_bar_table, flow_bar, grouped_bar, heatmap, kpis, monthly_stack, page_header, proportion_bar, stacked_bar, styled_table, trend_line
 
 
 
@@ -715,58 +715,80 @@ def render_deeper_root_cause(page):
 
 
 def render_geography(page, key="geo"):
-    """Where the events were -- the one block with its own two controls.
+    """Where the events were -- a map and a ranked bar, side by side, one vocabulary.
 
-    **It carries its own Customer and measure selectors on purpose, and that is not a
-    second global filter.** The sidebar `Customer` narrows every page at once, which is
-    right for building a customer deck and wrong for the question this block exists to
-    answer: *which regions' news are we missing*. A reader asking that wants to move
-    between accounts and between measures while the rest of the page holds still, and
-    the precedent is already here -- the sub-type heatmap and the account view each
-    carry a selector that narrows one block. The sidebar filter still applies first, so
-    narrowing the sidebar to Ford and the block to GM gives the intersection, which is
-    empty and says so rather than quietly ignoring one of them.
+    **Two views because neither answers the question alone.** The map says WHERE and
+    WHOSE: a filled country in `ROOT_COLOURS` tells a reader at a glance that Mexico is
+    Product's problem and Japan is EventWatch Ops'. It cannot say how many without
+    shading by size, which this dashboard forbids -- *colour carries one thing and
+    nothing else: who fixes it*. The bar beside it is `flow_bar()`, the event-type
+    chart's own function, so the magnitudes arrive in the grammar a reader has already
+    learned twice: a row's length is how much arrived and its colour is where it failed.
 
-    **The measure control picks a COLUMN, it does not re-filter the frame.**
-    `country_exposure()` returns every base on every row, so switching from All emails
-    to Analyst misses recolours the map and re-ranks the table out of one computation.
-    Narrowing the frame per measure would be a second implementation of the owner split
-    waiting to disagree with the cards.
+    **Its Customer selector is not a second global filter.** The sidebar narrows every
+    page at once, which is right for building a customer deck and wrong for the question
+    this block exists to answer. The precedent is already on Analysis twice -- the
+    sub-type heatmap and the account view each carry a selector that narrows one block.
+    The sidebar filter applies first, so sidebar-Ford and block-GM gives the
+    intersection, which is empty and says so.
+
+    **`country_insight()` is what makes it an instrument rather than an atlas.** A
+    region whose misses never entered the system is a monitoring-network or language gap
+    and source expansion moves it; a region whose misses were seen and declined is review
+    and escalation, which source expansion does not touch. The two call for opposite
+    spending and a map of volume cannot tell them apart.
     """
-    add_section("Where the events were", "", "#80cbc4")
+    add_section("Where the events were, and whose they were", "", "#80cbc4")
     options = ["All customers"] + customer_names(page.get("Customer"))
     c1, c2 = st.columns([2, 1])
     picked = c1.selectbox("Customer", options, key=f"{key}_country_customer",
-                          help="Applies to this section only. A record naming two accounts "
-                               "counts for each of them.")
-    measure = c2.selectbox("Colour the map by", list(GEO_MEASURES), key=f"{key}_country_measure",
-                           help="Every measure is read off the same rows, so the table below "
-                                "does not change -- only the colour and the ranking do.")
+                          help="Applies to this section only — the sidebar filter still "
+                               "applies first. A record naming two accounts counts for each.")
+    region = c2.selectbox("Zoom the map to", list(GEO_WINDOWS), key=f"{key}_country_region",
+                          help="World shows each country's miss count; pick a region and "
+                               "every country there is named in full. It moves the map only "
+                               "— the chart, the table and the totals are unchanged.")
     focus = page if picked == "All customers" else page[names_match(page["Customer"], [picked])]
     if focus.empty:
         st.info(f"No email for {picked} in the current filter.")
         return
-    frame = country_exposure(focus)
+    frame = country_flow(focus)
     if frame.empty:
         st.info("No email in the current filter carries a country.")
         return
+    titles = country_titles(focus)
     totals, over = country_totals(focus)
-    col = GEO_MEASURES[measure]
     suffix = "" if picked == "All customers" else f" — {picked}"
-    fig, unmapped = country_map(frame, col, measure, title=f"{measure} by country{suffix}")
-    if unmapped:
-        # Surfaced rather than swallowed. `validate.py` blocks a tracker value with no
-        # ISO entry, so this should be unreachable -- and the one thing worse than a
-        # country missing from the map is a country missing from the map in silence.
-        st.warning(f"Not drawn on the map, no ISO code on record: {', '.join(unmapped)}. "
-                   f"They are counted in the table below.")
-    ranked = frame.sort_values([col, "Emails"], ascending=False).reset_index(drop=True)
+    left, right = st.columns(2, gap="medium")
+    with left:
+        fig, unmapped = country_map(frame, titles, region=region,
+                                    title=f"Who owns each region's misses{suffix}")
+        if unmapped:
+            # Surfaced rather than swallowed. `validate.py` blocks a tracker value with
+            # no ISO entry, so this should be unreachable -- and the one thing worse than
+            # a country missing from the map is a country missing from it in silence.
+            st.warning(f"Not drawn on the map, no ISO code on record: {', '.join(unmapped)}. "
+                       f"They are counted in the chart and the table.")
+    with right:
+        bar = flow_bar(frame, "Country", title=f"Every country, ranked by misses{suffix}",
+                       x_title="Customer complaints", top=118)
+    insight = country_insight(frame, focus)
+    if insight:
+        st.caption(insight)
+    table = frame.drop(columns=["Owner"])
+    # The missed-event titles, one row of bullets per country -- the same device
+    # `category_table()` uses for the customer wordings behind a reason category, and for
+    # the same reason: it turns "Germany 9" from something a reader has to trust into
+    # something they can check. Every title, not a head: the hover caps at six and says
+    # so, and this is where the rest of them live.
+    table.insert(1, "What we missed there",
+                 table["Country"].map(lambda c: "\n".join(f"• {t}" for t in titles.get(c, []))))
     with st.expander("Show the numbers"):
-        excel_bar_table(ranked, "Country", value_col=col,
-                        extras=[c for c in ("Emails", "Complaints", "Inquiries", "Misses",
-                                            "Product", "Analyst", "Process", "Reported timely")
-                                if c != col],
-                        label_head="Country", value_head=measure, height=460,
-                        variant="roomy", totals=totals, classes={"Country": "nowrap"})
-    st.caption(country_note(frame, totals, over, measure))
-    downloads(ranked.drop(columns=["Miss %"], errors="ignore"), f"{key}_countries", fig)
+        excel_bar_table(table, "Country", value_col="Misses",
+                        extras=[c for c in table.columns
+                                if c not in ("Country", "Misses", "What we missed there")],
+                        label_head="Country", value_head="Confirmed misses", height=520,
+                        variant="roomy", totals=totals, wrap=("What we missed there",),
+                        classes={"Country": "nowrap"})
+    st.caption(country_note(frame, totals, over))
+    downloads(table, f"{key}_countries", fig)

@@ -3392,9 +3392,12 @@ cannot tell a table that overflows from one the crop simply cut.
 
 ## Where the events were
 
-**The country block is on Analysis, between the two halves of the page, and it is the
-one block with its own two controls.** `render_geography()` draws `country_map()` over
-`country_exposure()`, with a `Customer` selectbox and a measure selectbox above it.
+**The country block is on BOTH the Executive Summary and Analysis**, drawn by one
+`render_geography()` with a different widget key on each -- one piece of session state
+shared between two pages would have an account picked here picked again over there. On
+the summary it sits directly under Customers impacted: who it hit, then where. Its
+labels are registered in `audit_pages.expectations()` for both pages, the way Customers
+impacted already is, because a shared renderer means shared expectations.
 The owner's question for it, in their own words, is **which keywords or region news we
 are missing** -- so it is a cut of the miss book by geography, not a decoration.
 
@@ -3406,14 +3409,13 @@ twice -- the sub-type heatmap and the account view each carry a selector that na
 block. The sidebar filter still applies first, so narrowing the sidebar to Ford and this
 block to GM gives the intersection, which is empty and says so.
 
-**The measure control picks a COLUMN; it does not re-filter the frame.**
-`country_exposure()` returns every base on every row -- Emails, Complaints, Inquiries,
-Misses, Product, Analyst, Process, Reported timely -- so switching from All emails to
-Analyst misses recolours the map and re-ranks the table out of one computation. Narrowing
-per measure would be a second implementation of the owner split waiting to disagree with
-the eight cards. The split is read exactly as `monthly_breakdown()` reads it
+**The measure selectbox is GONE, and the stacked bar is why.** The first cut carried a
+"colour the map by" control with four options -- all emails, confirmed misses, Product
+misses, Analyst misses -- which made a reader click four times to see one split. The bar
+draws all of them at once as segments, so the toggle was hiding information rather than
+revealing it. The owner split is read exactly as `monthly_breakdown()` reads it
 (`_miss_parts()` for the flag, `Root Cause` for the owner), so a country here cannot
-disagree with the month chart above it.
+disagree with the month chart or the eight cards above it.
 
 **`Country` holds where the EVENT happened**, never the supplier's headquarters and never
 the customer's. Three conventions, all the owner's rulings of 05-Nov-2026:
@@ -3464,13 +3466,79 @@ counts in `expectations()`. Analysis went 52 labels to 81 with "not rendered" un
 3 -- which is what that number is for. Proved by seeding Japan one short and watching it
 fail, then reverting.
 
-**Four render faults were found by SCREENSHOTTING, not by reasoning:**
+**It is TWO views side by side, and neither answers the question alone.** The map says
+WHERE and WHOSE -- a country filled in `ROOT_COLOURS` tells a reader at a glance that
+Mexico is Product's problem and Japan is EventWatch Ops'. The bar beside it is
+`flow_bar()`, the event-type chart's own function, so the magnitudes arrive in the
+grammar a reader has already learned twice. `country_flow()` is `event_type_flow()`'s
+frame with `Country` in place of `Event type`, which is why the bar needed no new code.
 
-1. **The ramp starts at `BLUE_RAMP[1]`, not `[0]`.** `BLUE_RAMP` opens on `--panel`
-   (`#1b1f26`), which is exactly the land colour of a country with no emails -- so Germany
-   at 10 and China at 6 drew within a couple of points of a country nobody has ever
-   complained about, and the map's whole bottom half read as empty. The floor is `#24384f`
-   now, clearly off the unfilled land and still the same ramp the heatmap uses.
+**The map is filled by OWNER, not shaded by count, and the first cut was rejected for
+shading.** It was a `BLUE_RAMP` choropleth keyed on the number, and the owner's
+objection was right on this file's own rule: *colour carries one thing and nothing else
+-- who fixes it*, and *nothing is shaded by its own size*. A ramp keyed on the count
+spends the only free channel restating a number the label and the bar both already
+print, and it makes the map speak a palette that appears nowhere else on the dashboard.
+One `go.Choropleth` trace per owner rather than one with a colour axis, because that is
+what gives the legend the owner's own name -- the old version's only key was a colour
+bar reading 10 to 40, which named nobody. A country with emails and no miss takes
+`CAT_SLATE` under `UNKNOWN_OWNER`: "nothing failed here" is a real state and must never
+wear an owner hue.
+
+**`country_insight()` is what makes it an instrument rather than an atlas**, and it is
+the answer to the question the block was asked for. A region whose misses are
+`Source Coverage` or `Keyword Update` never had the story -- a monitoring-network or
+language gap, which source expansion moves. A region whose misses are People-rooted did
+have the story, and no amount of source coverage touches it. The two call for opposite
+spending and a map of volume cannot tell them apart. It reads today: *the story never
+arrived in Germany (6 of 9), Mexico (5 of 7), China (4 of 6); we had the story in the
+United States (18 of 25), Japan (6 of 7), Taiwan (4 of 6).*
+
+**The table carries every missed event's own title**, in a `What we missed there`
+column of bullets -- the device `category_table()` uses for the wordings behind a reason
+category, and for the same reason: it turns "Germany 9" from something a reader has to
+trust into something they can check. The hover prints the first `TITLES_ON_HOVER` and
+says how many more. The titles are the record's own `Event/Bulletin Title`, never a
+summary written here.
+
+**`GEO_WINDOWS` exists to solve a LABEL problem, not to be a feature.** Screenshotted at
+world scale with every missed country named, Austria, Czechia, Croatia, Bosnia and
+Switzerland print on top of one another -- five countries as one illegible smear, in the
+region carrying the second-largest block of misses. Shrinking the font does not fix a
+collision and labelling only the big ones is the silent `top=N` this file refuses. The
+rule is cartographic: **names where there is room, numbers where there is not.** At
+world scale every missed country carries its count and the names live on the bar beside
+it at the same eye level; pick a region and the map fills the panel with that window,
+where every name fits.
+
+**It is a lat/lon WINDOW and not plotly's `scope`, which is a correction a screenshot
+forced.** `scope="europe"` drew a conic projection whose clip rendered as a dark
+triangle with Europe a thumbnail inside it -- and worse, `scope` does not touch the
+`scattergeo` label trace at all, so China, India and South Africa went on printing their
+names over the empty corners of a map of Europe. The window keeps the natural earth
+projection the world view uses, and `country_map()` filters the labels to it rather than
+trusting plotly to clip them.
+
+**`COUNTRY_LATLON` is a second map that `validate.py` checks beside `COUNTRY_ISO`**,
+because plotly draws a filled country from its ISO code and has no text of its own: the
+names ride on a `scattergeo` trace that needs a point to sit on. They are the anchors a
+printed atlas puts a country's name on, not true area centroids -- Canada's centroid is
+in the empty north. A country with a code and no anchor fills on the map with no label,
+which is the same silent half-failure as one that does not draw at all.
+
+**`flow_bar()` gained `top` because a horizontal legend WRAPS in a narrow column** and
+then prints over the chart's own title. At full width the segment names sit on one line
+under a 54px margin; in this block's half-width column they wrapped to three lines and
+the title vanished behind them. The narrow caller asks for the taller margin and the
+full-width callers are untouched.
+
+**Four more render faults were found by SCREENSHOTTING, not by reasoning:**
+
+1. **A sequential ramp cannot start on the surface colour.** `BLUE_RAMP` opens on
+   `--panel` (`#1b1f26`), which is exactly the land colour of a country with no emails --
+   so Germany at 10 and China at 6 drew within a couple of points of a country nobody has
+   ever complained about. That version is gone with the owner fill above, and the lesson
+   stands for the next sequential chart drawn on a dark surface.
 2. **`projection_rotation_lon=0`.** Plotly's default put the dateline in the middle, so
    Europe -- ten of the countries on this map -- was squashed against the left edge while
    the United States sat against the right and the Atlantic was cut in half.
@@ -3480,13 +3548,11 @@ fail, then reverting.
 4. **`showocean` in `#12151a`.** Plotly's default ocean blue sits a few points from
    `--blue`, so the sea read as the darkest bucket of the scale.
 
-**The one cost, stated rather than papered over:** the United States is 40 emails against
-a median country of 2, so every other country sits in the bottom quarter of the ramp, and
-Austria, Czechia and Switzerland are a few pixels each. A choropleth cannot fix either.
-The ranked table under it carries the exact counts and the hover carries emails, misses
-and the owner split, which is the secondary encoding that makes the map legal -- **do not
-switch the colour to a rate to flatten the scale**, because the question the owner asked
-it is how many we are missing, not what share.
+**The one cost, stated rather than papered over:** Austria, Czechia and Switzerland are
+a few pixels each at world scale, so a reader who wants them has to zoom. That is what
+`GEO_WINDOWS` is for, and the bar beside the map lists every country at full size
+whatever the map is showing. **Do not add a `top=N` to the bar to shorten it** -- every
+country is on it on purpose, which is the same rule the event-type chart carries.
 
 **Region is NOT a second column.** It is a country-to-region map in `taxonomy.py` the day
 a region view is wanted, which costs no schema change and cannot drift from the country

@@ -697,3 +697,29 @@ def country_names(series):
         seen.update(countries_on(value))
     real = sorted(name for name in seen if name != GLOBAL)
     return real + ([GLOBAL] if GLOBAL in seen else [])
+
+
+# Label anchors for the choropleth, one per country in `COUNTRY_ISO`.
+#
+# A filled country cannot carry its own name without one: plotly draws the shape from
+# the ISO code and has no text layer of its own, so the labels ride on a `scattergeo`
+# trace that needs a point to sit on. These are the conventional map-label anchors (the
+# point a printed atlas puts the country's name on), NOT true area centroids -- the
+# United States' centroid is in Kansas, which is right, while Canada's is in the empty
+# north and Norway's falls in the sea.
+#
+# `validate.py`'s `country_iso` rule checks this map alongside `COUNTRY_ISO`, because a
+# country with a code and no anchor draws on the map with no label, which is the same
+# silent half-failure as a country with neither.
+COUNTRY_LATLON = {
+    "Austria": (47.5, 14.5), "Bosnia and Herzegovina": (43.5, 17.6),
+    "Canada": (56.5, -100.0), "China": (34.5, 103.0), "Croatia": (45.3, 16.0),
+    "Czech Republic": (49.8, 15.5), "France": (46.6, 2.5), "Germany": (51.2, 10.4),
+    "India": (22.5, 79.0), "Iran": (32.0, 53.0), "Japan": (36.5, 138.5),
+    "Laos": (18.5, 103.9), "Mexico": (23.6, -102.5), "Morocco": (31.8, -7.1),
+    "Romania": (45.9, 25.0), "Serbia": (45.0, 21.4), "South Africa": (-29.0, 24.7),
+    "South Korea": (36.5, 127.9), "Spain": (40.0, -3.7), "Sweden": (62.5, 15.5),
+    "Switzerland": (46.8, 8.2), "Taiwan": (23.7, 121.0), "Thailand": (15.5, 101.0),
+    "Turkiye": (39.0, 35.0), "Ukraine": (48.8, 31.2), "United Kingdom": (54.0, -2.5),
+    "United States": (39.5, -98.5), "Venezuela": (7.0, -66.0),
+}

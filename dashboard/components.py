@@ -19,7 +19,7 @@ import streamlit as st
 
 from dashboard.config import DESCRIPTIONS, PAGE_KICKERS
 from dashboard.styles import BLUE_RAMP, CAT_SLATE, RED_BLUE, ROOT_COLOURS, TAGS, UNKNOWN_OWNER, esc
-from dashboard.taxonomy import COUNTRY_ISO, GLOBAL, plural, shorten
+from dashboard.taxonomy import COUNTRY_ISO, COUNTRY_LATLON, GLOBAL, plural, shorten
 
 
 
@@ -994,7 +994,7 @@ def _on_fill(colour):
     return "#f3f4f6" if (lum + 0.05) / 0.062 < 0.945 / (lum + 0.05) else "#1b1f26"
 
 
-def flow_bar(frame, label_col, title="", x_title="Customer complaints"):
+def flow_bar(frame, label_col, title="", x_title="Customer complaints", top=None):
     """A horizontal bar split the way the month chart splits a month.
 
     Same four segments, same colours, same order, straight off `MONTH_PARTS` -- so a
@@ -1027,8 +1027,15 @@ def flow_bar(frame, label_col, title="", x_title="Customer complaints"):
                           + f" — {esc(meaning)}<extra></extra>")
     fig.update_layout(
         barmode="stack", template="plotly_dark", plot_bgcolor="#1b1f26",
-        paper_bgcolor="#1b1f26", font=dict(color="#f3f4f6", size=13), title=title,
-        margin=dict(l=20, r=40, t=54, b=28), legend_title_text="",
+        paper_bgcolor="#1b1f26", font=dict(color="#f3f4f6", size=13),
+        # `top` exists because a horizontal legend WRAPS in a narrow column and then
+        # prints over the chart's own title. At full width the three segment names sit
+        # on one line under a 54px margin and nothing collides; in the geography block's
+        # half-width column they wrap to three lines and the title disappeared behind
+        # them -- visible in the screenshot, not reasoned about. The caller that is
+        # narrow asks for the taller margin; the full-width callers are untouched.
+        title=dict(text=title, y=0.985, yanchor="top"),
+        margin=dict(l=20, r=40, t=top or 54, b=28), legend_title_text="",
         legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0, traceorder="normal"),
         uniformtext=dict(minsize=9, mode="hide"), hovermode="y unified",
         # The cap was 760px when this drew a top twelve. It draws all twenty-six now,
@@ -1045,33 +1052,91 @@ def flow_bar(frame, label_col, title="", x_title="Customer complaints"):
     return fig
 
 
-def country_map(frame, value_col, measure, title=""):
-    """Where the events were, on a world map, coloured by one measure.
+# The map's fills, in the Executive Summary's own vocabulary. `ROOT_COLOURS` is the one
+# source, so a Product country is the same blue as a Product miss on the cards, on the
+# month chart and on the event-type bars. `UNKNOWN_OWNER` holds the countries that sent
+# emails and no confirmed miss -- it says "nothing failed here", which is a real state
+# and not a missing value, and it must never take an owner hue.
+GEO_FILLS = (
+    ("Product", ROOT_COLOURS["Product"], "Mostly Product misses — the event never reached them"),
+    ("People", ROOT_COLOURS["People"], "Mostly Analyst misses — a person had it and it did not go out"),
+    ("Process", ROOT_COLOURS["Process"], "Mostly Process misses — the workflow or guideline was at fault"),
+    (UNKNOWN_OWNER, CAT_SLATE, "Emails from here, no confirmed miss"),
+)
+GEO_FILL_NAMES = {"Product": "Product", "People": "Analyst", "Process": "Process",
+                  UNKNOWN_OWNER: "No miss here"}
+
+# How many missed-event titles a country's hover prints before it stops counting. Six
+# fills a hover box without running it off the panel; the rest are reachable in the
+# table's own column, which lists every one of them. It is a DISPLAY cap and lives here
+# rather than beside `country_titles()` in `metrics`: reading it from there would add a
+# components -> metrics edge for a symbol that belongs on this side of the graph.
+TITLES_ON_HOVER = 6
+
+
+# The regions the map can zoom to, as explicit lat/lon windows.
+#
+# **This exists to solve a LABEL problem, not to be a feature.** Screenshotted at world
+# scope with every missed country named, Austria, Czechia, Croatia, Bosnia, Switzerland
+# and Slovenia sit inside about fifteen pixels of each other and their labels print on
+# top of one another -- six countries rendered as one illegible smear, in the region
+# carrying the second-largest block of misses. Shrinking the font does not fix a
+# collision, and labelling only the big ones is the silent `top=N` this file refuses.
+#
+# So the rule is cartographic rather than arbitrary: **names where there is room,
+# numbers where there is not.** At world scale every missed country carries its count
+# and the names live on the bar beside it at the same eye level; pick a region and the
+# map fills the panel with that window, where every name fits at full size.
+#
+# **It is a WINDOW and not plotly's `scope`, and that is a correction a screenshot
+# forced.** `scope="europe"` draws a conic projection whose clip rendered as a dark
+# triangle with Europe a thumbnail inside it -- and, worse, `scope` does not touch the
+# `scattergeo` label trace at all, so China, India and South Africa went on printing
+# their names over the empty corners of a map of Europe. A window keeps the natural
+# earth projection the world view already uses, and the labels are filtered to it here
+# rather than left to plotly to clip.
+GEO_WINDOWS = {
+    "World": ((-42, 76), (-165, 180)),
+    "Europe": ((35, 70), (-11, 42)),
+    "Asia": ((-11, 56), (56, 151)),
+    "North America": ((8, 72), (-170, -48)),
+    "South America": ((-56, 14), (-83, -33)),
+    "Africa": ((-36, 38), (-20, 53)),
+}
+
+
+def country_map(frame, titles, region="World", title=""):
+    """Where the events were, filled by WHO OWNS that country's misses.
+
+    **It was a `BLUE_RAMP` choropleth shaded by count, and the owner rejected it --
+    correctly, and on this file's own rule.** The law here is *colour carries one thing
+    and nothing else: who fixes it*, and *nothing is shaded by its own size*. A ramp
+    keyed on the count spends the only free channel restating a number the label and the
+    bar beside it both already print, and it makes the map speak a palette that appears
+    nowhere else on the dashboard. Filled by owner, the map answers something the bar
+    cannot: whether a region's problem is Product's or EventWatch Ops'.
+
+    One trace per owner rather than one trace with a colour axis, because that is what
+    gives the legend the owner's own name -- a continuous colour bar reading 10 to 40
+    was the old version's only key, and it named nobody.
 
     **The codes are explicit and that is the whole reason this is not a one-liner.**
-    `px.choropleth(locationmode="country names")` matches by name and drops a name it
-    does not recognise SILENTLY -- no exception, no warning, just a country missing from
-    the map while its row sits in the table below saying otherwise. `COUNTRY_ISO` is the
-    map, `validate.py`'s `country_iso` rule fails on a tracker value with no entry in it,
-    and anything that still fails to resolve here is RETURNED rather than swallowed so
-    the caller can print it. Three layers, because a map that quietly omits a country is
-    the one failure this block must not have.
+    `locationmode="country names"` matches by name and drops a name it does not
+    recognise SILENTLY -- no exception, no warning, just a country missing from the map
+    while its row sits in the table below saying otherwise. `COUNTRY_ISO` is the map,
+    `validate.py`'s `country_iso` rule fails on a tracker value with no entry in it, and
+    anything that still fails to resolve here is RETURNED rather than swallowed.
 
-    `Global` is not drawn. It is a real value on eleven records and it is not a place, so
-    it belongs in the table and in the caption; painting it onto a map would mean picking
-    a country for it, which is the invention this column exists to avoid.
-
-    Colour is `BLUE_RAMP`, the app's own ramp -- the same one the sub-type heatmap uses,
-    and for the same reason: this is one sequential magnitude, not a set of categories,
-    and a new hue here would break the one-palette rule for a single view.
+    `Global` is not drawn. It is a stated value on eleven records and it is not a place;
+    painting it would mean picking a country for it, which is the invention this column
+    exists to avoid.
     """
     if frame is None or frame.empty:
         st.info("Chart cannot be rendered because required fields are missing: Country.")
         return None, []
     data = frame[frame["Country"] != GLOBAL].copy()
-    data = data[data[value_col] > 0]
     if data.empty:
-        st.info(f"No {measure.lower()} in this filter carry a country.")
+        st.info("No email in this filter carries a country.")
         return None, []
     data["_iso"] = data["Country"].map(COUNTRY_ISO)
     unmapped = sorted(data.loc[data["_iso"].isna(), "Country"].unique())
@@ -1079,41 +1144,80 @@ def country_map(frame, value_col, measure, title=""):
     if data.empty:
         st.info("No country in this filter resolves to a map location.")
         return None, unmapped
-    # **The ramp starts at BLUE_RAMP[1], not BLUE_RAMP[0], and that is a correction a
-    # screenshot forced.** `BLUE_RAMP` opens on `--panel` (#1b1f26), which is exactly the
-    # land colour of a country with no emails at all -- so Germany at 10 and China at 6
-    # drew within a couple of points of a country nobody has ever complained about, and
-    # the map's whole bottom half read as empty. The floor is #24384f now, which is
-    # clearly off the unfilled land while still being the same ramp the heatmap uses.
-    fig = px.choropleth(data, locations="_iso", color=value_col,
-                        hover_name="Country", color_continuous_scale=BLUE_RAMP[1:], title=title)
-    fig.update_traces(marker_line_color="#1b1f26", marker_line_width=0.6,
-                      customdata=data[["Emails", "Misses", "Product", "Analyst"]].values,
-                      hovertemplate="<b>%{hovertext}</b><br>%{customdata[0]} email(s)"
-                                    "<br>%{customdata[1]} confirmed miss(es)"
-                                    "<br>%{customdata[2]} product · %{customdata[3]} analyst"
-                                    "<extra></extra>")
-    # `showframe` and `showcoastlines` off, land in --panel: an unfilled country has to
-    # read as "no emails from here" rather than as a second data value, and the default
-    # ocean blue sits a few points from `--blue`, which would make the sea look like the
-    # darkest bucket of the scale.
+    fig = go.Figure()
+    for owner, colour, meaning in GEO_FILLS:
+        here = data[data["Owner"] == owner]
+        if here.empty:
+            continue
+        hover = []
+        for _, row in here.iterrows():
+            found = titles.get(row["Country"], [])
+            head = (f"<b>{esc(str(row['Country']))}</b><br>{int(row['Emails'])} email(s)"
+                    f" · {int(row['Misses'])} confirmed miss(es)<br>"
+                    f"{int(row['Product'])} product · {int(row['Analyst'])} analyst"
+                    f" · {int(row['Wrong'])} reported, but wrong<br>"
+                    f"<i>{esc(meaning)}</i>")
+            if found:
+                shown = [f"• {esc(shorten(t, 62))}" for t in found[:TITLES_ON_HOVER]]
+                rest = len(found) - len(shown)
+                head += "<br><br><b>What we missed here</b><br>" + "<br>".join(shown)
+                if rest > 0:
+                    head += f"<br>…and {rest} more, listed in the table"
+            hover.append(head)
+        fig.add_trace(go.Choropleth(
+            locations=list(here["_iso"]), z=[1] * len(here),
+            colorscale=[[0, colour], [1, colour]], showscale=False,
+            name=GEO_FILL_NAMES.get(owner, owner), showlegend=True,
+            marker_line_color="#12151a", marker_line_width=0.6,
+            text=hover, hovertemplate="%{text}<extra></extra>"))
+    # The label layer. Plotly draws a filled country from its ISO code and has no text of
+    # its own, so the names ride on a scattergeo trace anchored at `COUNTRY_LATLON`.
+    # Only countries with a confirmed miss are labelled: all twenty-eight collide
+    # illegibly across Europe, and a country with nothing missed is not what a reader
+    # came to this map to find. It is not a silent `top=N` -- every country, missed or
+    # not, is a bar on the chart beside it and a row in the table under it.
+    marked = data[data["Misses"] > 0]
+    if len(marked):
+        coords = marked["Country"].map(COUNTRY_LATLON)
+        keep = coords.notna()
+        marked, coords = marked[keep], coords[keep]
+    if len(marked):
+        # Filtered to the window rather than left to plotly: a label outside the view is
+        # not clipped reliably and printed its name over the empty corner of a zoomed map.
+        (lat0, lat1), (lon0, lon1) = GEO_WINDOWS[region]
+        inside = [lat0 <= c[0] <= lat1 and lon0 <= c[1] <= lon1 for c in coords]
+        marked, coords = marked[inside], coords[inside]
+    if len(marked):
+        named = region != "World"
+        fig.add_trace(go.Scattergeo(
+            lat=[c[0] for c in coords], lon=[c[1] for c in coords], mode="text",
+            text=[(f"{n} {int(m)}" if named else str(int(m)))
+                  for n, m in zip(marked["Country"], marked["Misses"])],
+            textfont=dict(size=11 if named else 12, color="#f3f4f6", family="Inter, sans-serif"),
+            textposition="middle center", showlegend=False, hoverinfo="skip"))
     # Two framing facts, both measured rather than reasoned about. Plotly's default
     # rotation put the DATELINE in the middle, so Europe -- ten of the countries on this
     # map -- was squashed against the left edge while the United States sat against the
-    # right and the Atlantic was cut in half; `rotation.lon = 0` restores the framing a
-    # reader expects, Americas left, Europe centre, Asia right. And the latitude range
-    # is clipped to -45..78 because the tracker holds no event below Johannesburg or
-    # above Sweden, and the uncropped projection spent a third of a 520px panel on the
-    # Southern Ocean and Antarctica.
-    fig.update_geos(showframe=False, showcoastlines=False, showcountries=True,
-                    countrycolor="#2a2f3a", landcolor="#1b1f26", lakecolor="#12151a",
-                    bgcolor="#1b1f26", showocean=True, oceancolor="#12151a",
-                    projection_type="natural earth", projection_rotation_lon=0,
-                    lataxis_range=[-45, 78], lonaxis_range=[-170, 180])
+    # right and the Atlantic was cut in half. And the latitude range is clipped because
+    # the tracker holds no event below Johannesburg or above Sweden, and the uncropped
+    # projection spent a third of the panel on the Southern Ocean and Antarctica.
+    geo = dict(showframe=False, showcoastlines=False, showcountries=True,
+               countrycolor="#262c36", landcolor="#1b1f26", lakecolor="#12151a",
+               bgcolor="#1b1f26", showocean=True, oceancolor="#12151a")
+    # One projection for every region. Plotly's default rotation put the DATELINE in the
+    # middle, so Europe -- ten of the countries on this map -- was squashed against the
+    # left edge while the United States sat against the right and the Atlantic was cut in
+    # half. The world window is clipped north and south because the tracker holds no
+    # event below Johannesburg or above Sweden, and the uncropped projection spent a
+    # third of the panel on the Southern Ocean and Antarctica.
+    (lat0, lat1), (lon0, lon1) = GEO_WINDOWS[region]
+    geo.update(projection_type="natural earth", projection_rotation_lon=0,
+               lataxis_range=[lat0, lat1], lonaxis_range=[lon0, lon1])
+    fig.update_geos(**geo)
     fig.update_layout(template="plotly_dark", paper_bgcolor="#1b1f26", plot_bgcolor="#1b1f26",
-                      font=dict(color="#f3f4f6", size=13),
-                      margin=dict(l=0, r=0, t=70, b=0), height=520,
-                      coloraxis_colorbar=dict(title="", thickness=12, len=0.6,
-                                              tickfont=dict(size=11, color="#b6beca")))
+                      font=dict(color="#f3f4f6", size=13), title=title,
+                      margin=dict(l=0, r=0, t=56, b=0), height=560,
+                      legend=dict(orientation="h", yanchor="bottom", y=1.0, x=0,
+                                  traceorder="normal", bgcolor="rgba(0,0,0,0)"))
     st.plotly_chart(fig, width="stretch")
     return fig, unmapped

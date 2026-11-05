@@ -151,7 +151,13 @@ def expectations(df: pd.DataFrame) -> dict[str, dict[str, int]]:
         # here any more because neither is rendered here -- an expectation for a label a
         # page no longer draws is recorded as "not rendered", which is silence where the
         # gate should be saying something.
-        "Executive Summary": {**split_all, **dict(drivers), **miss_types},
+        # The country block landed on this page too, on the owner's call, and it is the
+        # same `render_geography()` Analysis runs -- so its labels are checked on both,
+        # the way Customers impacted already is. A shared renderer means shared
+        # expectations; the first run after that wiring is where a missing registration
+        # shows up as a figure nobody is checking.
+        "Executive Summary": {**split_all, **dict(drivers), **miss_types,
+                              **dict(country_emails)},
         # Analysis is the merge of what were Root cause and Top customer complaints, so
         # it is checked against BOTH sets: the root-cause and driver counts from the
         # first half, the per-account counts from the second. Both halves run the
