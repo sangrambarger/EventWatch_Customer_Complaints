@@ -2676,11 +2676,19 @@ the event finds the event.** Pattern the event.
  89 misses     =  50 Product + 39 Analyst
 ```
 
-**`smoke_app.EXPECTED` for All customer emails went 5 back to 6, and that is the predicted
-return rather than a new block.** EAO-59 is `Pending` -- the cause is settled and the RCA is
-with the CSM -- so the "Under investigation" section renders again. This file recorded the
-26-Oct lowering as returning of its own accord the next time a Pending row landed, and it
-did.
+**`smoke_app.EXPECTED` for All customer emails moved TWICE on 05-Nov-2026, and the
+oscillation is the honest behaviour rather than a gate being nudged.** It went 5 to 6 when
+EAO-59 landed `Pending` -- the predicted return this file recorded on 26-Oct -- and back to
+6 to 5 hours later when the RCA was shared and the tracker returned to zero `Pending` rows.
+**That number is a property of the data on the day, not of the page**: the sixth table is
+"Under investigation", which renders only while some row is `Pending`. Check the Pending
+count and move the minimum to match. Do not read a lowering as a gate filed down, and do
+not read a raising as a new block.
+
+`Pending` leaves `definitions.json` with it. `export_definitions.py` prunes to terms in
+use, so the term appears when a row carries it and prunes again when none does, and
+`validate.py`'s `definitions_export` fails in between. **Re-run the export on both edges of
+that transition**, not just the one that adds the value.
 
 **The Dashboard sheet carried two stray duplicate rows, and November is what exposed them.**
 `<row r="60">` and `<row r="61">` each appeared **twice** in `xl/worksheets/sheet2.xml`: once
