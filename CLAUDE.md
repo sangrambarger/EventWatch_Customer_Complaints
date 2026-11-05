@@ -2642,6 +2642,77 @@ EAO-25 fault.
  87 misses     =  50 Product + 37 Analyst
 ```
 
+**Four of the six November tickets were settled on 05-Nov-2026, and two were deliberately
+left out of the tracker.** EAO-59 and EAO-63 are both `People` / `Review`: in each case the
+feeds were captured and classified correctly as Events, and a person then moved them to Not
+Impactful. EAO-60 and EAO-62 are both **inquiries where nothing was owed** -- the Brotli
+vulnerability because the Threshold and Guidelines create a WarRoom for a confirmed cyber
+attack and not for a vulnerability disclosure, and the Hartwell fire because the source
+declaring the company name was not an authentic news source.
+
+**EAO-58 (Ford, Ukraine-Romania-Turkey corridors) and EAO-61 (Hitachi, GE Vernova) went in
+as `Pending` on the owner's instruction, and the attempt to leave their `Sub-type` BLANK
+failed the gate.** Both are confirmed non-delivery, so `Missed_Flag` is Yes on the
+evidence, and both have an owner that does not depend on the open question: EAO-58 is
+`Product` because every candidate sub-type under investigation -- Source Coverage, Keyword
+Update, Model Classification Defect -- is Product-rooted, and EAO-61 is `People` because
+the model classified the feeds Event and the decision not to publish was taken at review.
+
+**A blank `Sub-type` is not the way to say "nobody has decided".** It reads as `Needs
+Review` on Analysis, which is the right words, but `audit_pages.month_panel_problems()`
+fails on it five ways: the owner cards double-count, Product and People both disagree with
+the recomputation, and `bulletin_errors()` picks up an empty group that prints no reason.
+**Tried, measured, reverted** -- the rows carry their best-evidenced sub-type instead, with
+`Comments` opening `STAGED CLASSIFICATION pending <who>` and naming what would move it.
+That is the daily Routine's own convention applied by hand, and `update_row.py` carries the
+answer back when Engineering reports.
+
+**The general rule this settles: an unruled miss gets a staged classification and a
+`Pending` status, not a hole.** The tracker has no representation for "miss with no cause",
+and inventing one by leaving a field empty breaks the arithmetic three levels down.
+
+**The Not Impactful export is the instrument that settled these, and the lesson is about
+searching it, not about the data.** EAO-58 was reported twice as "nothing captured" before
+the right pattern found it: the exact article (forestbrief.com) and the Porubne-Siret
+crossing were genuinely absent, while the Kapikule-Kapitan-Andreevo chokepoint was captured
+five times by name over nine days and classified Non-Event four of those five -- one of
+those summaries stating in terms that the blockades were "disrupting automotive supply
+chains". **Searching that log for the headline's words finds the headline; searching it for
+the event finds the event.** Pattern the event.
+
+**Baseline on 05-Nov-2026:**
+
+```
+136 emails     = 109 complaints + 27 inquiries
+109 complaints =  91 confirmed misses + 18 process issues
+ 91 misses     =  51 Product + 40 Analyst
+```
+
+**`smoke_app.EXPECTED` for All customer emails moved TWICE on 05-Nov-2026, and the
+oscillation is the honest behaviour rather than a gate being nudged.** It went 5 to 6 when
+EAO-59 landed `Pending` -- the predicted return this file recorded on 26-Oct -- and back to
+6 to 5 hours later when the RCA was shared and the tracker returned to zero `Pending` rows.
+**That number is a property of the data on the day, not of the page**: the sixth table is
+"Under investigation", which renders only while some row is `Pending`. Check the Pending
+count and move the minimum to match. Do not read a lowering as a gate filed down, and do
+not read a raising as a new block.
+
+`Pending` leaves `definitions.json` with it. `export_definitions.py` prunes to terms in
+use, so the term appears when a row carries it and prunes again when none does, and
+`validate.py`'s `definitions_export` fails in between. **Re-run the export on both edges of
+that transition**, not just the one that adds the value.
+
+**The Dashboard sheet carried two stray duplicate rows, and November is what exposed them.**
+`<row r="60">` and `<row r="61">` each appeared **twice** in `xl/worksheets/sheet2.xml`: once
+real, carrying the month serial and the `COUNTIFS` formulas, and once as a pure block of
+empty `s="3"` cells. The stray shadowed the real row for any reader that takes the last
+occurrence, so `validate.py`'s `month_coverage` failed the moment the tracker gained a
+November record -- and Excel would have drawn November and December blank for the same
+reason. The duplicates predate this change; they were invisible while those two months held
+no records. Removed by direct zip-member patch, asserting first that the row being deleted
+carried no `<f>` and matched a pure-empty-cells pattern. **Check for duplicate `<row r=>`
+elements before concluding a month is missing from a block it visibly contains.**
+
 **Jira attachments cannot be read from here, and this is what was actually tried.** The
 connector returns attachment *metadata* -- `getJiraIssue` with `fields=["attachment"]`
 gives the filename, size, author, mime type and a content URL. Fetching that URL from the
