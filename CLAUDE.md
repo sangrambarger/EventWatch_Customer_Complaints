@@ -2642,6 +2642,57 @@ EAO-25 fault.
  87 misses     =  50 Product + 37 Analyst
 ```
 
+**Four of the six November tickets were settled on 05-Nov-2026, and two were deliberately
+left out of the tracker.** EAO-59 and EAO-63 are both `People` / `Review`: in each case the
+feeds were captured and classified correctly as Events, and a person then moved them to Not
+Impactful. EAO-60 and EAO-62 are both **inquiries where nothing was owed** -- the Brotli
+vulnerability because the Threshold and Guidelines create a WarRoom for a confirmed cyber
+attack and not for a vulnerability disclosure, and the Hartwell fire because the source
+declaring the company name was not an authentic news source.
+
+**EAO-58 (Ford, Ukraine-Romania-Turkey corridors) and EAO-61 (Hitachi, GE Vernova) are NOT
+in the tracker, and the reason is arithmetic rather than caution.** Both are confirmed
+non-delivery, so `Missed_Flag` is Yes on the evidence -- but neither has a settled
+`Root Cause`, and `_miss_parts()` splits every confirmed miss into Product, Analyst and
+Process. **A miss with a blank owner sits outside all three and fails
+`audit_pages.month_panel_problems()`**, which asserts the owner cards sum to the month's
+miss count. So the choice on an unruled miss is a provisional owner, a false `Missed_Flag`,
+or holding the row. Hold the row, and name it in the handover.
+
+**The Not Impactful export is the instrument that settled these, and the lesson is about
+searching it, not about the data.** EAO-58 was reported twice as "nothing captured" before
+the right pattern found it: the exact article (forestbrief.com) and the Porubne-Siret
+crossing were genuinely absent, while the Kapikule-Kapitan-Andreevo chokepoint was captured
+five times by name over nine days and classified Non-Event four of those five -- one of
+those summaries stating in terms that the blockades were "disrupting automotive supply
+chains". **Searching that log for the headline's words finds the headline; searching it for
+the event finds the event.** Pattern the event.
+
+**Baseline on 05-Nov-2026:**
+
+```
+134 emails     = 107 complaints + 27 inquiries
+107 complaints =  89 confirmed misses + 18 process issues
+ 89 misses     =  50 Product + 39 Analyst
+```
+
+**`smoke_app.EXPECTED` for All customer emails went 5 back to 6, and that is the predicted
+return rather than a new block.** EAO-59 is `Pending` -- the cause is settled and the RCA is
+with the CSM -- so the "Under investigation" section renders again. This file recorded the
+26-Oct lowering as returning of its own accord the next time a Pending row landed, and it
+did.
+
+**The Dashboard sheet carried two stray duplicate rows, and November is what exposed them.**
+`<row r="60">` and `<row r="61">` each appeared **twice** in `xl/worksheets/sheet2.xml`: once
+real, carrying the month serial and the `COUNTIFS` formulas, and once as a pure block of
+empty `s="3"` cells. The stray shadowed the real row for any reader that takes the last
+occurrence, so `validate.py`'s `month_coverage` failed the moment the tracker gained a
+November record -- and Excel would have drawn November and December blank for the same
+reason. The duplicates predate this change; they were invisible while those two months held
+no records. Removed by direct zip-member patch, asserting first that the row being deleted
+carried no `<f>` and matched a pure-empty-cells pattern. **Check for duplicate `<row r=>`
+elements before concluding a month is missing from a block it visibly contains.**
+
 **Jira attachments cannot be read from here, and this is what was actually tried.** The
 connector returns attachment *metadata* -- `getJiraIssue` with `fields=["attachment"]`
 gives the filename, size, author, mime type and a content URL. Fetching that URL from the

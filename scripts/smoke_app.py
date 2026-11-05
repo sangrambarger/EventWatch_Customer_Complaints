@@ -62,14 +62,19 @@ EXPECTED: dict[str, tuple[int, int]] = {
     # pills are HTML chips, not a plot -- so the chart counts are unchanged, which is
     # itself the check that nothing was quietly redrawn as plotly.
     "Executive Summary": (8, 6),
-    # **6 -> 5, and the missing table is a real absence in the data, not a gate being
-    # filed down.** The sixth is "Under investigation", which renders only when some row
-    # carries `Short Term Fix Status = Pending`. The owner closed the last four Pending
-    # rows on 26-Oct-2026, so the count is zero and `records.py` draws its `st.info`
-    # fallback instead of a table. Verified before lowering, which is what this file
-    # requires: the page still renders every other block and reports no error text.
-    # It goes back to 6 of its own accord the next time the daily Routine stages a row.
-    "All customer emails": (0, 5),
+    # 6 -> 5 on 26-Oct-2026 when the owner closed the last four Pending rows: the sixth
+    # table is "Under investigation", which renders only while some row carries
+    # `Short Term Fix Status = Pending`, and with none left `records.py` drew its
+    # `st.info` fallback instead. That lowering was checked against the data first,
+    # which is what this file requires, and it was written down as returning of its own
+    # accord the next time a Pending row landed.
+    #
+    # **5 -> 6 on 05-Nov-2026, and that is the predicted return, not a new block.**
+    # EAO-59 (Bombardier, Florida flash flooding) is `Pending` -- the cause is settled
+    # as an analyst miss but the RCA is still with the CSM -- so the section renders
+    # again. It is one row; if it closes and nothing else is open, this goes back to 5
+    # by the same rule.
+    "All customer emails": (0, 6),
     # Analysis is the merge of Root cause (4 charts, 12 tables) and Top customer
     # complaints (5, 5), plus Nature of complaints (1, 1) off the Executive Summary.
     # The minimum is their sum, because nothing was dropped in either move -- only the
