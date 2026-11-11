@@ -2216,3 +2216,86 @@ def country_note(frame, totals, over):
                 "book by geography and nothing else")
     out = ". ".join(bits) + "."
     return out[0].upper() + out[1:]
+
+
+# ---------------------------------------------------------------------------
+# What the model decided first
+#
+# `Model Classification` is the 28th column, added 11-Nov-2026 on the owner's call
+# after the director asked how many stories the portal itself classified Not Impactful.
+# It records the AUTOMATED models' first call and nothing else, which makes it a second
+# axis beside `Root Cause` rather than a rival to it: a record can be a People miss and
+# still read `Non-Event` here, and those are exactly the rows the director was asking
+# about -- the model called it wrong first and a person then missed it too.
+#
+# **It is a STORED column because the tracker does not otherwise hold what the model
+# decided.** The alternative was to mine `RCA Details` and `Comments` for it, and that
+# was tried: a regex over the 35 rows whose prose mentions a Not Impactful or Non-Event
+# call put 10 of them in "unclear", missed two that say it plainly, and scored a
+# NEGATION ("not a Not Impactful call", EAO-37) as a hit. A column a regex reads wrong
+# three ways is a column that has to be written down.
+MODEL_ROWS = (
+    ("Non-Event", "The model called it wrong first",
+     "The portal classified the captured feed Non-Event or Not Impactful"),
+    ("Event", "The model called it right",
+     "The model identified it correctly and routed it on; the failure came later"),
+    ("", "Not recorded",
+     "Nobody wrote down what the model decided, which is not evidence that it was right"),
+)
+
+
+def model_split(df):
+    """One row per `Model Classification` value, over confirmed misses, split by owner.
+
+    Misses only, for the same reason the geography block is: the question is which
+    misses the model's own call started, and a complaint where the bulletin reached the
+    customer did not start anywhere.
+    """
+    cols = ["Classification", "Misses", "Product", "Analyst", "Process", "What it means"]
+    if df.empty or "Model Classification" not in df.columns:
+        return pd.DataFrame(columns=cols)
+    value = df["Model Classification"].fillna("").astype(str).str.strip()
+    root = df.get("Root Cause", pd.Series(dtype=str)).reindex(df.index).fillna("").astype(str).str.strip()
+    missed = _miss_parts(df)["missed"]
+    rows = []
+    for key, label, meaning in MODEL_ROWS:
+        m = missed & value.eq(key)
+        rows.append({"Classification": label, "Misses": int(m.sum()),
+                     "Product": int((m & root.eq("Product")).sum()),
+                     "Analyst": int((m & root.eq("People")).sum()),
+                     "Process": int((m & root.eq("Process")).sum()),
+                     "What it means": meaning})
+    return pd.DataFrame(rows, columns=cols)
+
+
+def model_note(df, frame):
+    """The coverage line, and the one figure the director asked for.
+
+    **It leads with the DENOMINATOR, not the count**, and that is the whole reason this
+    block is safe to publish. 26 of 92 misses carry a recorded model call, so a bare "the
+    model called 6 of them wrong" reads as "the model is responsible for 7% of misses"
+    when the honest statement is that most of the book has no record either way. That is
+    the fault the three disagreeing RCA fields were removed for, and it would be the
+    same fault here with one field instead of three.
+    """
+    if df.empty or frame.empty:
+        return ""
+    value = df["Model Classification"].fillna("").astype(str).str.strip()
+    root = df.get("Root Cause", pd.Series(dtype=str)).reindex(df.index).fillna("").astype(str).str.strip()
+    missed = _miss_parts(df)["missed"]
+    total = int(missed.sum())
+    known = int((missed & value.ne("")).sum())
+    wrong = int((missed & value.eq("Non-Event")).sum())
+    double = int((missed & value.eq("Non-Event") & root.eq("People")).sum())
+    bits = [f"**{known} of {total} confirmed misses carry a record of what the model "
+            f"decided.** The other {total - known} have none, and a blank is nobody "
+            f"writing it down rather than the model getting it right"]
+    if wrong:
+        bits.append(f"Of the {known} that do, the model's own first call was wrong on "
+                    f"**{wrong}**")
+    if double:
+        bits.append(f"**{double} of those {wrong} are filed as Analyst misses** — the model "
+                    f"called the feed Non-Event and a person then missed it too. The row "
+                    f"carries the failure that stopped delivery, so this column is the only "
+                    f"place that second failure is countable")
+    return ". ".join(bits) + "."

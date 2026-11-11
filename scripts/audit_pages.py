@@ -104,7 +104,8 @@ def expectations(df: pd.DataFrame) -> dict[str, dict[str, int]]:
     # "Why the events were missed" on the Executive Summary. Recomputed here from the
     # Sub-type column rather than imported from app.py, so a bucket quietly redefined in
     # the app fails this audit instead of agreeing with itself.
-    missed = df[df["Missed_Flag"].astype(str).str.strip() == "Yes"]
+    missed_flag = df["Missed_Flag"].astype(str).str.strip() == "Yes"
+    missed = df[missed_flag]
     miss_cats = miss_buckets(df)
 
     # "Why the events were missed" names each miss by EventWatch's own term for it,
@@ -138,6 +139,17 @@ def expectations(df: pd.DataFrame) -> dict[str, dict[str, int]]:
     # else on the page would contradict it. Confirmed misses only since 11-Nov-2026,
     # matching the block's own scope. `Global` is included: it is a stated value and a
     # row in that table, drawn nowhere on the map.
+    # The model's own first call, on the Executive Summary. Recomputed from the CSV
+    # with the app's own row labels imported rather than restated, so a label renamed
+    # in `MODEL_ROWS` and not here fails the audit instead of quietly ceasing to be
+    # checked -- the same contract `driver_of()` carries.
+    from dashboard.metrics import MODEL_ROWS
+    model_call = {}
+    value = df["Model Classification"].fillna("").astype(str).str.strip()
+    for key, label, _ in MODEL_ROWS:
+        model_call[label] = int((missed_flag & value.eq(key)).sum())
+    assert sum(model_call.values()) == len(missed), "model calls do not sum to the misses"
+
     from dashboard.taxonomy import countries_on
     country_misses: collections.Counter = collections.Counter()
     for _, row in missed.iterrows():
@@ -158,7 +170,7 @@ def expectations(df: pd.DataFrame) -> dict[str, dict[str, int]]:
         # expectations; the first run after that wiring is where a missing registration
         # shows up as a figure nobody is checking.
         "Executive Summary": {**split_all, **dict(drivers), **miss_types,
-                              **dict(country_misses)},
+                              **dict(country_misses), **model_call},
         # Analysis is the merge of what were Root cause and Top customer complaints, so
         # it is checked against BOTH sets: the root-cause and driver counts from the
         # first half, the per-account counts from the second. Both halves run the

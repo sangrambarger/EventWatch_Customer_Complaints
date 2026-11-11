@@ -3390,6 +3390,68 @@ And measure the table against its panel (`table.getBoundingClientRect().width` a
 `.table-wrap` `clientWidth`) rather than eyeballing a screenshot crop: a fixed-width crop
 cannot tell a table that overflows from one the crop simply cut.
 
+## What the model decided first
+
+**`Model Classification` is the 28th column, added 11-Nov-2026** after the director
+asked how many stories the portal itself classified Not Impactful. It holds `Event`,
+`Non-Event` or blank, and it records the AUTOMATED models' first call and nothing else.
+
+**It is a SECOND AXIS beside `Root Cause`, not a rival to it.** `Root Cause` holds one
+value and this file's standing rule is that a record carries the failure that STOPPED
+delivery -- so a miss the model called wrong and a person then missed too is filed as an
+analyst miss, and the model's half is invisible. That is exactly the case the director
+was asking about, and this column is the only place it is countable. **Two rows are in
+it today** (EAO-21 and EAO-23), both `People` / `Review` on the owner's own instruction,
+both carrying `Non-Event`. Nothing about the backfill moved a `Root Cause`.
+
+**It is STORED, not derived, and the regex that proved it is worth keeping.** Mining
+`RCA Details` and `Comments` for the model's call was tried first over the 35 rows whose
+prose mentions a Not Impactful or Non-Event decision. It put **10 of the 35 in
+"unclear"**, missed two that say it plainly (EAO-58, the LPG row), and scored a
+**NEGATION** as a hit -- EAO-37's *"Not a coverage gap and not a Not Impactful call"*.
+A column a regex reads wrong three ways is a column that has to be written down.
+
+**The backfill is 28 rows of the 35, and the other 7 stay blank on purpose.** They
+mention such a call without saying WHO made it -- row 46, EAO-12, EAO-13, EAO-14,
+EAO-26, EAO-25's FXI row and EAO-37 -- and reading an actor into them is the inference
+this column exists to replace. **A blank means nobody wrote it down. It is never
+evidence that the model was right**, and `model_note()` says so in those words.
+
+**The caption leads with the DENOMINATOR and that is what makes the block publishable.**
+26 of 92 misses carry a recorded model call; printing "the model called 6 of them wrong"
+against a headline of 92 reads as a 7% share when the honest statement is that two
+thirds of the book has no record either way. That is the fault the three disagreeing RCA
+fields were removed for, and one field instead of three does not change it.
+
+**The block is on the Executive Summary, under the root causes**, one chart and one
+table in `flow_bar()`'s grammar, scoped to confirmed misses for the same reason the
+geography block is: the question is which misses the model's own call started, and a
+complaint where the bulletin reached the customer did not start anywhere.
+
+**`audit_pages.expectations()` imports `MODEL_ROWS` rather than restating its labels**,
+so a row renamed in `metrics` and not in the audit fails rather than quietly ceasing to
+be checked -- the same contract `driver_of()` carries. Executive Summary went 91
+reconciled labels to 94 with "not rendered" unmoved. Proved by seeding the Non-Event
+count one short and watching it fail.
+
+**Adding a 28th column has no script, and the patch that does it ate six rows first.**
+`append_row.py` adds a RECORD; a COLUMN is the same direct zip-member patch `Country`
+took. The insert walks `<c r="AA(\d+)"...>` and appends the new cell after it, and
+written `(?:/>|>.*?</c>)` the `[^>]*` before the alternation had already swallowed the
+`/` of a **self-closing** cell -- so the second branch took over and ran on to the NEXT
+cell's `</c>`, which for the last column means the next ROW. The six records with an
+empty `Country` are exactly the self-closing ones, and all six had their new cell
+inserted one row down. **`validate.py`'s `parity` caught it**, which is the full-width
+check earning its keep: the CSV and the sheet disagreed on one row and nothing else
+would have said so. The form that works is `(?:[^>]*/>|[^>]*>.*?</c>)`, which anchors
+the self-closing branch on `/>`.
+
+**And the same patch added a BOM the tracker has never carried.** Reading with
+`utf-8-sig` strips it and writing `"\ufeff" + text` puts it back, so a file that had no
+BOM gained one and every script reading it with plain `utf-8` saw a first column named
+`\ufeffMonth`. Check the first bytes against `git show HEAD:customer_tracker.csv`, not
+against what the reader hands you.
+
 ## Where the events were
 
 **The country block is on BOTH the Executive Summary and Analysis**, drawn by one
@@ -3879,6 +3941,15 @@ If a resave already happened, restore the four `cm="1"` attributes and
   order, which is exactly why they are written that way. The Definitions row is section
   **`Field definition`**, which is what keeps `enum_definitions` out of it: a value
   taxonomy would demand a Definitions row per country, and this is free text.
+- **EAO-2, EAO-3 and EAO-30 are not missing, and the daily gap check will flag them
+  forever unless somebody reads this.** All three are MOVED keys that now resolve to a
+  `TS-` issue: EAO-30 is `TS-22695`, the Red Cross / Uber Freight portal-visibility row
+  already in the tracker under that key and naming EAO-30 in its own `Comments`; EAO-2
+  and EAO-3 are `TS-22656` and `TS-22657`, two tickets literally titled **Test** and
+  **Test2**, created four minutes apart in June by somebody trying the project out. They
+  carry no customer and no event and must never become rows. **A gap in the EAO numbering
+  is not evidence of a missing record** -- query the key before staging anything, because
+  Jira resolves a moved key silently and returns the issue under its new name.
 - Multi-customer rows use a slash: `Ford/GM`, `Penske/Ford`, `Eaton/Ford`, with `Number of
   Customers` set. One incident reported by two customers is **one row**, not two.
   A merged incident may also carry slash-separated Jira keys (`EAO-35/EAO-36`).

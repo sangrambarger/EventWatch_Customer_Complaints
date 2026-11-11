@@ -23,7 +23,7 @@ import streamlit as st
 from dashboard.styles import CAT_SLATE, ROOT_COLOURS, esc
 from dashboard.taxonomy import ROOT_OWNERSHIP, name_subtypes, plural
 from dashboard.filters import customer_names, filter_note, names_match
-from dashboard.metrics import MISS_BUCKETS, account_failures, bulletin_errors, month_causes, account_headline, count_table, customer_totals, driver_table, event_type_flow, miss_by_customer, miss_categories, miss_colours, miss_trend, monthly_breakdown, monthly_note, monthly_table, nature_table, owner_accounts, owner_insight, root_drivers, root_frame, root_recent_note, root_summary, subtype_matrix, takeaway, trend_note, trend_windows, country_flow, country_insight, country_note, country_titles, country_totals
+from dashboard.metrics import MISS_BUCKETS, account_failures, bulletin_errors, month_causes, account_headline, count_table, customer_totals, driver_table, event_type_flow, miss_by_customer, miss_categories, miss_colours, miss_trend, monthly_breakdown, monthly_note, monthly_table, nature_table, owner_accounts, owner_insight, root_drivers, root_frame, root_recent_note, root_summary, model_split, model_note, subtype_matrix, takeaway, trend_note, trend_windows, country_flow, country_insight, country_note, country_titles, country_totals
 from dashboard.components import GEO_WINDOWS, add_rule, add_section, chart, country_map, downloads, driver_bar, fault_pills, excel_bar_table, flow_bar, grouped_bar, heatmap, kpis, monthly_stack, page_header, proportion_bar, stacked_bar, styled_table, trend_line
 
 
@@ -792,3 +792,38 @@ def render_geography(page, key="geo"):
                         classes={"Country": "nowrap"})
     st.caption(country_note(frame, totals, over))
     downloads(table, f"{key}_countries", fig)
+
+
+def render_model_classification(page):
+    """What the model decided before any person saw it.
+
+    **The director's question, made countable**: how many stories did the portal itself
+    classify Not Impactful. It cannot be answered from `Root Cause`, which holds one
+    value and by this file's own rule carries the failure that STOPPED delivery -- so a
+    row where the model called it wrong and a person then missed it too is filed as an
+    analyst miss, and the model's half is invisible. `Model Classification` is the
+    second axis that makes it visible, and the two rows where both failed are the whole
+    point of the block.
+
+    **The caption leads with the denominator and the chart is scoped to misses.** 26 of
+    92 misses carry a record of the model's call; publishing "6" against a headline of
+    92 would read as a 7% share when the honest statement is that two thirds of the book
+    has no record either way. That is the fault the three disagreeing RCA fields were
+    removed for, and one field instead of three does not change it.
+    """
+    add_section("What the model decided first", "", "#f6c177")
+    frame = model_split(page)
+    if frame.empty or not int(frame["Misses"].sum()):
+        st.info("No confirmed miss in the current filter carries a model classification.")
+        return
+    fig = flow_bar(frame, "Classification", title="Confirmed misses by the model's own first call",
+                   x_title="Confirmed misses", scale_col="Misses")
+    table = frame.copy()
+    with st.expander("Show the numbers"):
+        excel_bar_table(table, "Classification", value_col="Misses",
+                        extras=["Product", "Analyst", "Process", "What it means"],
+                        label_head="The model's first call", value_head="Confirmed misses",
+                        variant="roomy", wrap=("What it means",),
+                        classes={"Classification": "nowrap"})
+    st.caption(model_note(page, frame))
+    downloads(table, "model_classification", fig)

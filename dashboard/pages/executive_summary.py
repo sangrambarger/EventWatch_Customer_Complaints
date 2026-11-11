@@ -35,7 +35,7 @@ import streamlit as st
 from dashboard.filters import filter_note
 from dashboard.metrics import card_details, inbox_rings, inbox_totals, trend_windows
 from dashboard.components import add_rule, add_section, clickable_kpis, detail_panel, nested_donut, page_header
-from dashboard.sections import render_bulletin_errors, render_customers, render_event_types, render_geography, render_monthly_breakdown, render_root_cause, render_trend
+from dashboard.sections import render_bulletin_errors, render_customers, render_event_types, render_geography, render_model_classification, render_monthly_breakdown, render_root_cause, render_trend
 
 
 
@@ -184,6 +184,13 @@ def render(df, filtered, selected_page):
 
     add_rule()
     render_root_cause(page)
+
+    add_rule()
+    # The second axis under the root causes, not a rival to them. `Root Cause` holds
+    # one value and carries the failure that stopped delivery, so a miss the model
+    # called wrong first and a person then missed too is filed as an analyst miss and
+    # the model's half is invisible. This is the only place it is countable.
+    render_model_classification(page)
 
     add_rule()
     # The other half of the 103. Section 5 covers the 86 misses and stops; these
