@@ -781,6 +781,56 @@ def check_reason_categories(df: pd.DataFrame, rep: Report) -> None:
              f"{len(set(REASON_CATEGORIES[v] for v in used))} reusable categories")
 
 
+def check_country_iso(df: pd.DataFrame, rep: Report) -> None:
+    """Every country on a record must have an ISO code the choropleth can draw.
+
+    The Analysis map does NOT use plotly's `locationmode="country names"`, because that
+    match fails silently: a spelling it does not recognise is dropped from the map with
+    no exception and no warning, so a country carrying confirmed misses would simply not
+    be drawn while its row sat in the table below saying otherwise. `COUNTRY_ISO` is an
+    explicit map and this rule is what keeps it complete -- a new country typed onto a
+    record blocks the commit here instead of going missing on a customer call.
+
+    `Global` is exempt and is not an oversight: it is the stated value for an event with
+    no geography (a software supply-chain compromise, a market outlook, a policy
+    question, a portal defect), and giving it a code would mean painting it onto some
+    country. A blank is exempt too, and means something different -- nobody has
+    established where that event happened -- so the map's own caption prints how many
+    there are rather than dividing by the whole tracker.
+
+    Slash-separated values are split, because a corridor event names every country it
+    closed and each of them is drawn on its own.
+    """
+    if "Country" not in df.columns:
+        return
+    sys.path.insert(0, str(REPO))
+    try:
+        from dashboard.taxonomy import COUNTRY_ISO, COUNTRY_LATLON, GLOBAL, countries_on
+    except Exception as exc:                       # pragma: no cover - import guard
+        rep.fail("country_iso", f"could not read COUNTRY_ISO from dashboard/taxonomy.py: {exc}")
+        return
+    used: set[str] = set()
+    for value in df["Country"].fillna(""):
+        used.update(countries_on(value))
+    missing = sorted(used - set(COUNTRY_ISO) - {GLOBAL})
+    if missing:
+        rep.fail("country_iso",
+                 f"{len(missing)} country value(s) have no ISO code in COUNTRY_ISO, so the "
+                 f"map would drop them without saying so: {missing[:4]}")
+        return
+    # A country with a code and no label anchor draws on the map unnamed, which is the
+    # same silent half-failure as one that does not draw at all.
+    unlabelled = sorted(used - set(COUNTRY_LATLON) - {GLOBAL})
+    if unlabelled:
+        rep.fail("country_iso",
+                 f"{len(unlabelled)} country value(s) have no anchor in COUNTRY_LATLON, so "
+                 f"they would fill on the map with no label: {unlabelled[:4]}")
+        return
+    blank = int(sum(1 for v in df["Country"].fillna("") if not countries_on(v)))
+    rep.note(f"all {len(used - {GLOBAL})} distinct country value(s) carry an ISO code; "
+             f"{blank} record(s) carry no country at all")
+
+
 def check_issue_type(df: pd.DataFrame, rep: Report) -> None:
     """A confirmed miss should be a complaint, not an inquiry.
 
@@ -882,6 +932,7 @@ def main() -> int:
     check_resolution_dates(df, rep)
     check_cause_agreement(df, rep)
     check_reason_categories(df, rep)
+    check_country_iso(df, rep)
     check_issue_type(df, rep)
     check_stale_status(df, rep)
 

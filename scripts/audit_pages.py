@@ -104,7 +104,8 @@ def expectations(df: pd.DataFrame) -> dict[str, dict[str, int]]:
     # "Why the events were missed" on the Executive Summary. Recomputed here from the
     # Sub-type column rather than imported from app.py, so a bucket quietly redefined in
     # the app fails this audit instead of agreeing with itself.
-    missed = df[df["Missed_Flag"].astype(str).str.strip() == "Yes"]
+    missed_flag = df["Missed_Flag"].astype(str).str.strip() == "Yes"
+    missed = df[missed_flag]
     miss_cats = miss_buckets(df)
 
     # "Why the events were missed" names each miss by EventWatch's own term for it,
@@ -132,6 +133,29 @@ def expectations(df: pd.DataFrame) -> dict[str, dict[str, int]]:
     miss_types = {str(k).strip(): int(v)
                   for k, v in missed["Event type"].astype(str).str.strip().value_counts().items()}
 
+    # The country block, recomputed from the CSV with its own slash split, because the
+    # whole value of the map rests on a country's count being right -- a region reading
+    # 3 misses where the tracker holds 9 points Product at the wrong gap, and nothing
+    # else on the page would contradict it. Confirmed misses only since 11-Nov-2026,
+    # matching the block's own scope. `Global` is included: it is a stated value and a
+    # row in that table, drawn nowhere on the map.
+    # The model's own first call, on the Executive Summary. Recomputed from the CSV
+    # with the app's own row labels imported rather than restated, so a label renamed
+    # in `MODEL_ROWS` and not here fails the audit instead of quietly ceasing to be
+    # checked -- the same contract `driver_of()` carries.
+    from dashboard.metrics import MODEL_ROWS
+    model_call = {}
+    value = df["Model Classification"].fillna("").astype(str).str.strip()
+    for key, label, _ in MODEL_ROWS:
+        model_call[label] = int((missed_flag & value.eq(key)).sum())
+    assert sum(model_call.values()) == len(missed), "model calls do not sum to the misses"
+
+    from dashboard.taxonomy import countries_on
+    country_misses: collections.Counter = collections.Counter()
+    for _, row in missed.iterrows():
+        for name in countries_on(row["Country"]):
+            country_misses[name] += 1
+
     # Every page counts every record the customer sent in -- complaints and inquiries.
     return {
         # The inbox's three-way split and the reason categories both left this page:
@@ -140,7 +164,13 @@ def expectations(df: pd.DataFrame) -> dict[str, dict[str, int]]:
         # here any more because neither is rendered here -- an expectation for a label a
         # page no longer draws is recorded as "not rendered", which is silence where the
         # gate should be saying something.
-        "Executive Summary": {**split_all, **dict(drivers), **miss_types},
+        # The country block landed on this page too, on the owner's call, and it is the
+        # same `render_geography()` Analysis runs -- so its labels are checked on both,
+        # the way Customers impacted already is. A shared renderer means shared
+        # expectations; the first run after that wiring is where a missing registration
+        # shows up as a figure nobody is checking.
+        "Executive Summary": {**split_all, **dict(drivers), **miss_types,
+                              **dict(country_misses), **model_call},
         # Analysis is the merge of what were Root cause and Top customer complaints, so
         # it is checked against BOTH sets: the root-cause and driver counts from the
         # first half, the per-account counts from the second. Both halves run the
@@ -153,8 +183,12 @@ def expectations(df: pd.DataFrame) -> dict[str, dict[str, int]]:
         # categories are checked here now. Reason categories, Root Cause values and
         # account names cannot collide either -- check that again if any of the three
         # vocabularies grows a shared word.
+        # Country names join the same merge, and the collision question is live rather
+        # than theoretical: `Global` is a country-table label and an ordinary English
+        # word. It is not a Root Cause, a reason category, an account or a driver today
+        # -- check that again before adding any of those.
         "Analysis": {**counts(df, "Root Cause"), **dict(drivers), **split_all,
-                     **reason_category_counts(df)},
+                     **reason_category_counts(df), **dict(country_misses)},
         # The reason categories on All customer emails. Imported from app.py rather
         # than restated, because a second copy of the fold would drift and the whole point
         # of the map is that one wording maps one way everywhere.
@@ -274,6 +308,32 @@ def reconciled_totals(df: pd.DataFrame) -> dict[str, dict[str, int]]:
     return {"Executive Summary": exec_page, "Analysis": dict(exec_page)}
 
 
+def country_reconciled(df: pd.DataFrame) -> dict[str, int]:
+    """The figures the country table's Total row must show.
+
+    It is the SECOND table on this dashboard whose rows cannot add to its own foot, and
+    it misses in both directions at once, which is why it needed its own entry rather
+    than joining Customers impacted's. A corridor event names every country it closed
+    and sits on each of their rows, so the rows OVERSHOOT; a record whose location
+    nobody has established carries no country at all and sits on no row, so they also
+    UNDERSHOOT.
+
+    Scoped to confirmed misses since 11-Nov-2026, matching `country_flow()`: the block
+    is "only for analyst and product miss", so the foot carries the miss counts the
+    cards carry and nothing else.
+
+    Recomputed here from the CSV rather than read off the app, like every other figure
+    in this script: the point is to disagree with the page when the page is wrong.
+    """
+    missed = df["Missed_Flag"].astype(str).str.strip().eq("Yes")
+    root = df["Root Cause"].astype(str).str.strip()
+    return {"MISSES": int(missed.sum()),
+            "CONFIRMED MISSES": int(missed.sum()),
+            "PRODUCT": int((missed & root.eq("Product")).sum()),
+            "ANALYST": int((missed & root.eq("People")).sum()),
+            "PROCESS": int((missed & root.eq("Process")).sum())}
+
+
 def total_row_problems(page: str, tables, df: pd.DataFrame, reconciled) -> list[str]:
     """Every rendered Total row, checked against the column above it or against the CSV.
 
@@ -288,8 +348,15 @@ def total_row_problems(page: str, tables, df: pd.DataFrame, reconciled) -> list[
     -- 44 is Ford's own total and perfectly correct. A table is the double-counting one
     only if it carries a miss-bucket column, which is the signature of Customers
     impacted and of nothing else.
+
+    The country table is the second such table and takes its own signature -- a first
+    column headed COUNTRY -- because it carries no miss-bucket column and would
+    otherwise be summed like an ordinary one. It is not the same expectation either:
+    Customers impacted only overshoots, this one overshoots on multi-country rows and
+    undershoots on rows with no country, so it needs its own recomputation.
     """
     buckets = {k.upper() for k in miss_buckets(df)}
+    geo = country_reconciled(df)
     out = []
     for rows in tables:
         if len(rows) < 3:
@@ -306,7 +373,12 @@ def total_row_problems(page: str, tables, df: pd.DataFrame, reconciled) -> list[
             if not shown:
                 continue                                  # a share, a label, a blank
             shown = int(shown.group(0))
-            fixed = reconciled.get(page, {}).get(column) if buckets & set(head) else None
+            if head and head[0] == "COUNTRY":
+                fixed = geo.get(column)
+            elif buckets & set(head):
+                fixed = reconciled.get(page, {}).get(column)
+            else:
+                fixed = None
             if fixed is not None:
                 want, why = int(fixed), "the tracker"
             else:

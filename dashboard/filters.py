@@ -120,32 +120,50 @@ def names_match(series, chosen):
         lambda value: bool(wanted & {part.strip() for part in value.split("/")}))
 
 
-# The filters name the same things the pages name, and nothing else.
+# The filters name the same things the pages name, and nothing else -- and the list is
+# SHORT on purpose. Ten controls in a column made the sidebar taller than any screen;
+# seven was still past the point where a reader scans them, and the owner's call on
+# 05-Nov-2026 was to keep the important ones only.
 #
-# What went: `Severity`, `Short Term Fix Status` and `RCA Requested` filtered on fields
-# no page shows any more -- a control that narrows a population by something invisible
-# leaves a reader unable to explain their own numbers. `Routed To` is derived from
-# `Root Cause` on every row, so it was the same filter twice under two names.
-# `Standard Automation Focus` was how the Dynamic Source Discovery page selected
-# itself, and that page is gone -- the field spans both source and keyword gaps, so it
-# never named a cause. It stays out of the filters for the original reason as well: it
-# is not a cut a reader makes. And the raw `Reason` dropdown listed forty wordings for
-# seven real things, so no one could use it.
+# The test applied to each one was **does filtering on it leave the page readable**.
+# Three failed it outright, and they are the three a reader would most expect to find:
 #
-# What arrived: the two derived vocabularies the pages are written in (the reason
-# category and the plain sub-type), and `Confirmed miss` -- the field every headline
-# number on the dashboard keys on, which had no filter at all.
+#   * `Confirmed miss` -- this was the strongest cut and it reverses the decision
+#     recorded here when it was added ("the field every headline number keys on, which
+#     had no filter at all"). Filter it to Yes and the Executive Summary degenerates:
+#     the cards read 91 emails = 91 complaints = 91 misses + 0, both nested rings
+#     collapse to single slices, and the funnel the whole page is built on stops
+#     reconciling. It was added because no filter existed for the headline field; in
+#     use it breaks the headline. The cut it was wanted for lives on the Country
+#     section's own control, where it narrows one block instead of the book.
+#   * `Complaint or inquiry` -- the same fault, smaller. The cards already print this
+#     split, so filtering on it zeroes one side of every equation on the page.
+#   * `Who fixes it` -- three values, and the root-cause tier is already split by owner.
+#     Filtering to Product leaves one card where there were two.
 #
-# (label, kind, column). `kind` says how the values are read and matched, because three
-# of these are computed rather than stored.
+# `What they wrote about` went for a different reason: seven categories that exactly
+# one block reads (Nature of complaints, on Analysis). Not a cut worth a permanent
+# control in a column a reader has to scroll past to reach the page list.
+#
+# What went earlier, and stays gone: `Severity`, `Short Term Fix Status` and
+# `RCA Requested` filtered on fields no page shows any more -- a control that narrows a
+# population by something invisible leaves a reader unable to explain their own
+# numbers. `Routed To` is derived from `Root Cause` on every row, so it was the same
+# filter twice under two names. `Standard Automation Focus` was how the Dynamic Source
+# Discovery page selected itself, and that page is gone -- the field spans both source
+# and keyword gaps, so it never named a cause. And the raw `Reason` dropdown listed
+# forty wordings for seven real things, so no one could use it.
+#
+# `Country` is deliberately NOT here. It is the one cut that is worth a control of its
+# own, next to the map it narrows, because a region question is asked about the miss
+# book rather than about the whole tracker -- see `render_geography()`.
+#
+# (label, kind, column). `kind` says how the values are read and matched, because one
+# of these is computed rather than stored.
 FILTERS = [
     ("Customer", "customer", "Customer"),
     ("Event type", "direct", "Event type"),
-    ("Complaint or inquiry", "direct", "Issue Type"),
-    ("Confirmed miss", "direct", "Missed_Flag"),
-    ("What they wrote about", "reason", "Reason"),
     ("What went wrong", "subtype", "Sub-type"),
-    ("Who fixes it", "direct", "Root Cause"),
 ]
 FILTER_KEYS = [f"filter_{label}" for label, _, _ in FILTERS]
 

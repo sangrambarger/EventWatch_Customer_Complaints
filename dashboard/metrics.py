@@ -19,7 +19,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from dashboard.styles import BLUE_RAMP, CAT_SLATE, ROOT_COLOURS, UNKNOWN_OWNER, esc
-from dashboard.taxonomy import CAUSE_WHY, CATEGORY_MEANING, NEEDS_REVIEW, PLAIN_SUBTYPE, RECORD_WHY, ROOT_OWNERSHIP, SHORT_CAUSE, SHORT_OWNED, driver_of, failure_label, labels_for, owner_pills, plural, reason_category, record_why, short_cause, shorten
+from dashboard.taxonomy import GLOBAL, CAUSE_WHY, CATEGORY_MEANING, NEEDS_REVIEW, PLAIN_SUBTYPE, RECORD_WHY, ROOT_OWNERSHIP, SHORT_CAUSE, SHORT_OWNED, driver_of, failure_label, labels_for, owner_pills, plural, reason_category, record_why, short_cause, shorten, countries_on, country_names
 from dashboard.filters import customer_names, names_match
 
 
@@ -2007,3 +2007,295 @@ def event_type_flow(df, top=None):
     out = (pd.DataFrame(rows, columns=cols)
            .sort_values(["Misses", "Emails"], ascending=False).reset_index(drop=True))
     return out.head(top) if top else out
+
+
+# ---------------------------------------------------------------------------
+# Geography
+#
+# The country block exists to answer one question the owner asked it for: **which
+# regions' news are we missing**, and is a regional pattern a language or source-network
+# gap rather than a volume effect.
+#
+# **It is the event-type block's own frame with `Country` in place of `Event type`**,
+# which is deliberate and is why `flow_bar()` draws it unchanged: a reader who has
+# learned the month chart has learned the event-type chart and now this one too, and
+# three blocks sharing one grammar cannot drift into three vocabularies. The nest is the
+# same three lines:
+#
+#     Emails     = Complaints + Inquiries
+#     Complaints = Misses + Reported, but wrong
+#     Misses     = Product + Analyst + Process
+#
+# It splits on the slash, so a corridor event lands on each country it closed, and the
+# rows therefore double-count on purpose. `country_totals()` is what the Total row
+# prints instead of a column sum -- the same rule, and the same reason, as
+# `customer_totals()`: a total row is a reconciliation, not a sum.
+
+
+def _country_mask(df, name):
+    """Rows whose `Country` names this country, slashes split out."""
+    return df["Country"].fillna("").astype(str).map(lambda v: name in countries_on(v))
+
+
+def country_flow(df):
+    """One row per country, confirmed misses only, split by who owns them.
+
+    **The population is MISSES, not emails, on the owner's call of 11-Nov-2026: the
+    block is "only for analyst and product miss".** Three things that were drawn here
+    are gone with it -- `Reported, but wrong`, which is where an analyst error on a
+    bulletin that DID reach the customer sits, inquiries, and the email base. That is
+    the instruction read as a whole: the first sentence scopes it to the two miss
+    owners, the second rules out the delivered-but-wrong complaints.
+
+    It also sharpens what the block is for. The question it exists to answer is which
+    regions' news we are missing, and a bulletin that went out with the wrong supplier
+    list is not a regional coverage signal at all -- it says nothing about whether the
+    story arrived from that country.
+
+    `Process` stays as a column although it is zero everywhere, for the reason the month
+    chart keeps it: a reader who sees no Process column concludes nobody measured it.
+
+    `Owner` is the extra column the map needs and the bar does not: the owner carrying
+    most of that country's misses, which is what fills the country on the choropleth.
+    **A tie goes to the LARGER owner overall, not to whichever pandas met first.**
+    Alphabetical order would hand every 1-1 country to Analyst, and the split is 52
+    Product against 40 Analyst, so a coin-toss dressed as a rule would quietly bias the
+    map. Ties are rare and the bar beside the map shows the split in full.
+    """
+    cols = ["Country", "Misses", "Product", "Analyst", "Process", "Owner"]
+    if df.empty or "Country" not in df.columns:
+        return pd.DataFrame(columns=cols)
+    root = df.get("Root Cause", pd.Series(dtype=str)).reindex(df.index).fillna("").astype(str).str.strip()
+    missed = _miss_parts(df)["missed"]
+    rank = {"Product": int((missed & root.eq("Product")).sum()),
+            "People": int((missed & root.eq("People")).sum()),
+            "Process": int((missed & root.eq("Process")).sum())}
+    rows = []
+    for name in country_names(df["Country"]):
+        m = _country_mask(df, name)
+        n_miss = int((m & missed).sum())
+        if not n_miss:
+            # A country with emails and no confirmed miss is not drawn at all now. It
+            # was a slate fill reading "nothing failed here", which is a real state and
+            # is simply not what this block is scoped to any more.
+            continue
+        owned = {o: int((m & missed & root.eq(o)).sum()) for o in rank}
+        rows.append({
+            "Country": name, "Misses": n_miss,
+            "Product": owned["Product"], "Analyst": owned["People"],
+            "Process": owned["Process"],
+            "Owner": max(owned, key=lambda o: (owned[o], rank[o]))})
+    return (pd.DataFrame(rows, columns=cols)
+            .sort_values(["Misses", "Country"], ascending=[False, True]).reset_index(drop=True))
+
+
+def country_titles(df, limit=None):
+    """{country: [the titles of the events we missed there]}.
+
+    **This is the half of the block that makes it worth looking at.** A map coloured by
+    owner says Mexico is a Product problem; it does not say the Product problem in Mexico
+    is three highway blockades and a factory fire. The titles are the record's own
+    `Event/Bulletin Title`, never a summary written here, for the reason
+    `what_happened()` is derived rather than typed: a hand-written gloss per country
+    would be twenty-eight strings that go stale the day a row is re-worded.
+    """
+    out: dict[str, list[str]] = {}
+    if df.empty or "Country" not in df.columns:
+        return out
+    missed = _miss_parts(df)["missed"]
+    titles = df.get("Event/Bulletin Title", pd.Series(dtype=str)).reindex(df.index).fillna("").astype(str)
+    for name in country_names(df["Country"]):
+        here = missed & _country_mask(df, name)
+        found = [t.strip() for t in titles[here] if t.strip()]
+        if found:
+            out[name] = found[:limit] if limit else found
+    return out
+
+
+def country_totals(df):
+    """The true column totals for `country_flow()`, and how far its rows overshoot.
+
+    Returns `(totals, overshoot)`. Scoped to confirmed misses with the frame above, so
+    the foot carries the same 92 / 52 / 40 the cards and the month chart carry.
+
+    `overshoot` is what the caption needs and none of it may be typed: how many misses
+    name more than one country, and how many carry no country at all -- because the rows
+    of this table CANNOT add to the headline and a reader who tries will challenge the
+    page. That is the Customers impacted rule applied to a second column, with a wrinkle
+    that one does not have: this table misses in BOTH directions, since a record with no
+    country sits on no row.
+    """
+    root = df.get("Root Cause", pd.Series(dtype=str)).reindex(df.index).fillna("").astype(str).str.strip()
+    missed = _miss_parts(df)["missed"]
+    totals = {"Misses": int(missed.sum()),
+              "Product": int((missed & root.eq("Product")).sum()),
+              "Analyst": int((missed & root.eq("People")).sum()),
+              "Process": int((missed & root.eq("Process")).sum())}
+    col = df.get("Country", pd.Series(dtype=str)).reindex(df.index).fillna("").astype(str).str.strip()
+    multi = col.map(lambda v: len(countries_on(v)) > 1)
+    blank = col.map(lambda v: not countries_on(v))
+    overshoot = {"multi_misses": int((multi & missed).sum()),
+                 "blank_misses": int((blank & missed).sum()),
+                 "covered_misses": int(missed.sum()) - int((blank & missed).sum()),
+                 "emails": len(df)}
+    return totals, overshoot
+
+
+def country_insight(frame, df):
+    """One computed sentence: which regions are a capture gap and which are an analyst one.
+
+    **This is the point of pairing region with cause**, and without it the map is an
+    atlas rather than an instrument. A country whose misses are `Source Coverage` or
+    `Keyword Update` never had the story -- that is a monitoring-network or language gap
+    and Product buys against it. A country whose misses are People-rooted did have the
+    story, and no amount of source expansion touches it. The two call for opposite
+    spending, and a map coloured by volume cannot tell them apart.
+
+    Every figure is read off the frame on screen. A region named here and not on the
+    chart above it would be the fault this file keeps recording.
+    """
+    if frame.empty or df.empty:
+        return ""
+    part = _miss_parts(df)
+    capture = part["source"] | part["keyword"]
+    rows = []
+    for name in frame.loc[frame["Misses"] > 0, "Country"]:
+        m = _country_mask(df, name)
+        n_miss = int((m & part["missed"]).sum())
+        rows.append((name, n_miss, int((m & capture).sum())))
+    if not rows:
+        return ""
+    gaps = sorted((r for r in rows if r[2] * 2 >= r[1]), key=lambda r: -r[2])[:4]
+    seen = sorted((r for r in rows if r[1] - r[2] > r[2]), key=lambda r: -(r[1] - r[2]))[:4]
+    bits = []
+    if gaps:
+        bits.append("**The story never arrived** in " + ", ".join(
+            f"{n} ({c} of {t})" for n, t, c in gaps) +
+            " — those are monitoring-network and keyword gaps, and source expansion is "
+            "what moves them")
+    if seen:
+        bits.append("**We had the story** in " + ", ".join(
+            f"{n} ({t - c} of {t})" for n, t, c in seen) +
+            " — review and escalation, which no amount of source coverage touches")
+    return ". ".join(bits) + "." if bits else ""
+
+
+def country_note(frame, totals, over):
+    """The coverage line under the pair, computed in full.
+
+    **It leads with the DISTINCT figure, not a column sum**, and that is the fix for the
+    first draft of this line: it opened "Confirmed misses: 95 across 28 countries"
+    against a tracker holding 91, because the rows double-count corridor events. A
+    caption whose own headline disagrees with the cards is the fault this file keeps
+    recording, and it would have sat directly under the chart a VP reads.
+
+    The blank count is the honest half -- misses whose location nobody has established --
+    and printing it is what stops a reader taking the map for the whole miss book.
+    """
+    if frame.empty:
+        return ""
+    places = int((frame["Country"] != GLOBAL).sum())
+    bits = [f"**{totals['Misses']} confirmed misses: {totals['Product']} Product and "
+            f"{totals['Analyst']} Analyst**, spread over "
+            f"{plural(places, 'named country', 'named countries')}"]
+    glob = frame.loc[frame["Country"] == GLOBAL, "Misses"]
+    if len(glob):
+        n = int(glob.iloc[0])
+        bits.append(f"{n} more carry `{GLOBAL}` — the event has no geography (a software "
+                    f"supply-chain compromise, a market outlook, a policy question), so it "
+                    f"is a bar in the chart and nothing on the map")
+    bits.append(f"{over['covered_misses']} of {totals['Misses']} misses carry a country at "
+                f"all; the other {over['blank_misses']} have no location on the record")
+    if over["multi_misses"]:
+        bits.append(f"The rows miss the Total row in BOTH directions — {over['multi_misses']} "
+                    f"miss(es) name more than one country and are counted for each, while the "
+                    f"{over['blank_misses']} with no country sit on no row. **The Total row is "
+                    f"the distinct count**, the same figure the summary's cards carry")
+    bits.append("Complaints where the bulletin reached the customer and something about it "
+                "was wrong are **not** on this block, and nor are inquiries. It is the miss "
+                "book by geography and nothing else")
+    out = ". ".join(bits) + "."
+    return out[0].upper() + out[1:]
+
+
+# ---------------------------------------------------------------------------
+# What the model decided first
+#
+# `Model Classification` is the 28th column, added 11-Nov-2026 on the owner's call
+# after the director asked how many stories the portal itself classified Not Impactful.
+# It records the AUTOMATED models' first call and nothing else, which makes it a second
+# axis beside `Root Cause` rather than a rival to it: a record can be a People miss and
+# still read `Non-Event` here, and those are exactly the rows the director was asking
+# about -- the model called it wrong first and a person then missed it too.
+#
+# **It is a STORED column because the tracker does not otherwise hold what the model
+# decided.** The alternative was to mine `RCA Details` and `Comments` for it, and that
+# was tried: a regex over the 35 rows whose prose mentions a Not Impactful or Non-Event
+# call put 10 of them in "unclear", missed two that say it plainly, and scored a
+# NEGATION ("not a Not Impactful call", EAO-37) as a hit. A column a regex reads wrong
+# three ways is a column that has to be written down.
+MODEL_ROWS = (
+    ("Non-Event", "The model called it wrong first",
+     "The portal classified the captured feed Non-Event or Not Impactful"),
+    ("Event", "The model called it right",
+     "The model identified it correctly and routed it on; the failure came later"),
+    ("", "Not recorded",
+     "Nobody wrote down what the model decided, which is not evidence that it was right"),
+)
+
+
+def model_split(df):
+    """One row per `Model Classification` value, over confirmed misses, split by owner.
+
+    Misses only, for the same reason the geography block is: the question is which
+    misses the model's own call started, and a complaint where the bulletin reached the
+    customer did not start anywhere.
+    """
+    cols = ["Classification", "Misses", "Product", "Analyst", "Process", "What it means"]
+    if df.empty or "Model Classification" not in df.columns:
+        return pd.DataFrame(columns=cols)
+    value = df["Model Classification"].fillna("").astype(str).str.strip()
+    root = df.get("Root Cause", pd.Series(dtype=str)).reindex(df.index).fillna("").astype(str).str.strip()
+    missed = _miss_parts(df)["missed"]
+    rows = []
+    for key, label, meaning in MODEL_ROWS:
+        m = missed & value.eq(key)
+        rows.append({"Classification": label, "Misses": int(m.sum()),
+                     "Product": int((m & root.eq("Product")).sum()),
+                     "Analyst": int((m & root.eq("People")).sum()),
+                     "Process": int((m & root.eq("Process")).sum()),
+                     "What it means": meaning})
+    return pd.DataFrame(rows, columns=cols)
+
+
+def model_note(df, frame):
+    """The coverage line, and the one figure the director asked for.
+
+    **It leads with the DENOMINATOR, not the count**, and that is the whole reason this
+    block is safe to publish. 26 of 92 misses carry a recorded model call, so a bare "the
+    model called 6 of them wrong" reads as "the model is responsible for 7% of misses"
+    when the honest statement is that most of the book has no record either way. That is
+    the fault the three disagreeing RCA fields were removed for, and it would be the
+    same fault here with one field instead of three.
+    """
+    if df.empty or frame.empty:
+        return ""
+    value = df["Model Classification"].fillna("").astype(str).str.strip()
+    root = df.get("Root Cause", pd.Series(dtype=str)).reindex(df.index).fillna("").astype(str).str.strip()
+    missed = _miss_parts(df)["missed"]
+    total = int(missed.sum())
+    known = int((missed & value.ne("")).sum())
+    wrong = int((missed & value.eq("Non-Event")).sum())
+    double = int((missed & value.eq("Non-Event") & root.eq("People")).sum())
+    bits = [f"**{known} of {total} confirmed misses carry a record of what the model "
+            f"decided.** The other {total - known} have none, and a blank is nobody "
+            f"writing it down rather than the model getting it right"]
+    if wrong:
+        bits.append(f"Of the {known} that do, the model's own first call was wrong on "
+                    f"**{wrong}**")
+    if double:
+        bits.append(f"**{double} of those {wrong} are filed as Analyst misses** — the model "
+                    f"called the feed Non-Event and a person then missed it too. The row "
+                    f"carries the failure that stopped delivery, so this column is the only "
+                    f"place that second failure is countable")
+    return ". ".join(bits) + "."

@@ -25,7 +25,7 @@ from dashboard.filters import filter_note
 from dashboard.metrics import count_table, customer_exposure
 from dashboard.components import add_rule, add_section, downloads, page_header, styled_table
 from dashboard.sections import (render_bulletin_errors, render_customers, render_deeper_root_cause,
-                                render_nature, render_root_cause, source_page)
+                                render_geography, render_nature, render_root_cause, source_page)
 
 
 def render(df, filtered, selected_page):
@@ -42,6 +42,14 @@ def render(df, filtered, selected_page):
     render_deeper_root_cause(page)
     add_rule()
     source_page(selected_page, page, "Root Cause", "root_cause", summary=False, header=False)
+
+    add_rule()
+    # ---- where, as opposed to why -------------------------------------------------
+    # Geography is a different axis from the four blocks above it, not a finer cut of
+    # them, so it sits between the two halves of this page rather than inside either.
+    # The owner's question for it is "which regions' news are we missing", which is why
+    # it carries its own customer and measure selectors -- see `render_geography()`.
+    render_geography(page)
 
     add_rule()
     # ---- was the Top customer complaints page, in its own order -------------------
