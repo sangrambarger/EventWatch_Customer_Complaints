@@ -918,65 +918,6 @@ def fault_pills(groups, colours):
     st.markdown("".join(rows) + f"<div class='fault-legend'>{key}</div>", unsafe_allow_html=True)
 
 
-def trend_line(trend, title=""):
-    """The miss rate month by month, inside its own control limits.
-
-    **The first time-series chart on this dashboard.** Everything else is a ranked or
-    stacked bar, and the question this answers -- is it getting better -- was a
-    percentage printed on top of a bar for a reader to compare ten of in their head.
-
-    The shaded band is +/- 3 sigma around the pooled rate, scaled by each month's own
-    email count, so a 4-email month gets a wide band and a 19-email one a narrow band.
-    A point inside its band is normal variation, drawn plain. Only a point outside is
-    drawn as a signal, because a chart that reacts every month is reporting noise.
-    """
-    months = trend.get("months")
-    if months is None or months.empty:
-        st.info("Chart cannot be rendered because required fields are missing: Month.")
-        return None
-    x = list(months["Month"])
-    fig = go.Figure()
-    # The band first, so the line and its points sit on top of it.
-    fig.add_scatter(x=x, y=list(months["Upper"]), mode="lines", line=dict(width=0),
-                    hoverinfo="skip", showlegend=False)
-    # **A very light wash, with the lower edge drawn as a real line.** At 0.16 the band
-    # filled the plot: 3 sigma on 4-19 emails a month pins the UPPER limit at 100% in
-    # nine months of ten, so the fill ran from the lower limit to the ceiling and read
-    # as a rendering fault rather than a band -- the thin months drew as solid dark
-    # columns. The statistics are unchanged and the width is real; only its visual
-    # weight came down, and the one edge that can actually be crossed is now the one you
-    # can see.
-    fig.add_scatter(x=x, y=list(months["Lower"]), mode="lines",
-                    line=dict(color=CAT_SLATE, width=1.5, dash="dash"),
-                    fill="tonexty", fillcolor=_rgba(CAT_SLATE, 0.07),
-                    name="Usual swing", hoverinfo="skip")
-    fig.add_scatter(x=x, y=[trend["centre"]] * len(x), mode="lines",
-                    line=dict(color=CAT_SLATE, width=1, dash="dot"),
-                    name=f"Year average {trend['centre']:.0f}%", hoverinfo="skip")
-    fig.add_scatter(
-        x=x, y=list(months["Rate"]), mode="lines+markers+text",
-        line=dict(color=BLUE_RAMP[4], width=2.5),
-        marker=dict(size=[13 if o else 8 for o in months["Outside"]],
-                    color=[ROOT_COLOURS["People"] if o else BLUE_RAMP[4]
-                           for o in months["Outside"]],
-                    line=dict(color="#1b1f26", width=2)),
-        text=[f"{r:.0f}%" for r in months["Rate"]], textposition="top center",
-        textfont=dict(size=11, color="#b6beca"),
-        customdata=[[int(m), int(e)] for m, e in zip(months["Misses"], months["Emails"])],
-        name="Miss rate each month",
-        hovertemplate="%{y:.0f}% — %{customdata[0]} of %{customdata[1]} emails<extra></extra>")
-    fig.update_layout(
-        template="plotly_dark", plot_bgcolor="#1b1f26", paper_bgcolor="#1b1f26",
-        font=dict(color="#f3f4f6", size=13), height=380, title=title,
-        margin=dict(l=20, r=30, t=52, b=28), hovermode="x unified",
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0, traceorder="normal"))
-    fig.update_xaxes(tickfont=dict(size=12, color="#f3f4f6"), gridcolor="#303846", title="")
-    fig.update_yaxes(tickfont=dict(size=12, color="#f3f4f6"), gridcolor="#303846",
-                     title="Miss rate", ticksuffix="%", range=[0, 112])
-    st.plotly_chart(fig, width="stretch")
-    return fig
-
-
 def _on_fill(colour):
     """`--panel` or `--ink` for a label sitting ON a fill, whichever has the contrast.
 
@@ -1102,14 +1043,48 @@ TITLES_ON_HOVER = 6
 # their names over the empty corners of a map of Europe. A window keeps the natural
 # earth projection the world view already uses, and the labels are filtered to it here
 # rather than left to plotly to clip.
+# **The world window is cropped to WHERE EVENTS HAPPEN, and the crop is what makes the
+# map fill its block.** Plotly fits a lat/lon window into the panel preserving the
+# projection's aspect, so a window wider than the panel letterboxes: the old
+# `(-165, 180)` spans 345 degrees of longitude against 118 of latitude, nearly 3:1, and
+# in a half-width column that drew the land as a thin strip with dead bands above and
+# below it -- the "short map". **Two thirds of that longitude was empty Pacific**: the
+# tracker's westernmost event is in Mexico and its easternmost in Japan, so the ocean
+# either side of the dateline carried nothing and cost half the panel's height.
+#
+# Each window is now sized to its own content, and `geo_height()` gives the panel the
+# height that window's own aspect asks for, so the map fills the block rather than
+# floating in one. **Do not widen a window to "show more of the world"** -- an empty
+# degree of longitude is paid for in map height, which is the only dimension a reader
+# judges a country's shape in.
 GEO_WINDOWS = {
-    "World": ((-42, 76), (-165, 180)),
+    "World": ((-38, 70), (-128, 148)),
     "Europe": ((35, 70), (-11, 42)),
     "Asia": ((-11, 56), (56, 151)),
-    "North America": ((8, 72), (-170, -48)),
+    "North America": ((8, 72), (-128, -52)),
     "South America": ((-56, 14), (-83, -33)),
     "Africa": ((-36, 38), (-20, 53)),
 }
+
+# The width a full-bleed Streamlit column gets at the width this dashboard is read at,
+# measured rather than assumed, and the bounds that stop a tall narrow window (Africa,
+# South America) from running past a screen or a wide flat one from drawing a letterbox.
+GEO_PANEL_W, GEO_H_MIN, GEO_H_MAX = 1150, 430, 720
+
+
+def geo_height(region):
+    """The panel height this window's own aspect asks for, plus room for the title.
+
+    A map that does not fill its box is not a styling complaint: the empty bands are
+    panel the countries could have been drawn in, and at world scale Austria and Czechia
+    are a few pixels each. Derived from `GEO_WINDOWS` so a window edited above cannot
+    leave a height tuned for the old one behind it.
+    """
+    (lat0, lat1), (lon0, lon1) = GEO_WINDOWS[region]
+    # natural earth compresses longitude towards the poles; 0.82 is the fraction that
+    # matched the rendered land box across all six windows.
+    drawn = GEO_PANEL_W * ((lat1 - lat0) / max(lon1 - lon0, 1)) / 0.82
+    return int(min(max(drawn, GEO_H_MIN), GEO_H_MAX)) + 56
 
 
 def country_map(frame, titles, region="World", title=""):
@@ -1222,7 +1197,7 @@ def country_map(frame, titles, region="World", title=""):
     fig.update_geos(**geo)
     fig.update_layout(template="plotly_dark", paper_bgcolor="#1b1f26", plot_bgcolor="#1b1f26",
                       font=dict(color="#f3f4f6", size=13), title=title,
-                      margin=dict(l=0, r=0, t=56, b=0), height=560,
+                      margin=dict(l=0, r=0, t=56, b=0), height=geo_height(region),
                       legend=dict(orientation="h", yanchor="bottom", y=1.0, x=0,
                                   traceorder="normal", bgcolor="rgba(0,0,0,0)"))
     st.plotly_chart(fig, width="stretch")

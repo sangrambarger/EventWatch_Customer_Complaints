@@ -288,6 +288,32 @@ def break_country_iso(csv: Path, xlsx: Path) -> None:
     raise SystemExit("no record carries a country; fixture is stale")
 
 
+def break_model_classification(csv: Path, xlsx: Path) -> None:
+    """A row raised after the cutoff that never says what the model called it.
+
+    This is the fault `append_row.py` cannot catch: a row that reached the tracker some
+    other way, or one staged blank while its ticket was open and never revisited once it
+    answered. The row is BUILT rather than hunted for -- it re-dates an existing record
+    past the cutoff and clears the column -- because a fixture that depends on the
+    tracker already holding such a row is a fixture the tracker can retire, which is how
+    `resolution_dates` came to raise "no Pending row to break".
+    """
+    lines = csv_lines(csv)
+    cols = next(csv_module.reader([lines[0]]))
+    date_i, call_i = cols.index("Email/JIRA Date"), cols.index("Model Classification")
+    for n, line in enumerate(lines[1:], start=1):
+        row = next(csv_module.reader([line]))
+        if len(row) != len(cols):
+            continue
+        row[date_i], row[call_i] = "30-Nov-2026", ""
+        out = io.StringIO()
+        csv_module.writer(out, lineterminator="").writerow(row)
+        lines[n] = out.getvalue()
+        write_lines(csv, lines)
+        return
+    raise SystemExit("no row to re-date; fixture is stale")
+
+
 # (name, rule, fault) or (name, rule, fault, "warn") -- a warning-level rule leaves the
 # exit code at 0 on purpose, so asserting `code != 0` would never see it fire.
 def break_reason_categories(csv: Path, xlsx: Path) -> None:
@@ -377,6 +403,7 @@ CASES: list[tuple] = [
     ("country_iso", "country_iso", break_country_iso),
     ("issue_type", "issue_type", break_issue_type, "warn"),
     ("stale_status", "stale_status", break_stale_status, "warn"),
+    ("model_classification", "model_classification", break_model_classification, "warn"),
 ]
 
 

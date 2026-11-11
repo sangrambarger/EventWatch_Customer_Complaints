@@ -35,7 +35,7 @@ import streamlit as st
 from dashboard.filters import filter_note
 from dashboard.metrics import card_details, inbox_rings, inbox_totals, trend_windows
 from dashboard.components import add_rule, add_section, clickable_kpis, detail_panel, nested_donut, page_header
-from dashboard.sections import render_bulletin_errors, render_customers, render_event_types, render_geography, render_model_classification, render_monthly_breakdown, render_root_cause, render_trend
+from dashboard.sections import render_bulletin_errors, render_customers, render_event_types, render_geography, render_model_classification, render_monthly_breakdown, render_root_cause
 
 
 
@@ -161,9 +161,9 @@ def render(df, filtered, selected_page):
                f"{rings[1]['equation']}")
     add_rule()
     # Section 2 on the owner's call, and the block this page is read for. "Is it
-    # getting better?" (`render_trend`) left for Monthly trend and was deleted with it;
-    # the replacement is an arrow above this chart that moves only when a month is
-    # outside normal variation, not a percentage that wobbles every month.
+    # getting better?" came back here as a control chart and has since been removed on the
+    # owner's call; the miss rate it plotted rides above every bar of this chart, which
+    # is where a reader was reading it from in the first place.
     # `clickable` is still passed explicitly rather than defaulted: the chart's widget
     # key is one piece of session state and exactly one page may own it.
     render_monthly_breakdown(page, clickable=True)
@@ -177,12 +177,14 @@ def render(df, filtered, selected_page):
     # it is the taxonomy at full depth and lives on Root cause, which already renders
     # the same function beneath this page's own root-cause block.
     add_rule()
-    # The one question a VP asks monthly, and until now the only view of it was a
-    # percentage printed on top of each bar of the chart above -- ten numbers for the
-    # reader to compare in their head. It is the dashboard's first time-series chart.
-    render_trend(page)
-
-    add_rule()
+    # **"Is it getting better" is GONE, on the owner's call, and the control chart went
+    # with it** -- `render_trend`, `miss_trend`, `trend_note`, `trend_line` and
+    # `_volume_caveat` are all deleted rather than left unreferenced. It was a p-chart
+    # whose band reached 100% on nine months of ten, so it could flag an improvement and
+    # never a worsening, and `_volume_caveat()` had to print that caveat under the
+    # picture every time it drew. **A chart that needs a paragraph saying it can only
+    # fire one way is a chart that has failed to be one**, and the miss rate it plotted
+    # still rides above every bar of the month chart directly above this line.
     render_root_cause(page)
 
     add_rule()
