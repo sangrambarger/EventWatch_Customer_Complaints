@@ -61,7 +61,7 @@ EXPECTED: dict[str, tuple[int, int]] = {
     # complaints that section 5 does not cover. It adds NO chart on either page -- the
     # pills are HTML chips, not a plot -- so the chart counts are unchanged, which is
     # itself the check that nothing was quietly redrawn as plotly.
-    "Executive Summary": (10, 7),
+    "Executive Summary": (13, 10),
     # **This number tracks whether ANY row is `Pending`, and it moved twice in one
     # day.** The sixth table is "Under investigation", which renders only while some
     # row carries `Short Term Fix Status = Pending`; with none left, `records.py` draws

@@ -973,15 +973,21 @@ def flow_bar(frame, label_col, title="", x_title="Customer complaints", top=None
     fig.update_layout(
         barmode="stack", template="plotly_dark", plot_bgcolor="#1b1f26",
         paper_bgcolor="#1b1f26", font=dict(color="#f3f4f6", size=13),
-        # `top` exists because a horizontal legend WRAPS in a narrow column and then
-        # prints over the chart's own title. At full width the three segment names sit
-        # on one line under a 54px margin and nothing collides; in the geography block's
-        # half-width column they wrap to three lines and the title disappeared behind
-        # them -- visible in the screenshot, not reasoned about. The caller that is
-        # narrow asks for the taller margin; the full-width callers are untouched.
-        title=dict(text=title, y=0.985, yanchor="top"),
-        margin=dict(l=20, r=40, t=top or 54, b=28), legend_title_text="",
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0, traceorder="normal"),
+        # **The title and the legend were drawn in the same 54px margin and overlapped on
+        # every full-width caller.** The note that used to sit here said the collision
+        # happened only in a narrow column, where the legend wraps -- that was the case
+        # it was found in, not the case it was limited to: the title sat at paper y
+        # 0.985 and the legend's foot at 1.02, so on a tall chart the two occupied the
+        # same strip and the legend printed straight through the title. Caught on a
+        # screenshot of the live page months after the first note was written.
+        #
+        # They are stacked now rather than tuned apart. The title is anchored to the
+        # CONTAINER, so it rides at the top of the figure whatever the plot height, and
+        # the legend keeps its paper anchor just above the plot; the margin holds both.
+        # `top` survives for a caller that wants more room still.
+        title=dict(text=title, y=1.0, yanchor="top", yref="container", pad=dict(t=10)),
+        margin=dict(l=20, r=58, t=top or 92, b=28), legend_title_text="",
+        legend=dict(orientation="h", yanchor="bottom", y=1.0, x=0, traceorder="normal"),
         uniformtext=dict(minsize=9, mode="hide"), hovermode="y unified",
         # The cap was 760px when this drew a top twelve. It draws all twenty-six now,
         # and 760 squeezed them to 24px a row with the labels colliding. A long ranked
@@ -989,10 +995,28 @@ def flow_bar(frame, label_col, title="", x_title="Customer complaints", top=None
         height=max(340, min(1180, len(rows) * 30 + 150)))
     # Longest bar at the top. Plotly builds a category axis bottom-up, so the frame's
     # own order (already sorted by misses) is reversed here rather than in the data.
+    # **Every row prints its own total on the end, because the in-bar labels do not.**
+    # `floor` hides a segment's number once it is under about a twenty-second of the
+    # longest bar, which is right on its own terms -- plotly clips a digit rather than
+    # dropping it, and a clipped `1` reads as a stray mark. The cost stayed invisible
+    # until the chart drew twenty-six countries against a longest bar of 26: **ten rows
+    # showed no number anywhere**, so Austria at 1 and Croatia at 2 were a few pixels
+    # apart and unreadable, and the short rows a reader most wants to check were exactly
+    # the ones the chart refused to label. The outside total is not the in-bar figures
+    # again -- on the United States it is the 26 a reader otherwise gets by adding 10
+    # and 16.
+    parts = [p for p, _, _ in MONTH_PARTS if p in frame.columns]
+    totals = [int(sum(int(frame[p].iloc[i]) for p in parts)) for i in range(len(rows))]
+    # The leading space is the gap. Without it the outside total butts against the
+    # last in-bar label and Germany reads "8 2 10" as "810".
+    fig.add_scatter(y=rows, x=totals, mode="text", text=[f" {t}" for t in totals],
+                    textposition="middle right", cliponaxis=False,
+                    textfont=dict(size=12, color="#b6beca"),
+                    showlegend=False, hoverinfo="skip")
     fig.update_yaxes(categoryorder="array", categoryarray=list(reversed(rows)),
                      tickfont=dict(size=12, color="#f3f4f6"), gridcolor="#303846", title="")
     fig.update_xaxes(tickfont=dict(size=12, color="#f3f4f6"), gridcolor="#303846",
-                     title=x_title)
+                     title=x_title, range=[0, max(totals or [1]) * 1.08])
     st.plotly_chart(fig, width="stretch")
     return fig
 
@@ -1071,6 +1095,11 @@ GEO_WINDOWS = {
 # South America) from running past a screen or a wide flat one from drawing a letterbox.
 GEO_PANEL_W, GEO_H_MIN, GEO_H_MAX = 1150, 430, 720
 
+# Half a label's box, as a fraction of the window, per character and in height. Measured
+# off the rendered panel rather than derived: a 12px digit is about 8px wide on a 1040px
+# panel, which is 0.008 of it, and a line is about 15px of a 500px map.
+LABEL_BOX_W, LABEL_BOX_H = 0.008, 0.030
+
 
 def geo_height(region):
     """The panel height this window's own aspect asks for, plus room for the title.
@@ -1115,17 +1144,17 @@ def country_map(frame, titles, region="World", title=""):
     """
     if frame is None or frame.empty:
         st.info("Chart cannot be rendered because required fields are missing: Country.")
-        return None, []
+        return None, [], []
     data = frame[frame["Country"] != GLOBAL].copy()
     if data.empty:
         st.info("No email in this filter carries a country.")
-        return None, []
+        return None, [], []
     data["_iso"] = data["Country"].map(COUNTRY_ISO)
     unmapped = sorted(data.loc[data["_iso"].isna(), "Country"].unique())
     data = data.dropna(subset=["_iso"])
     if data.empty:
         st.info("No country in this filter resolves to a map location.")
-        return None, unmapped
+        return None, unmapped, []
     fig = go.Figure()
     for owner, colour, meaning in GEO_FILLS:
         here = data[data["Owner"] == owner]
@@ -1168,14 +1197,63 @@ def country_map(frame, titles, region="World", title=""):
         (lat0, lat1), (lon0, lon1) = GEO_WINDOWS[region]
         inside = [lat0 <= c[0] <= lat1 and lon0 <= c[1] <= lon1 for c in coords]
         marked, coords = marked[inside], coords[inside]
+    crowded: list[str] = []
     if len(marked):
         named = region != "World"
-        fig.add_trace(go.Scattergeo(
-            lat=[c[0] for c in coords], lon=[c[1] for c in coords], mode="text",
-            text=[(f"{n} {int(m)}" if named else str(int(m)))
-                  for n, m in zip(marked["Country"], marked["Misses"])],
-            textfont=dict(size=11 if named else 12, color="#f3f4f6", family="Inter, sans-serif"),
-            textposition="middle center", showlegend=False, hoverinfo="skip"))
+        # **Labels are placed where one FITS, biggest first, and what will not fit is
+        # REPORTED rather than shrunk or hidden.** At world scale the European anchors
+        # sit within a few pixels of each other, so Austria, Czechia, Croatia, Bosnia,
+        # Serbia and Switzerland printed their counts on top of one another -- and that
+        # was with the counts alone, the names having already been dropped at this zoom
+        # for the same reason. Shrinking the font does not fix a collision; it makes an
+        # unreadable label smaller.
+        #
+        # Three things were tried before this. Rotating the labels put them at an angle
+        # on the one view a VP reads first. Labelling only the big ones is the silent
+        # `top=N` this file refuses, and worse here than usual: the crowded region
+        # carries the second-largest block of misses. An **inset of Europe in the
+        # corner** was built and reverted -- the corner the world window leaves empty is
+        # the one the OLD uncropped window left empty, and once the longitude was
+        # cropped to where events actually happen, the south-east corner holds India,
+        # Thailand and Indonesia. It covered Asia. **Measure the corner before putting
+        # anything in it.**
+        #
+        # What this does instead: project each anchor into panel fractions, walk the
+        # countries in descending miss order, and keep a label only where its box clears
+        # every box already placed. The biggest numbers therefore always survive, and
+        # `render_geography()` prints the names of the ones that did not beside a
+        # pointer to the region zoom, where they fit in full. **An omission that names
+        # itself and says where to see the rest is not the silent head** -- every one of
+        # them is also a full-size row on the bar directly below the map.
+        # `coords` is still a Series here, so indexing it by position would be a LABEL
+        # lookup against the frame's own index -- a KeyError the moment the frame has
+        # been filtered, which it always has been. Take the values once.
+        anchors = list(coords)
+        names = list(marked["Country"].astype(str))
+        counts = [int(v) for v in marked["Misses"]]
+        (wlat0, wlat1), (wlon0, wlon1) = GEO_WINDOWS[region]
+        order = sorted(range(len(anchors)), key=lambda i: -counts[i])
+        placed: list[tuple[float, float]] = []
+        keep: list[int] = []
+        for i in order:
+            lat, lon = anchors[i]
+            fx = (lon - wlon0) / max(wlon1 - wlon0, 1)
+            fy = (lat - wlat0) / max(wlat1 - wlat0, 1)
+            width = LABEL_BOX_W * ((len(names[i]) + 3) if named else 2)
+            if any(abs(fx - px) < width and abs(fy - py) < LABEL_BOX_H for px, py in placed):
+                crowded.append(names[i])
+                continue
+            placed.append((fx, fy))
+            keep.append(i)
+        keep.sort()
+        if keep:
+            fig.add_trace(go.Scattergeo(
+                lat=[anchors[i][0] for i in keep], lon=[anchors[i][1] for i in keep],
+                mode="text",
+                text=[(f"{names[i]} {counts[i]}" if named else str(counts[i])) for i in keep],
+                textfont=dict(size=11 if named else 12, color="#f3f4f6",
+                              family="Inter, sans-serif"),
+                textposition="middle center", showlegend=False, hoverinfo="skip"))
     # Two framing facts, both measured rather than reasoned about. Plotly's default
     # rotation put the DATELINE in the middle, so Europe -- ten of the countries on this
     # map -- was squashed against the left edge while the United States sat against the
@@ -1201,4 +1279,4 @@ def country_map(frame, titles, region="World", title=""):
                       legend=dict(orientation="h", yanchor="bottom", y=1.0, x=0,
                                   traceorder="normal", bgcolor="rgba(0,0,0,0)"))
     st.plotly_chart(fig, width="stretch")
-    return fig, unmapped
+    return fig, unmapped, crowded

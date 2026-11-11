@@ -1709,6 +1709,20 @@ the pills had been quietly redrawn as plotly.
    otherwise the one row a reader opens the table for sits twenty-three rows below the
    fold.
 
+   **It ends with `render_account_view()`, the geography block's own arrangement applied
+   to accounts**, on the owner's call of 11-Nov-2026: *"exactly like this section where
+   we select the customer and get a view I need this similarly for Customers impacted"*.
+   The table answers *who it hit* across the book and the dropdown answers *and what
+   happened to this one*, without the reader going to another tab. It used to run only
+   on Analysis, several blocks below, so the Executive Summary listed thirty-five
+   accounts and offered no way to open one; the standalone call there is gone, so both
+   pages now carry it in the same place and cannot drift. `key` prefixes the widget and
+   every download, for the reason `render_geography()` carries one: **one piece of
+   session state shared between two pages would have an account picked here picked
+   again over there.** Executive Summary went `(10, 7)` to `(13, 10)` and Analysis did
+   not move -- the block was already there, which is exactly what that pair of numbers
+   is for.
+
    **Its total row does not add the columns up, and that is the fix for a real bug.** The
    rows deliberately double-count: accounts split on the slash, so an email naming two of
    them appears on both rows. Adding the columns gave **120 emails against a tracker of
@@ -3632,6 +3646,32 @@ trust into something they can check. The hover prints the first `TITLES_ON_HOVER
 says how many more. The titles are the record's own `Event/Bulletin Title`, never a
 summary written here.
 
+**Labels are placed where one FITS, biggest first, and what will not fit is REPORTED.**
+The owner sent a screenshot of the world view with Austria, Czechia, Croatia, Bosnia,
+Serbia and Switzerland printing their counts through one another -- **and that was with
+the counts ALONE**, the names having already been dropped at this zoom for the same
+reason. Shrinking the font does not fix a collision; it makes an unreadable label
+smaller. `country_map()` now projects each anchor into panel fractions, walks the
+countries in descending miss order, and keeps a label only where its box clears every
+box already placed, so the biggest numbers always survive. 22 of 25 place today;
+`render_geography()` prints the three that do not (Serbia, Croatia, Czech Republic) in a
+caption beside a pointer to the region zoom.
+
+**Naming the omission is what separates it from the silent `top=N` this file refuses
+everywhere else.** The names are on screen, the zoom is one control away, and every one
+of them is a full-size row on the bar directly below the map. `LABEL_BOX_W` and
+`LABEL_BOX_H` are measured off the rendered panel, not derived.
+
+**An INSET of Europe was built first and reverted, and the reason is worth more than the
+code was.** The plan was a second, enlarged Europe map in the corner of the panel the
+world window leaves empty -- which is what an atlas does and would have hidden nothing.
+The corner is not empty. It was empty in the screenshot taken *before* the longitude was
+cropped to where events actually happen; once `World` became `(-128, 148)` the
+south-east corner holds India, Thailand and Indonesia, and the inset covered Asia. The
+main map was displaced as well. **Measure the corner before putting anything in it**,
+and treat a screenshot of the previous layout as evidence about the previous layout
+only -- which is the same lesson as the unified-hover probe, in a different costume.
+
 **`GEO_WINDOWS` exists to solve a LABEL problem, not to be a feature.** Screenshotted at
 world scale with every missed country named, Austria, Czechia, Croatia, Bosnia and
 Switzerland print on top of one another -- five countries as one illegible smear, in the
@@ -3657,11 +3697,27 @@ printed atlas puts a country's name on, not true area centroids -- Canada's cent
 in the empty north. A country with a code and no anchor fills on the map with no label,
 which is the same silent half-failure as one that does not draw at all.
 
-**`flow_bar()` gained `top` because a horizontal legend WRAPS in a narrow column** and
-then prints over the chart's own title. At full width the segment names sit on one line
-under a 54px margin; in this block's half-width column they wrapped to three lines and
-the title vanished behind them. The narrow caller asks for the taller margin and the
-full-width callers are untouched.
+**`flow_bar()`'s title and legend were drawn in the SAME margin and overlapped on every
+caller, not only the narrow one.** The note that used to sit here said `top` existed
+because a horizontal legend wraps in a narrow column -- that was the case it was found
+in, not the case it was limited to. The title sat at paper y 0.985 and the legend's foot
+at 1.02, so on a tall chart the two occupied one strip and the legend printed straight
+through the title; the owner's screenshot of the twenty-six-country bar shows it. They
+are stacked now rather than tuned apart: the title is anchored to the **container**, so
+it rides at the top of the figure whatever the plot height, the legend keeps its paper
+anchor just above the plot, and a 92px margin holds both. **A fix recorded as applying
+to one caller is a fix nobody re-checks on the others.**
+
+**Every row prints its own total on the end, because the in-bar labels do not.** The
+in-bar floor hides a segment's number once it is under about a twenty-second of the
+longest bar, which is right on its own terms -- plotly clips a digit rather than dropping
+it, and a clipped `1` reads as a stray mark. The cost stayed invisible until this chart
+drew twenty-six countries against a longest bar of 26: **ten rows showed no number
+anywhere**, so Austria at 1 and Croatia at 2 were a few pixels apart and unreadable, and
+the short rows a reader most wants to check were exactly the ones the chart refused to
+label. The outside total is not the in-bar figures again -- on the United States it is
+the 26 a reader otherwise gets by adding 10 and 16. The text carries a leading space,
+because without it Germany reads "8 2 10" as "810".
 
 **Four more render faults were found by SCREENSHOTTING, not by reasoning:**
 

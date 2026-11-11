@@ -201,7 +201,7 @@ def render(df, filtered, selected_page):
     render_bulletin_errors(page)
 
     add_rule()
-    render_customers(page)
+    render_customers(page, key="summary")
 
     add_rule()
     # WHERE it hit, directly under who it hit. The two are the same question asked of

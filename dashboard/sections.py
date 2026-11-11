@@ -98,8 +98,19 @@ def render_owner_drilldown(root, root_df, page):
         downloads(accounts, f"{root.lower()}_accounts")
 
 
-def render_account_view(page):
+def render_account_view(page, key="account_view"):
     """One account at a time, chosen from a dropdown -- not every account in one list.
+
+    **It is rendered by `render_customers()` now, directly under the all-accounts table
+    on BOTH pages**, on the owner's call: the geography block already works this way --
+    a selector that narrows one block while the rest of the page holds still -- and the
+    account question is asked in the same breath as the account table. It used to run
+    only on Analysis, several blocks below, so the Executive Summary showed thirty-five
+    accounts and no way to open one.
+
+    `key` prefixes the widget and every download, because one piece of session state
+    shared between two pages would have an account picked here picked again over there
+    -- the same rule `render_geography()` carries and for the same reason.
 
     The three tables this replaces were `long_pair_table` dumps: one row per
     customer-and-value pair, thirty-three accounts deep, unranked and ungrouped, so
@@ -119,8 +130,10 @@ def render_account_view(page):
     # this page is usually opened to answer.
     busiest = max(options, key=lambda n: int(names_match(page["Customer"], [n]).sum()))
     picked = st.selectbox("Account", options, index=options.index(busiest),
-                          key="account_view_pick",
-                          help="Applies to this section only. The tables above follow the sidebar.")
+                          key=f"{key}_account_pick",
+                          help="Applies to this section only — the sidebar filter still applies "
+                               "first, and the table above keeps following it. A record naming "
+                               "two accounts counts for each.")
     frame = page[names_match(page["Customer"], [picked])]
     if frame.empty:
         st.info(f"No emails for {picked} in the current filter.")
@@ -154,7 +167,7 @@ def render_account_view(page):
                         caption="Owner is the team that fixes it; the failure beside it is what "
                                 "actually broke. Every row adds up: **Emails = Misses + Reported "
                                 "timely.**")
-        downloads(fails, f"account_failures_{picked}", f_fail)
+        downloads(fails, f"{key}_account_failures_{picked}", f_fail)
 
     left, right = st.columns(2)
     with left:
@@ -172,10 +185,10 @@ def render_account_view(page):
                         extras=["What it means", "Complaints", "Inquiries", "Misses",
                                 "Reported timely"],
                         wrap=["What it means"], variant="wide roomy")
-        downloads(cats, f"account_categories_{picked}", f_cat)
+        downloads(cats, f"{key}_account_categories_{picked}", f_cat)
     if not types.empty:
         excel_bar_table(types, "Event type", label_head="Event type", value_head="Emails")
-        downloads(types, f"account_event_types_{picked}", f_type)
+        downloads(types, f"{key}_account_event_types_{picked}", f_type)
 
 
 def source_page(title, df, col, key, primary=None, summary=True, header=True):
@@ -227,7 +240,6 @@ def source_page(title, df, col, key, primary=None, summary=True, header=True):
                 pb = proportion_bar(rate, "Customer", "Missed", "Records",
                                     "Confirmed miss", "Not a miss", title="Confirmed misses as a share of each account's records")
                 downloads(rate, "customer_miss_rate", pb)
-        render_account_view(page)
     if col == "Root Cause":
         add_section("Sub-type by root cause", "Sub-type is the category beneath Root Cause in the "
                     "taxonomy, and until now nothing showed the two together. Darker means more "
@@ -534,8 +546,15 @@ def render_bulletin_errors(page):
     downloads(table, "bulletin_errors")
 
 
-def render_customers(page):
-    """Customers impacted: the stacked bar and every account, with reconciled totals."""
+def render_customers(page, key="customers"):
+    """Customers impacted: the stacked bar, every account, then one account at a time.
+
+    The dropdown view under it is `render_account_view()`, which ran only on Analysis
+    until the owner asked for the geography block's own arrangement here: the table
+    answers *who it hit* across the book, and the selector answers *and what happened to
+    this one* without the reader going to another tab. `key` keeps the two pages' widget
+    state apart.
+    """
     accounts = miss_by_customer(page)
     cats = miss_categories(page)
     add_section("Customers impacted", "", "#f6c177")
@@ -563,6 +582,7 @@ def render_customers(page):
             f"emails and {totals['Misses']} misses**, the same figures as the cards at the "
             f"top of this page and every other tab.")
         downloads(accounts, "customers_impacted", f_cust)
+    render_account_view(page, key=key)
 
 
 def render_event_types(page):
@@ -713,8 +733,19 @@ def render_geography(page, key="geo"):
     # the map answers WHERE and WHOSE, the bar answers HOW MANY, and a reader consults
     # them one after the other. Full width each, in that reading order, so the map fills
     # its block and every country on the bar carries a legible name.
-    fig, unmapped = country_map(frame, titles, region=region,
-                                title=f"Who owns each region's misses{suffix}")
+    fig, unmapped, crowded = country_map(frame, titles, region=region,
+                                         title=f"Who owns each region's misses{suffix}")
+    if crowded:
+        # **The map says which labels it could not fit, and where to read them.** It
+        # places a count only where the box clears the ones already placed, biggest
+        # first, so a crowded region loses its smallest numbers rather than printing
+        # them through each other. Saying so is what separates this from the silent
+        # `top=N` this file refuses everywhere else -- the names are here, the zoom is
+        # one control away, and every one of them is a full-size row on the bar below.
+        shown = ", ".join(crowded[:6]) + (f" and {len(crowded) - 6} more" if len(crowded) > 6 else "")
+        st.caption(f"**{plural(len(crowded), 'count')} would not fit on the map at this "
+                   f"zoom:** {shown}. Their countries are still filled and still on the "
+                   f"chart below — pick a region above to see every name in full.")
     if unmapped:
         # Surfaced rather than swallowed. `validate.py` blocks a tracker value with
         # no ISO entry, so this should be unreachable -- and the one thing worse than
