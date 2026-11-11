@@ -1709,19 +1709,34 @@ the pills had been quietly redrawn as plotly.
    otherwise the one row a reader opens the table for sits twenty-three rows below the
    fold.
 
-   **It ends with `render_account_view()`, the geography block's own arrangement applied
-   to accounts**, on the owner's call of 11-Nov-2026: *"exactly like this section where
-   we select the customer and get a view I need this similarly for Customers impacted"*.
-   The table answers *who it hit* across the book and the dropdown answers *and what
-   happened to this one*, without the reader going to another tab. It used to run only
-   on Analysis, several blocks below, so the Executive Summary listed thirty-five
-   accounts and offered no way to open one; the standalone call there is gone, so both
-   pages now carry it in the same place and cannot drift. `key` prefixes the widget and
-   every download, for the reason `render_geography()` carries one: **one piece of
+   **`render_account_view()` is folded in here and is OFF on the Executive Summary**
+   (`account=False`), which is two owner calls on the same day and both of them right.
+
+   The first asked for it: *"exactly like this section where we select the customer and
+   get a view I need this similarly for Customers impacted"*. It had run only on
+   Analysis, several blocks below, so the summary listed thirty-five accounts and gave
+   a reader no way to open one. The standalone call on Analysis went at the same time,
+   so there is one call site and the two pages cannot drift. `key` prefixes the widget
+   and every download, for the reason `render_geography()` carries one: **one piece of
    session state shared between two pages would have an account picked here picked
-   again over there.** Executive Summary went `(10, 7)` to `(13, 10)` and Analysis did
-   not move -- the block was already there, which is exactly what that pair of numbers
-   is for.
+   again over there.**
+
+   The second took it off the summary: *"it is not in the design pattern and is only
+   causing confusion"*. **The objection is the shape, not the content**, and it is this
+   file's own rule turned back on a block added under it. Every other section of that
+   page is one chart, one collapsed table and one computed caption, read top to bottom;
+   the account view is a selector, its own KPI row, a takeaway and three
+   chart-and-table pairs -- a second page embedded in the sixth section.
+
+   **The geography comparison that produced it does not actually hold, and that is the
+   lesson.** That block's selector narrows the ONE chart and table it already draws;
+   this one opens a whole view underneath. **A selector that filters a block fits the
+   pattern; a selector that spawns a sub-page does not** -- check which of the two an
+   ask is before reaching for the precedent.
+
+   Executive Summary went `(10, 7)` to `(13, 10)` and back to `(10, 7)`, Analysis
+   unmoved at `(12, 20)` throughout -- the matched pair doing its job in both
+   directions.
 
    **Its total row does not add the columns up, and that is the fix for a real bug.** The
    rows deliberately double-count: accounts split on the slash, so an email naming two of

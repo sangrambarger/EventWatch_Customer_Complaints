@@ -546,14 +546,25 @@ def render_bulletin_errors(page):
     downloads(table, "bulletin_errors")
 
 
-def render_customers(page, key="customers"):
-    """Customers impacted: the stacked bar, every account, then one account at a time.
+def render_customers(page, key="customers", account=True):
+    """Customers impacted: the stacked bar and every account, with reconciled totals.
 
-    The dropdown view under it is `render_account_view()`, which ran only on Analysis
-    until the owner asked for the geography block's own arrangement here: the table
-    answers *who it hit* across the book, and the selector answers *and what happened to
-    this one* without the reader going to another tab. `key` keeps the two pages' widget
-    state apart.
+    **`account=False` on the Executive Summary, on the owner's call of 11-Nov-2026.**
+    `render_account_view()` was folded in here a commit earlier, so the dropdown ran on
+    both pages; the owner's reading is that on the summary it *"is not in the design
+    pattern and is only causing confusion"*, and that is right on this file's own terms.
+    Every other block on that page is **one chart, one collapsed table, one computed
+    caption**, read top to bottom. The account view is a different shape -- a selector,
+    its own KPI row, a takeaway and three chart-and-table pairs -- so a reader who has
+    learned the page's rhythm meets a second page embedded in the sixth section.
+
+    **It is not the same case as the geography block, which is the comparison that
+    produced it.** That block's selector narrows the ONE chart and table it already
+    draws; this one opens a whole view underneath. A selector that filters a block fits
+    the pattern; a selector that spawns a sub-page does not.
+
+    It stays on Analysis, which is where a reader goes to prove a figure and where a
+    block with its own anatomy costs nothing.
     """
     accounts = miss_by_customer(page)
     cats = miss_categories(page)
@@ -582,7 +593,8 @@ def render_customers(page, key="customers"):
             f"emails and {totals['Misses']} misses**, the same figures as the cards at the "
             f"top of this page and every other tab.")
         downloads(accounts, "customers_impacted", f_cust)
-    render_account_view(page, key=key)
+    if account:
+        render_account_view(page, key=key)
 
 
 def render_event_types(page):
