@@ -201,7 +201,11 @@ def render(df, filtered, selected_page):
     render_bulletin_errors(page)
 
     add_rule()
-    render_customers(page, key="summary")
+    # `account=False`: the one-account dropdown stays on Analysis. On this page it is
+    # a sub-page inside section six, against a rhythm of one chart, one collapsed
+    # table and one caption everywhere else -- the owner's call, and the reason is
+    # the shape rather than the content.
+    render_customers(page, key="summary", account=False)
 
     add_rule()
     # WHERE it hit, directly under who it hit. The two are the same question asked of
