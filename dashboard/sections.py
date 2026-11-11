@@ -24,7 +24,7 @@ from dashboard.styles import CAT_SLATE, ROOT_COLOURS, esc
 from dashboard.taxonomy import ROOT_OWNERSHIP, name_subtypes, plural
 from dashboard.filters import customer_names, filter_note, names_match
 from dashboard.metrics import MISS_BUCKETS, account_failures, bulletin_errors, month_causes, account_headline, count_table, customer_totals, driver_table, event_type_flow, miss_by_customer, miss_categories, miss_colours, monthly_breakdown, monthly_note, monthly_table, nature_table, owner_accounts, owner_insight, root_drivers, root_frame, root_recent_note, root_summary, model_split, model_note, subtype_matrix, takeaway, trend_windows, country_flow, country_insight, country_note, country_titles, country_totals
-from dashboard.components import GEO_WINDOWS, add_rule, add_section, chart, country_map, downloads, driver_bar, fault_pills, excel_bar_table, flow_bar, grouped_bar, heatmap, kpis, monthly_stack, page_header, proportion_bar, stacked_bar, styled_table
+from dashboard.components import GEO_WINDOWS, add_rule, add_section, chart, country_map, downloads, driver_bar, fault_pills, excel_bar_table, flow_bar, grouped_bar, heatmap, kpis, monthly_stack, page_header, proportion_bar, ranked_bar, stacked_bar, styled_table
 
 
 
@@ -574,10 +574,36 @@ def render_customers(page, key="customers", account=True):
     else:
         bucket_names = [c for c in accounts.columns
                         if c not in ("Customer", "Emails", "Complaints", "Inquiries", "Misses", "% of Total")]
-        f_cust = stacked_bar(accounts[accounts["Misses"] > 0], "Customer", bucket_names,
-                             miss_colours(page, cats),
-                             title="Confirmed misses by account, and what failed",
-                             x_title="Confirmed misses")
+        colours = miss_colours(page, cats)
+        names = customer_names(page.get("Customer"))
+        picked = st.selectbox("Account", ["All accounts"] + names,
+                              key=f"{key}_impacted_pick",
+                              help="Narrows the chart only. The table below keeps "
+                                   "following the sidebar filter.")
+        if picked == "All accounts":
+            f_cust = stacked_bar(accounts[accounts["Misses"] > 0], "Customer", bucket_names,
+                                 colours,
+                                 title="Confirmed misses by account, and what failed",
+                                 x_title="Confirmed misses")
+        else:
+            row = accounts[accounts["Customer"].astype(str) == picked]
+            one = pd.DataFrame({"Category": bucket_names,
+                                "Misses": [int(row[b].iloc[0]) if len(row) else 0
+                                           for b in bucket_names]})
+            one = one[one["Misses"] > 0].sort_values("Misses", ascending=False)
+            if one.empty:
+                st.info(f"{picked} has no confirmed miss in the current filter.")
+                f_cust = None
+            else:
+                f_cust = ranked_bar(one, "Category", "Misses", colours,
+                                    title=f"What failed for {picked}",
+                                    x_title="Confirmed misses")
+                st.caption(
+                    f"**{plural(int(one['Misses'].sum()), 'confirmed miss', 'confirmed misses')}** for {picked}, "
+                    f"across {plural(len(one), 'kind')} of failure. Same colours and the "
+                    f"same names as the all-accounts view above it — a single stacked row "
+                    f"would have put every one of those names in the legend and nowhere "
+                    f"else.")
         totals, over = customer_totals(page)
         with st.expander("Show the numbers"):
             excel_bar_table(accounts, "Customer", value_col="Misses",
