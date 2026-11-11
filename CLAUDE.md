@@ -3493,10 +3493,29 @@ the customer's. Three conventions, all the owner's rulings of 05-Nov-2026:
   missing a country, so a blank would read as an unfilled cell rather than as the answer.
   `Global` is a row in the table and is drawn nowhere on the map.
 
-**Six rows are genuinely BLANK and that is deliberate.** The location is not recoverable
-from the record and the mailbox does not reach back to January 2026 to settle them. The
-caption prints the coverage rather than quietly dividing by 136: *a blank is "nobody has
-established this"; `Global` is "there is nothing to establish".*
+**ONE row is genuinely blank, and five were before the mailbox was searched for them.**
+The first pass recorded six as "not recoverable from the record", which was true of the
+record and false of the evidence: the mailbox reaches back to **04-Feb-2026**, and four
+of the six are threads in it where our own people name the place in the subject line or
+the first paragraph -- TECH POWER ELECTRONICS at Courlaoux 39570 before the Commercial
+Court of Lons-le-Saunier (France), *"Eason & Co ... a Thailand-based paint manufacturer"*
+(Thailand), *"DRUTEC, a German zinc die-casting supplier ... Local Court of Bielefeld"*
+(Germany), and truck drivers from Serbia and Bosnia and Herzegovina blockading the
+Schengen crossings (both, per the corridor rule). **"Not in the record" is not the same
+claim as "not establishable", and only the second one justifies a blank.** Ford's
+21-Jan-2026 Stark Manufacturing closure is the one that survives it: it predates the
+mailbox horizon, so it stays blank rather than guessed.
+
+The caption prints the coverage rather than quietly dividing by the miss count: *a blank
+is "nobody has established this"; `Global` is "there is nothing to establish".*
+
+**`Global` is not the problem the first cut took it for, because the block is scoped to
+confirmed misses.** Eleven rows carry it and **ten of them are inquiries or
+delivered-but-wrong complaints**, which this block does not draw. The one that does is
+Eaton's Axios npm package compromise, a poisoned package with no event location at all --
+which is exactly what the value means. The proposal to split those eleven rows was
+answering a question the miss scope had already answered; do not reopen it without
+checking how many of the rows in question are misses.
 
 **This is the SECOND table whose rows cannot add to its own foot, and it misses in both
 directions at once.** Corridor events sit on every country's row, so the rows overshoot;
