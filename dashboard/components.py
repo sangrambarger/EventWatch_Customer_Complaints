@@ -994,7 +994,8 @@ def _on_fill(colour):
     return "#f3f4f6" if (lum + 0.05) / 0.062 < 0.945 / (lum + 0.05) else "#1b1f26"
 
 
-def flow_bar(frame, label_col, title="", x_title="Customer complaints", top=None):
+def flow_bar(frame, label_col, title="", x_title="Customer complaints", top=None,
+             scale_col="Complaints"):
     """A horizontal bar split the way the month chart splits a month.
 
     Same four segments, same colours, same order, straight off `MONTH_PARTS` -- so a
@@ -1007,8 +1008,11 @@ def flow_bar(frame, label_col, title="", x_title="Customer complaints", top=None
         st.info(f"Chart cannot be rendered because required fields are missing: {label_col}.")
         return None
     rows = list(frame[label_col].astype(str))
-    # Complaints, for the reason `monthly_stack()` scales to them: no inquiry segment.
-    widest = max([int(v) for v in frame["Complaints"]] or [1])
+    # The bar's own total, which is what the in-bar label floor is measured against.
+    # It is `Complaints` on the month and event-type charts, for the reason
+    # `monthly_stack()` scales to them: no inquiry segment. The geography block is
+    # scoped to confirmed misses and has no Complaints column, so the caller names it.
+    widest = max([int(v) for v in frame[scale_col]] or [1])
     floor = max(widest * 0.045, 1.5)
     fig = go.Figure()
     for part, colour, meaning in MONTH_PARTS:
@@ -1061,6 +1065,9 @@ GEO_FILLS = (
     ("Product", ROOT_COLOURS["Product"], "Mostly Product misses — the event never reached them"),
     ("People", ROOT_COLOURS["People"], "Mostly Analyst misses — a person had it and it did not go out"),
     ("Process", ROOT_COLOURS["Process"], "Mostly Process misses — the workflow or guideline was at fault"),
+    # Unreachable while the block is scoped to confirmed misses -- every country drawn
+    # has at least one. Kept because the scope is the caller's choice, not this
+    # function's, and a frame that ever carries a miss-free country must not crash.
     (UNKNOWN_OWNER, CAT_SLATE, "Emails from here, no confirmed miss"),
 )
 GEO_FILL_NAMES = {"Product": "Product", "People": "Analyst", "Process": "Process",
@@ -1152,10 +1159,9 @@ def country_map(frame, titles, region="World", title=""):
         hover = []
         for _, row in here.iterrows():
             found = titles.get(row["Country"], [])
-            head = (f"<b>{esc(str(row['Country']))}</b><br>{int(row['Emails'])} email(s)"
-                    f" · {int(row['Misses'])} confirmed miss(es)<br>"
-                    f"{int(row['Product'])} product · {int(row['Analyst'])} analyst"
-                    f" · {int(row['Wrong'])} reported, but wrong<br>"
+            head = (f"<b>{esc(str(row['Country']))}</b><br>"
+                    f"{int(row['Misses'])} confirmed miss(es)<br>"
+                    f"{int(row['Product'])} product · {int(row['Analyst'])} analyst<br>"
                     f"<i>{esc(meaning)}</i>")
             if found:
                 shown = [f"• {esc(shorten(t, 62))}" for t in found[:TITLES_ON_HOVER]]

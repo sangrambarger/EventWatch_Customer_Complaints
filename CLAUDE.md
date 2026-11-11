@@ -3466,6 +3466,25 @@ counts in `expectations()`. Analysis went 52 labels to 81 with "not rendered" un
 3 -- which is what that number is for. Proved by seeding Japan one short and watching it
 fail, then reverting.
 
+**The population is CONFIRMED MISSES, not emails, on the owner's call of 11-Nov-2026:
+the block is "only for analyst and product miss".** Three things that were drawn here
+are gone with it -- `Reported, but wrong`, inquiries, and the email base. That is the
+instruction read as a whole: the first sentence scopes it to the two miss owners, and
+the second, *"let us not create for analyst errors"*, rules out the delivered-but-wrong
+complaints, which is exactly where an analyst error on a bulletin that DID reach the
+customer sits.
+
+It also sharpens what the block is for. The question it exists to answer is which
+regions' news we are missing, and a bulletin that went out with the wrong supplier list
+is not a regional coverage signal at all -- it says nothing about whether the story
+arrived from that country. **A country with emails and no confirmed miss is no longer
+drawn**, which took the table from 29 rows to 26 and the audit from 94 reconciled labels
+to 91 with "not rendered" unmoved at 3 -- the matched-pair check working, not a gate
+going blind.
+
+`flow_bar()` gained `scale_col` for it: the bar's in-label floor is measured against
+`Complaints` on the month and event-type charts, and this frame has no such column.
+
 **It is TWO views side by side, and neither answers the question alone.** The map says
 WHERE and WHOSE -- a country filled in `ROOT_COLOURS` tells a reader at a glance that
 Mexico is Product's problem and Japan is EventWatch Ops'. The bar beside it is

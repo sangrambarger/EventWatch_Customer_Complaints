@@ -132,16 +132,17 @@ def expectations(df: pd.DataFrame) -> dict[str, dict[str, int]]:
     miss_types = {str(k).strip(): int(v)
                   for k, v in missed["Event type"].astype(str).str.strip().value_counts().items()}
 
-    # The country table on Analysis. Recomputed from the CSV with its own slash split,
-    # because the whole value of the map rests on a country's count being right -- a
-    # region reading 3 misses where the tracker holds 9 points Product at the wrong gap,
-    # and nothing else on the page would contradict it. `Global` is included: it is a
-    # stated value on eleven records and a row in that table, drawn nowhere on the map.
+    # The country block, recomputed from the CSV with its own slash split, because the
+    # whole value of the map rests on a country's count being right -- a region reading
+    # 3 misses where the tracker holds 9 points Product at the wrong gap, and nothing
+    # else on the page would contradict it. Confirmed misses only since 11-Nov-2026,
+    # matching the block's own scope. `Global` is included: it is a stated value and a
+    # row in that table, drawn nowhere on the map.
     from dashboard.taxonomy import countries_on
-    country_emails: collections.Counter = collections.Counter()
-    for value in df["Country"].fillna(""):
-        for name in countries_on(value):
-            country_emails[name] += 1
+    country_misses: collections.Counter = collections.Counter()
+    for _, row in missed.iterrows():
+        for name in countries_on(row["Country"]):
+            country_misses[name] += 1
 
     # Every page counts every record the customer sent in -- complaints and inquiries.
     return {
@@ -157,7 +158,7 @@ def expectations(df: pd.DataFrame) -> dict[str, dict[str, int]]:
         # expectations; the first run after that wiring is where a missing registration
         # shows up as a figure nobody is checking.
         "Executive Summary": {**split_all, **dict(drivers), **miss_types,
-                              **dict(country_emails)},
+                              **dict(country_misses)},
         # Analysis is the merge of what were Root cause and Top customer complaints, so
         # it is checked against BOTH sets: the root-cause and driver counts from the
         # first half, the per-account counts from the second. Both halves run the
@@ -175,7 +176,7 @@ def expectations(df: pd.DataFrame) -> dict[str, dict[str, int]]:
         # word. It is not a Root Cause, a reason category, an account or a driver today
         # -- check that again before adding any of those.
         "Analysis": {**counts(df, "Root Cause"), **dict(drivers), **split_all,
-                     **reason_category_counts(df), **dict(country_emails)},
+                     **reason_category_counts(df), **dict(country_misses)},
         # The reason categories on All customer emails. Imported from app.py rather
         # than restated, because a second copy of the fold would drift and the whole point
         # of the map is that one wording maps one way everywhere.
@@ -296,32 +297,29 @@ def reconciled_totals(df: pd.DataFrame) -> dict[str, dict[str, int]]:
 
 
 def country_reconciled(df: pd.DataFrame) -> dict[str, int]:
-    """The figures the Analysis country table's Total row must show.
+    """The figures the country table's Total row must show.
 
     It is the SECOND table on this dashboard whose rows cannot add to its own foot, and
     it misses in both directions at once, which is why it needed its own entry rather
     than joining Customers impacted's. A corridor event names every country it closed
     and sits on each of their rows, so the rows OVERSHOOT; a record whose location
     nobody has established carries no country at all and sits on no row, so they also
-    UNDERSHOOT. Emails read 139 against a tracker of 136 while Inquiries read 26 against
-    27, from one table, on the first run after it landed.
+    UNDERSHOOT.
+
+    Scoped to confirmed misses since 11-Nov-2026, matching `country_flow()`: the block
+    is "only for analyst and product miss", so the foot carries the miss counts the
+    cards carry and nothing else.
 
     Recomputed here from the CSV rather than read off the app, like every other figure
     in this script: the point is to disagree with the page when the page is wrong.
     """
-    issue = df["Issue Type"].astype(str).str.strip()
     missed = df["Missed_Flag"].astype(str).str.strip().eq("Yes")
     root = df["Root Cause"].astype(str).str.strip()
-    return {"ALL EMAILS": len(df),
-            "EMAILS": len(df),
-            "COMPLAINTS": int(issue.eq("Complaint").sum()),
-            "INQUIRIES": int(issue.eq("Inquiry").sum()),
-            "MISSES": int(missed.sum()),
+    return {"MISSES": int(missed.sum()),
             "CONFIRMED MISSES": int(missed.sum()),
             "PRODUCT": int((missed & root.eq("Product")).sum()),
             "ANALYST": int((missed & root.eq("People")).sum()),
-            "PROCESS": int((missed & root.eq("Process")).sum()),
-            "REPORTED TIMELY": len(df) - int(missed.sum())}
+            "PROCESS": int((missed & root.eq("Process")).sum())}
 
 
 def total_row_problems(page: str, tables, df: pd.DataFrame, reconciled) -> list[str]:

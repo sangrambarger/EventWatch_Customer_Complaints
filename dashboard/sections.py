@@ -738,7 +738,7 @@ def render_geography(page, key="geo"):
     and escalation, which source expansion does not touch. The two call for opposite
     spending and a map of volume cannot tell them apart.
     """
-    add_section("Where the events were, and whose they were", "", "#80cbc4")
+    add_section("Where we missed, and whose miss it was", "", "#80cbc4")
     options = ["All customers"] + customer_names(page.get("Customer"))
     c1, c2 = st.columns([2, 1])
     picked = c1.selectbox("Customer", options, key=f"{key}_country_customer",
@@ -754,7 +754,7 @@ def render_geography(page, key="geo"):
         return
     frame = country_flow(focus)
     if frame.empty:
-        st.info("No email in the current filter carries a country.")
+        st.info("No confirmed miss in the current filter carries a country.")
         return
     titles = country_titles(focus)
     totals, over = country_totals(focus)
@@ -771,7 +771,7 @@ def render_geography(page, key="geo"):
                        f"They are counted in the chart and the table.")
     with right:
         bar = flow_bar(frame, "Country", title=f"Every country, ranked by misses{suffix}",
-                       x_title="Customer complaints", top=118)
+                       x_title="Confirmed misses", top=118, scale_col="Misses")
     insight = country_insight(frame, focus)
     if insight:
         st.caption(insight)
