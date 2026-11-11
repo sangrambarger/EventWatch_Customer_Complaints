@@ -23,8 +23,8 @@ import streamlit as st
 from dashboard.styles import CAT_SLATE, ROOT_COLOURS, esc
 from dashboard.taxonomy import ROOT_OWNERSHIP, name_subtypes, plural
 from dashboard.filters import customer_names, filter_note, names_match
-from dashboard.metrics import MISS_BUCKETS, account_failures, bulletin_errors, month_causes, account_headline, count_table, customer_totals, driver_table, event_type_flow, miss_by_customer, miss_categories, miss_colours, miss_trend, monthly_breakdown, monthly_note, monthly_table, nature_table, owner_accounts, owner_insight, root_drivers, root_frame, root_recent_note, root_summary, model_split, model_note, subtype_matrix, takeaway, trend_note, trend_windows, country_flow, country_insight, country_note, country_titles, country_totals
-from dashboard.components import GEO_WINDOWS, add_rule, add_section, chart, country_map, downloads, driver_bar, fault_pills, excel_bar_table, flow_bar, grouped_bar, heatmap, kpis, monthly_stack, page_header, proportion_bar, stacked_bar, styled_table, trend_line
+from dashboard.metrics import MISS_BUCKETS, account_failures, bulletin_errors, month_causes, account_headline, count_table, customer_totals, driver_table, event_type_flow, miss_by_customer, miss_categories, miss_colours, monthly_breakdown, monthly_note, monthly_table, nature_table, owner_accounts, owner_insight, root_drivers, root_frame, root_recent_note, root_summary, model_split, model_note, subtype_matrix, takeaway, trend_windows, country_flow, country_insight, country_note, country_titles, country_totals
+from dashboard.components import GEO_WINDOWS, add_rule, add_section, chart, country_map, downloads, driver_bar, fault_pills, excel_bar_table, flow_bar, grouped_bar, heatmap, kpis, monthly_stack, page_header, proportion_bar, stacked_bar, styled_table
 
 
 
@@ -596,60 +596,6 @@ def render_event_types(page):
             downloads(table, "event_types", f_flow)
 
 
-def _volume_caveat(trend):
-    """Say when the test can only ever fire one way, and why.
-
-    Three sigma above a ~68% base rate lands past 100% on a month of 4 to 19 emails, so
-    the upper limit is the ceiling and no month can register as WORSE however badly it
-    runs. A reader watching an arrow that only ever points down deserves to be told that
-    rather than left to infer it, and a dashboard that quietly runs a one-sided test is
-    the kind of thing this file exists to prevent. Computed, so it corrects itself the
-    month volumes grow enough to make the test two-sided again.
-    """
-    pinned, span = trend.get("pinned", 0), trend.get("span", 0)
-    if not span or not pinned:
-        return ""
-    if pinned == span:
-        return ("**One limit only:** at this many emails a month the band reaches 100%, so "
-                "it can flag an improvement but never a worsening.")
-    return (f"**One limit only on {pinned} of {span} months:** their band reaches 100%, so "
-            f"for those it can flag an improvement but never a worsening.")
-
-
-def render_trend(page):
-    """Is it getting better: the verdict, the months, and the numbers behind them."""
-    trend = miss_trend(page)
-    latest = trend.get("latest")
-    arrow = {"worse": ("▲", "#f28b82"), "better": ("▼", "#a8dab5")}.get(
-        (latest or {}).get("direction", "flat"), ("▬", "#8a94a8"))
-    add_section("Is it getting better", "", "#8ab4f8")
-    if latest:
-        # The arrow and one sentence are the whole answer for a reader who stops here.
-        st.markdown(
-            f"<div style='display:flex;align-items:baseline;gap:14px;margin:2px 0 10px'>"
-            f"<span style='font-size:42px;line-height:1;color:{arrow[1]}'>{arrow[0]}</span>"
-            f"<span style='font-size:15px;color:#b6beca'>{esc(trend_note(trend))}</span>"
-            f"</div>", unsafe_allow_html=True)
-    trend_line(trend)
-    # **One sentence teaches the whole chart.** A control chart is unreadable to anyone
-    # who has not met one, and the owner said so: they did not understand the timeline.
-    # This says what the band is for in the words a reader already has, and says nothing
-    # about sigma, pooling or p-charts -- that reasoning is in CLAUDE.md, where the next
-    # person to change the threshold will look for it.
-    st.caption("The shaded band is how much this number normally bounces about. "
-               "A month inside it means nothing changed; only a month outside is news. "
-               + _volume_caveat(trend))
-    months = trend["months"]
-    if not months.empty:
-        table = months[["Month", "Emails", "Misses", "Rate"]].copy()
-        table.columns = ["Month", "Emails", "Confirmed misses", "Miss rate"]
-        table["Miss rate"] = table["Miss rate"].map(lambda v: f"{v:.0f}%")
-        with st.expander("Show the numbers"):
-            excel_bar_table(table, "Month", value_col="Confirmed misses",
-                            extras=["Emails", "Miss rate"], label_head="Month",
-                            value_head="Confirmed misses", variant="roomy", total_row=False)
-
-
 def render_nature(page):
     """Nature of complaints: the seven categories, split on whether we got it wrong."""
     missed = int(page.get("Missed_Flag", pd.Series(dtype=str)).astype(str).str.strip().eq("Yes").sum())
@@ -715,7 +661,7 @@ def render_deeper_root_cause(page):
 
 
 def render_geography(page, key="geo"):
-    """Where the events were -- a map and a ranked bar, side by side, one vocabulary.
+    """Where the events were -- a map and a ranked bar, stacked, in one vocabulary.
 
     **Two views because neither answers the question alone.** The map says WHERE and
     WHOSE: a filled country in `ROOT_COLOURS` tells a reader at a glance that Mexico is
@@ -759,19 +705,24 @@ def render_geography(page, key="geo"):
     titles = country_titles(focus)
     totals, over = country_totals(focus)
     suffix = "" if picked == "All customers" else f" — {picked}"
-    left, right = st.columns(2, gap="medium")
-    with left:
-        fig, unmapped = country_map(frame, titles, region=region,
-                                    title=f"Who owns each region's misses{suffix}")
-        if unmapped:
-            # Surfaced rather than swallowed. `validate.py` blocks a tracker value with
-            # no ISO entry, so this should be unreachable -- and the one thing worse than
-            # a country missing from the map is a country missing from it in silence.
-            st.warning(f"Not drawn on the map, no ISO code on record: {', '.join(unmapped)}. "
-                       f"They are counted in the chart and the table.")
-    with right:
-        bar = flow_bar(frame, "Country", title=f"Every country, ranked by misses{suffix}",
-                       x_title="Confirmed misses", top=118, scale_col="Misses")
+    # **STACKED, not side by side, and that is a correction the owner called.** The two
+    # views were `st.columns(2)`, which gave each about 560px: a world map letterboxed
+    # into a strip, and twenty-five country rows crushed into a half-width axis whose
+    # labels had no room. **Neither view was at the size its own content needs, and the
+    # pair read as congested rather than as a comparison.** They are not a comparison --
+    # the map answers WHERE and WHOSE, the bar answers HOW MANY, and a reader consults
+    # them one after the other. Full width each, in that reading order, so the map fills
+    # its block and every country on the bar carries a legible name.
+    fig, unmapped = country_map(frame, titles, region=region,
+                                title=f"Who owns each region's misses{suffix}")
+    if unmapped:
+        # Surfaced rather than swallowed. `validate.py` blocks a tracker value with
+        # no ISO entry, so this should be unreachable -- and the one thing worse than
+        # a country missing from the map is a country missing from it in silence.
+        st.warning(f"Not drawn on the map, no ISO code on record: {', '.join(unmapped)}. "
+                   f"They are counted in the chart and the table.")
+    bar = flow_bar(frame, "Country", title=f"Every country, ranked by misses{suffix}",
+                   x_title="Confirmed misses", scale_col="Misses")
     insight = country_insight(frame, focus)
     if insight:
         st.caption(insight)

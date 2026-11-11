@@ -47,6 +47,21 @@ REQUIRED = ["Email/JIRA Date", "Customer", "Event type", "Event/Bulletin Title",
             "Issue Type", "Reason", "Root Cause", "Severity",
             "Standard Automation Focus", "Comments"]
 
+# **`Model Classification` is mandatory at triage, and "mandatory" here means STATED,
+# not non-empty.** The column records the automated models' own first call, and its
+# whole value rests on a blank meaning *nobody wrote this down* rather than *the model
+# was right* -- so a rule demanding a value would force a guess on the rows where the
+# ticket does not say, which is the inference the column exists to replace. The text
+# mining that preceded it put 10 of 35 rows in "unclear" and scored a negation as a
+# hit; a required non-empty field would have written those 10 down as facts.
+#
+# So the key must be PRESENT in the payload and its value must be one this column
+# allows, with "" the deliberate answer for "the ticket does not say". A staged row
+# that simply forgot the field is refused; a staged row that answers "not recorded" is
+# written. 66 of the first 92 misses are blank precisely because nobody was asked.
+MODEL_CALLS = ("Event", "Non-Event", "")
+MODEL_COLUMN = "Model Classification"
+
 # Excel's 1900 date system, with its phantom 29-Feb-1900: day 1 is 01-Jan-1900 and
 # everything from 01-Mar-1900 on is offset by one.
 EPOCH = datetime(1899, 12, 30)
@@ -132,6 +147,21 @@ def append(record: dict, csv_path: Path, xlsx_path: Path, dry_run: bool = False)
     missing = [c for c in REQUIRED if not str(record.get(c, "")).strip()]
     if missing:
         raise SystemExit(f"refusing to append: missing required field(s) {missing}")
+    if MODEL_COLUMN in columns:
+        if MODEL_COLUMN not in record:
+            raise SystemExit(
+                f"refusing to append: {MODEL_COLUMN!r} must be stated on every new row. "
+                f"It is what the AUTOMATED models called the feed first, independently of "
+                f"Root Cause: {' / '.join(repr(v) for v in MODEL_CALLS if v)}, or \"\" when "
+                f"the ticket does not say who made the call. An empty string is a real "
+                f"answer and means nobody wrote it down -- never that the model was right.")
+        call = str(record[MODEL_COLUMN]).strip()
+        if call not in MODEL_CALLS:
+            raise SystemExit(
+                f"refusing to append: {MODEL_COLUMN} is {call!r}, which is not one of "
+                f"{MODEL_CALLS}. Do not invent a third value to mean 'unknown' -- that is "
+                f'what "" is for, and a new value would need a Definitions row too.')
+        record[MODEL_COLUMN] = call
     unknown = [k for k in record if k not in columns]
     if unknown:
         raise SystemExit(f"refusing to append: {unknown} are not tracker columns")

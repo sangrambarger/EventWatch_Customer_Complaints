@@ -831,6 +831,59 @@ def check_country_iso(df: pd.DataFrame, rep: Report) -> None:
              f"{blank} record(s) carry no country at all")
 
 
+MODEL_CUTOFF = pd.Timestamp("2026-11-11")
+
+
+def check_model_classification(df: pd.DataFrame, rep: Report) -> None:
+    """Every record raised from the day the column landed must state the model's call.
+
+    `Model Classification` records what the AUTOMATED models called the feed FIRST,
+    which `Root Cause` cannot: that field holds one value and carries the failure that
+    STOPPED delivery, so a miss the model called wrong and a person then missed too is
+    filed as an analyst miss and the model's half is invisible. Two of the six wrong
+    model calls on the book sit on rows filed as analyst misses, and this column is the
+    only place they are countable.
+
+    **It warns rather than fails, and the cutoff is the whole design.** 111 of the 139
+    rows predate the column and most of them will never be settled -- their tickets are
+    closed and the portal's own log does not reach back -- so a failure-level rule would
+    either block every commit or demand a backfill by guesswork, which is exactly the
+    inference this column was made STORED to replace. The cutoff asks the question only
+    of rows raised once somebody could be asked it.
+
+    **A blank after the cutoff is a row nobody was asked, not a row where the model was
+    right**, and that is why the warning names each one rather than printing a count: it
+    is a worklist. `append_row.py` is the hard gate -- it refuses a payload that omits
+    the field entirely -- and this is what catches a row that reached the tracker some
+    other way, or one staged with "" before the ticket answered and never revisited.
+    """
+    if "Model Classification" not in df.columns or "Email/JIRA Date" not in df.columns:
+        return
+    dates = pd.to_datetime(df["Email/JIRA Date"], format="%d-%b-%Y", errors="coerce")
+    call = df["Model Classification"].fillna("").astype(str).str.strip()
+    bad = sorted(call[~call.isin({"Event", "Non-Event", ""})].unique())
+    if bad:
+        rep.fail("model_classification",
+                 f"{len(bad)} value(s) in Model Classification are not 'Event' or "
+                 f"'Non-Event': {bad[:4]}. A blank already means 'nobody wrote it down'; "
+                 f"a third word for it would need a Definitions row and would make the "
+                 f"column unreadable against the rows that predate it")
+        return
+    recent = dates.notna() & (dates >= MODEL_CUTOFF)
+    open_rows = [i + 2 for i in df.index[recent & call.eq("")]]
+    if open_rows:
+        rep.warn("model_classification",
+                 f"{len(open_rows)} record(s) raised on or after "
+                 f"{MODEL_CUTOFF:%d-%b-%Y} do not state what the model called the feed "
+                 f"first, at CSV row(s) {open_rows[:6]}. Read it off the ticket or the "
+                 f"Not Impactful log and set Event or Non-Event; leave it blank only "
+                 f"where the record genuinely does not say who made the call")
+        return
+    known = int((call != "").sum())
+    rep.note(f"Model Classification is stated on {known} record(s); every record raised "
+             f"on or after {MODEL_CUTOFF:%d-%b-%Y} answers it")
+
+
 def check_issue_type(df: pd.DataFrame, rep: Report) -> None:
     """A confirmed miss should be a complaint, not an inquiry.
 
@@ -933,6 +986,7 @@ def main() -> int:
     check_cause_agreement(df, rep)
     check_reason_categories(df, rep)
     check_country_iso(df, rep)
+    check_model_classification(df, rep)
     check_issue_type(df, rep)
     check_stale_status(df, rep)
 

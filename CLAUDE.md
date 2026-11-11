@@ -1761,57 +1761,41 @@ the pills had been quietly redrawn as plotly.
    drift. `monthly_note(flow, unit="event type")` prints the same three-line nest.
    `event_type_pairs()` and `event_type_note()` are gone -- no caller left.
 
-**Is it getting better** is section 3 of the Executive Summary again, and it is the
-dashboard's **first and only time-series chart**. `miss_trend()` / `trend_line()` /
-`trend_note()`.
+**Is it getting better is GONE from the Executive Summary, on the owner's call of
+11-Nov-2026, and the whole control chart went with it** -- `render_trend`, `miss_trend`,
+`trend_note`, `trend_line` and `_volume_caveat` are deleted rather than left
+unreferenced, which is this file's standing rule when a block leaves a page.
+`smoke_app.EXPECTED` for the summary went `(11, 8)` to `(10, 7)`: **a matched decrement
+of one chart and one table, which is what proves the trend block left and nothing else
+did.**
 
-**The gap it closed was not a bar being over-used -- it was a missing chart.** An audit
-of all 14 chart calls found 13 bars and one heatmap, and the honest finding was that
-most of those bars are correct: a ranked comparison of categories SHOULD be a bar, and
-sunbursts, donuts and dumbbells were each added here for variety and each removed for
-being worse. But the one question a VP asks monthly had no chart at all -- the miss rate
-was a percentage printed on top of each bar of the month chart, ten numbers for a reader
-to compare in their head.
+**What it was, and why it was right to remove rather than retune.** It was a p-chart of
+the monthly miss rate with three-sigma control limits pooled across the year, so a point
+inside its band read flat however different the percentage looked -- correct statistics,
+and a reader asking for a more sensitive threshold was asking to be told about noise.
+The defect was not the threshold. **Three sigma above a ~68% base rate lands past 100%
+on a month of 4 to 19 emails, so the upper limit was pinned at the ceiling in nine
+months of ten and no month could ever register as WORSE**, however badly it ran.
+`_volume_caveat()` printed that under the picture every time it drew, computed so it
+would correct itself if volumes ever grew. They cannot grow from anything the dashboard
+does.
 
-**It is a p-chart and the control limits are the point.** The rate moves every month on
-this data and almost none of that movement means anything. The band is +/- 3 sigma of
-the **pooled** rate, scaled by each month's own email count, so a 4-email month gets a
-wide band and a 19-email one a narrow band. Pooled, never the mean of monthly
-percentages. A point inside its band is normal variation and the arrow reads flat
-however different the percentage looks. **A reader asking for a more sensitive threshold
-is asking to be told about noise.** All ten months sit inside today, which is the same
-answer `missed_verdict()` gave before it was deleted.
+**A chart that needs a paragraph saying it can only fire one way is a chart that has
+failed to be one.** The honest version of the caveat was the argument for deletion, and
+it took three attempts at wording the chart for a VP to arrive there -- the legend was
+rewritten to "Usual swing" and "Year average", the verdict was reduced to one sentence
+beginning No change / Worse / Better, and nothing on screen ever said sigma. The reader
+still had to be taught what a band was before the picture said anything.
 
-**`_volume_caveat()` states the thing this chart would otherwise hide: the test is
-one-sided.** Three sigma above a ~68% base rate lands past 100% on a month of 4 to 19
-emails, so **the upper limit is pinned at the ceiling in 9 months of 10 and no month can
-register as WORSE however badly it runs.** An arrow that can only ever point down is a
-broken instrument unless it says so, and it says so in a computed line that corrects
-itself if volumes ever grow enough to make the test two-sided. Nothing on the dashboard
-can make that happen; only more emails a month can.
+**Nothing was lost, which is the test for removing a block.** The miss rate it plotted
+rides above every bar of the month chart directly above where it sat, muted on a month
+under `THIN_MONTH` emails so a 3-of-4 January is not compared with a 19-email month.
+That is where a reader was reading it from before this chart existed, and it is where
+they read it from now.
 
-**The band is drawn at 0.07 alpha with its lower edge as a real dashed line, and that is
-a correction a screenshot forced.** At 0.16 the fill ran from the lower limit to the
-ceiling and covered the plot -- the thin months drew as solid dark columns and the whole
-thing read as a rendering fault. The statistics did not change and the width is real;
-only its visual weight came down, and the one edge that can actually be crossed is now
-the one you can see.
-
-**The historical note, for whoever revisits the threshold:** it left the summary for
-Monthly trend, and
-   was deleted with it when seven tabs became three -- `render_trend`,
-   `missed_verdict`, `trend_chart` and `trend_table` are all gone. A trend indicator is
-   coming back as **an arrow above the month chart that moves only when the month is
-   outside normal variation**, on the owner's call, and deliberately not as a monthly
-   percentage a reader has to interpret. The reasoning below is kept because it still
-   binds that arrow: what it did was `trend_chart()` as **one
-   bar per month**, its percentage printed on it, the last three months blue and the
-   three before grey, months outside both windows dark so they cannot be mistaken for
-   part of the comparison. It was a line with two flat shelves drawn over it and a
-   signed delta on the plot, and a reader had to be told what the shelves meant before
-   the chart said anything. The comparison is stated in words by `missed_verdict()`
-   above the chart instead of drawn into it, and `trend_table()` puts the months
-   underneath with a total whose rate is **pooled, not averaged**.
+**The reasoning is kept because it binds anything that replaces it.** A trend indicator
+on this data must read flat unless the month is genuinely outside the range, and it must
+say out loud when its test is one-sided. Both halves, or neither.
 
 **Nature of complaints is NOT on this page either**, and it left the same way the
 deeper root cause did: the owner's call that it is the customer's own vocabulary and
@@ -3434,6 +3418,32 @@ be checked -- the same contract `driver_of()` carries. Executive Summary went 91
 reconciled labels to 94 with "not rendered" unmoved. Proved by seeding the Non-Event
 count one short and watching it fail.
 
+**It is MANDATORY at triage from 11-Nov-2026, and "mandatory" means STATED rather
+than non-empty.** The column's whole value rests on a blank meaning *nobody wrote this
+down* rather than *the model was right*, so a rule demanding a value would force a guess
+on the rows where the ticket does not say -- which is the inference the column was made
+stored to replace. The regex that preceded it put 10 of 35 rows in "unclear"; a
+required non-empty field would have written those ten down as facts.
+
+So the gate is in two halves. **`append_row.py` refuses a payload that OMITS the key**,
+and refuses a value outside `("Event", "Non-Event", "")` -- no third word for unknown,
+because that is what `""` is for and a new value would need a Definitions row as well.
+An empty string is a real answer that somebody has to give deliberately.
+**`validate.py`'s `model_classification` warns** on any record dated on or after
+`MODEL_CUTOFF` that is still blank, naming the CSV rows so it reads as a worklist rather
+than a count, and fails outright on a value that is neither call. It catches the row that
+reached the tracker some other way, or one staged blank while its ticket was open and
+never revisited once it answered.
+
+**The cutoff is the design, not a softening.** 111 of the 139 rows predate the column and
+most will never be settled -- their tickets are closed and the portal's own log does not
+reach back -- so a failure-level rule would either block every commit or demand a
+backfill by guesswork. The rule asks the question only of rows raised once somebody could
+be asked it. `selftest.py` builds its fixture rather than hunting for one: it re-dates an
+existing record past the cutoff and clears the column, because **a fixture that depends
+on the tracker already holding such a row is a fixture the tracker can retire**, which is
+how `resolution_dates` came to raise "no Pending row to break".
+
 **Adding a 28th column has no script, and the patch that does it ate six rows first.**
 `append_row.py` adds a RECORD; a COLUMN is the same direct zip-member patch `Country`
 took. The insert walks `<c r="AA(\d+)"...>` and appends the new cell after it, and
@@ -3566,8 +3576,29 @@ going blind.
 `flow_bar()` gained `scale_col` for it: the bar's in-label floor is measured against
 `Complaints` on the month and event-type charts, and this frame has no such column.
 
-**It is TWO views side by side, and neither answers the question alone.** The map says
-WHERE and WHOSE -- a country filled in `ROOT_COLOURS` tells a reader at a glance that
+**It is TWO views STACKED, and side by side was the fault the owner named as
+congested.** `st.columns(2)` gave each about 560px, and neither view was at the size its
+own content needs: the world map letterboxed into a strip across the middle of its
+panel, and twenty-five country rows crushed into a half-width axis. **They are not a
+comparison** -- the map answers WHERE and WHOSE, the bar answers HOW MANY, and a reader
+consults them one after the other -- so pairing them bought nothing and cost both. Full
+width each, in that reading order. `flow_bar()`'s `top` override went with the change:
+it existed only because a horizontal legend wraps in a narrow column.
+
+**The world window is cropped to WHERE EVENTS HAPPEN, and that crop is what makes the
+map fill its block.** Plotly fits a lat/lon window into the panel preserving aspect, so
+a window wider than the panel letterboxes. The old `(-165, 180)` spans 345 degrees of
+longitude against 118 of latitude, nearly 3:1 -- and **two thirds of that longitude was
+empty Pacific**, because the tracker's westernmost event is in Mexico and its
+easternmost in Japan. The ocean either side of the dateline carried nothing and was paid
+for in map height, which is the only dimension a reader judges a country's shape in.
+`World` is `((-38, 70), (-128, 148))` now and `geo_height()` derives each window's panel
+height from its own aspect, so a window edited in `GEO_WINDOWS` cannot leave a height
+tuned for the old one behind it. Measured after: the drawn land box is **1040 x 499 in a
+1040 x 548 drawable panel**, against a strip with dead bands above and below it before.
+**Do not widen a window to "show more of the world".**
+
+The map says WHERE and WHOSE -- a country filled in `ROOT_COLOURS` tells a reader at a glance that
 Mexico is Product's problem and Japan is EventWatch Ops'. The bar beside it is
 `flow_bar()`, the event-type chart's own function, so the magnitudes arrive in the
 grammar a reader has already learned twice. `country_flow()` is `event_type_flow()`'s
