@@ -1709,6 +1709,32 @@ the pills had been quietly redrawn as plotly.
    otherwise the one row a reader opens the table for sits twenty-three rows below the
    fold.
 
+   **The chart carries an account dropdown, and the picked view is a RANKED bar rather
+   than a one-row stack.** The owner's ask was "the graph type remains the same just add
+   a customer dropdown and the graph will show us the issues we observed for the selected
+   customer". The literal reading -- filter the stacked bar to one row -- was built and
+   rejected: one account is one bar, so every failure name lives in the **legend and
+   nowhere else**, and Ford carries ten of them. The rows become the failures instead,
+   one bar each in that bucket's own colour from `miss_colours()`, so the picture answers
+   "what failed for Ford" at a glance in the same words and the same colours as the
+   all-accounts view above it. Horizontal bar, same vocabulary, same palette -- what
+   changes is what a row IS.
+
+   **The selector narrows the CHART only, and that is not a style choice.**
+   `audit_pages.total_row_problems()` checks this table's foot against the CSV-wide
+   distinct counts through `reconciled_totals()`, which is keyed on the miss-bucket
+   column signature; narrowing the table to one account would make that foot disagree
+   with the tracker and fail the gate. It is also the precedent the sub-type heatmap and
+   the geography block already set: a selector that filters a block fits the pattern.
+
+   **Its key is prefixed**, like `render_geography()`'s and `render_account_view()`'s,
+   because the block draws on two pages and one piece of session state shared between
+   them would have an account picked here picked again over there.
+
+   **`smoke_app.EXPECTED` does not move**, because the default state is All accounts and
+   the chart count is one either way -- which is the matched-pair check saying nothing
+   was added or lost, only switched.
+
    **`render_account_view()` is folded in here and is OFF on the Executive Summary**
    (`account=False`), which is two owner calls on the same day and both of them right.
 
