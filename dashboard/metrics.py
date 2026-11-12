@@ -2138,13 +2138,23 @@ def country_note(frame, totals, over):
 # call put 10 of them in "unclear", missed two that say it plainly, and scored a
 # NEGATION ("not a Not Impactful call", EAO-37) as a hit. A column a regex reads wrong
 # three ways is a column that has to be written down.
+# The two RECORDED calls, and nothing else. A third row for the blanks was drawn here
+# and the owner removed it: "this not recorded is also not the correct option ... we
+# must clearly show the 2 breakdowns". It is right on the chart's own terms as well --
+# at 66 against 6 and 20 the blank bar set the x scale, so the two rows the block exists
+# to show were squeezed into the first third of the panel and the reader's eye went to
+# the one row that says nothing happened.
+#
+# **The denominator did NOT go with it, and must not.** `model_note()` still leads with
+# "26 of 92 confirmed misses carry a record", because a chart of 26 under a page whose
+# headline is 92 reads as the whole book unless the base is said out loud. The rule this
+# file keeps recording is that where the parts cannot sum to the headline, say why on
+# the panel -- the bar is gone, the sentence is not.
 MODEL_ROWS = (
     ("Non-Event", "The model called it wrong first",
      "The portal classified the captured feed Non-Event or Not Impactful"),
     ("Event", "The model called it right",
      "The model identified it correctly and routed it on; the failure came later"),
-    ("", "Not recorded",
-     "Nobody wrote down what the model decided, which is not evidence that it was right"),
 )
 
 

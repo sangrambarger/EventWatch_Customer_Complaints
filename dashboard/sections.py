@@ -830,13 +830,30 @@ def render_model_classification(page):
     92 would read as a 7% share when the honest statement is that two thirds of the book
     has no record either way. That is the fault the three disagreeing RCA fields were
     removed for, and one field instead of three does not change it.
+
+    **The blank row is NOT drawn, on the owner's call of 12-Nov-2026** -- *"this not
+    recorded is also not the correct option ... we must clearly show the 2
+    breakdowns"*. At 66 against 6 and 20 that bar set the x scale, so the two rows the
+    block exists to show were squeezed into the first third of the panel and the longest
+    bar on screen was the one saying nothing was written down.
+
+    **So the base moved from the bar into the TITLE and the caption, rather than being
+    dropped.** The chart names the population it draws -- misses where the call was
+    recorded -- because a chart of 26 under a page headlined 92 reads as the whole book
+    otherwise, which is this file's standing fault: *a chart whose segments add to one
+    total under a caption naming another*. The sentence under it still opens with
+    "26 of 92". Removing the bar and the denominator together is what would have made
+    this block unpublishable; removing only the bar is what the owner asked for.
     """
     add_section("What the model decided first", "", "#f6c177")
     frame = model_split(page)
     if frame.empty or not int(frame["Misses"].sum()):
         st.info("No confirmed miss in the current filter carries a model classification.")
         return
-    fig = flow_bar(frame, "Classification", title="Confirmed misses by the model's own first call",
+    recorded = int(frame["Misses"].sum())
+    fig = flow_bar(frame, "Classification",
+                   title=f"The model's own first call, on the {recorded} confirmed "
+                         f"misses where it was recorded",
                    x_title="Confirmed misses", scale_col="Misses")
     table = frame.copy()
     with st.expander("Show the numbers"):
