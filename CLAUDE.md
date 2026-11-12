@@ -3474,6 +3474,32 @@ set the x scale, so the two rows the block exists to show were squeezed into the
 third of the panel and the longest bar on screen was the one saying nothing had been
 written down. `MODEL_ROWS` is the two RECORDED calls now.
 
+**A blank has TWO meanings and the caption now says which, on the owner's ruling of
+12-Nov-2026**: *"source and keyword gaps are the entry stage gaps where the event did
+not enter the pipeline."* `ENTRY_STAGE` in `taxonomy.py` is those two sub-types, and
+`model_note()` splits the blanks on it -- **40 of the 66 are entry-stage**, where no
+first call was ever made, against **26 captured** where one was made and nobody wrote it
+down. Four records say it in their own RCA text ("never proceeded to AI classification
+or human-in-the-loop review", EAO-13; "not an AI classification or human review error",
+EAO-25).
+
+**The caption said the opposite and was false on 40 rows.** It read *"a blank is nobody
+writing it down rather than the model getting it right"* -- true of the 26, and wrong
+about every source and keyword gap in the book, where there is no call to record. That
+sentence sat under the chart a VP reads.
+
+**It is NOT a third bar**, and that is the same ruling's other half: *"we need the split
+as event vs non event only"*. The chart stays at two rows; the distinction lives in the
+caption. **A correction to what a figure MEANS does not have to become a mark on the
+chart** -- and here the owner had already removed the one bar that tried.
+
+**The worklist is 27 rows, not 26.** The Ford Murata delayed-alert row of 31-Mar-2026
+(no key) is filed `Source Coverage` and its own `Comments` read "Initial source blocked
++ misclassification" -- a blocked source is entry-stage and a misclassification is not,
+so the row is on both sides of the line and the owner added it to the list. **A record
+naming two failures in one clause is a record this split cannot sort by `Sub-type`
+alone.**
+
 **The denominator did NOT go with it, and must not.** This is the distinction the whole
 block rests on: the owner removed a *bar*, not the *base*. `model_note()` still opens
 "26 of 92 confirmed misses carry a record of what the model decided", and the chart's

@@ -337,6 +337,22 @@ SHORT_OWNED = {
 #
 # Sentence case is not a second wording: a label at the head of a row is capitalised and
 # the same words inside a bullet are not. That is ordinary English.
+# The two ENTRY-STAGE gaps, on the owner's ruling of 12-Nov-2026: "source and keyword
+# gaps are the entry stage gaps where the event did not enter the pipeline."
+#
+# This is what a blank `Model Classification` MEANS on such a row, and it is not the
+# same blank as everywhere else. A source gap is a story no monitored outlet carried; a
+# keyword gap is one the harvesting terms never matched. Either way nothing reached
+# automated classification, so there is no first call to be right or wrong about -- four
+# records say it in their own RCA text ("never proceeded to AI classification or
+# human-in-the-loop review", EAO-13; "not an AI classification or human review error",
+# EAO-25). Everywhere else a blank means nobody wrote the call down.
+#
+# **It is not a third bar.** The owner's ruling in the same sentence is that the split is
+# "event vs non event only", so the chart stays at two rows and this distinction lives in
+# the caption, where it corrects a sentence that would otherwise be false on 40 of the 66.
+ENTRY_STAGE = ("Source Coverage", "Keyword Update")
+
 PLAIN_SUBTYPE = {k: v[0].upper() + v[1:] for k, v in SHORT_CAUSE.items()}
 
 # `Mapping` is the one sub-type whose meaning CHANGES WITH ITS OWNER, and the two
