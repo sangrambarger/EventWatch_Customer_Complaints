@@ -288,6 +288,36 @@ def break_country_iso(csv: Path, xlsx: Path) -> None:
     raise SystemExit("no record carries a country; fixture is stale")
 
 
+def break_model_entry_stage(csv: Path, xlsx: Path) -> None:
+    """A confirmed miss that records a model call while filed as an entry-stage gap.
+
+    The two cannot both be true: `Source Coverage` and `Keyword Update` mean nothing
+    entered the pipeline, so the models never saw the feed and there is no first call to
+    record. Three rows were in that state when the rule landed, two of them since the
+    original backfill -- which is why the rule exists at all.
+
+    BUILT, not hunted: it takes any confirmed miss and sets both halves of the
+    contradiction itself, so the fixture cannot be retired by the tracker fixing its own
+    rows. That is the `resolution_dates` lesson applied before it bites.
+    """
+    lines = csv_lines(csv)
+    cols = next(csv_module.reader([lines[0]]))
+    sub_i = cols.index("Sub-type")
+    call_i = cols.index("Model Classification")
+    flag_i = cols.index("Missed_Flag")
+    for n, line in enumerate(lines[1:], start=1):
+        row = next(csv_module.reader([line]))
+        if len(row) != len(cols) or row[flag_i].strip() != "Yes":
+            continue
+        row[sub_i], row[call_i] = "Source Coverage", "Event"
+        out = io.StringIO()
+        csv_module.writer(out, lineterminator="").writerow(row)
+        lines[n] = out.getvalue()
+        write_lines(csv, lines)
+        return
+    raise SystemExit("selftest: no confirmed miss to break")
+
+
 def break_model_classification(csv: Path, xlsx: Path) -> None:
     """A row raised after the cutoff that never says what the model called it.
 
@@ -404,6 +434,7 @@ CASES: list[tuple] = [
     ("issue_type", "issue_type", break_issue_type, "warn"),
     ("stale_status", "stale_status", break_stale_status, "warn"),
     ("model_classification", "model_classification", break_model_classification, "warn"),
+    ("model_entry_stage", "model_entry_stage", break_model_entry_stage, "warn"),
 ]
 
 

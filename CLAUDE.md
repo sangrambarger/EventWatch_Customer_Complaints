@@ -3500,6 +3500,33 @@ so the row is on both sides of the line and the owner added it to the list. **A 
 naming two failures in one clause is a record this split cannot sort by `Sub-type`
 alone.**
 
+**The 27 came back ALL `Event`, on 12-Nov-2026, and that is a finding rather than a
+backfill.** The owner worked the worklist against the portal and every one of the 27
+captured misses was classified `Event` by the model and failed afterwards. The recorded
+split is **6 wrong against 47 right of 53**, and the unrecorded population is **zero** --
+92 = 53 recorded + 39 entry-stage. `model_note()` therefore drops its third clause at
+zero rather than printing "the remaining 0 were captured and nobody wrote the call
+down": **a sentence naming an empty population is a figure a reader goes looking for.**
+
+**It also exposed three rows that say two things at once, and `model_entry_stage` is
+the rule that now catches them.** `Source Coverage` and `Keyword Update` mean nothing
+entered the pipeline, so a recorded model call on such a row asserts both that the
+article arrived and was classified AND that it never arrived. Three confirmed misses
+were in that state -- the Ford row of 31-Mar-2026 the owner added as #27, whose own
+`Comments` read "Initial source blocked + misclassification", and **two GM rows of
+03-Aug-2026 that had carried `Event` since the original backfill**. Nothing on the
+dashboard said so: the model chart counts the call, the miss-bucket chart counts the
+sub-type, and each is right about its own column.
+
+**A warning, not a failure, because which field is wrong is a judgement** -- the
+`cause_agreement` standard. If the model really classified it, the sub-type is wrong and
+the row is a capture-stage failure; if the feed never arrived, the call was read into the
+row and belongs back at blank. The rule **imports `ENTRY_STAGE`** rather than restating
+it, the way `reason_categories` and `country_iso` import their maps, so it cannot drift
+from the caption that splits the blanks on the same set. `selftest.py` BUILDS its fixture
+from any confirmed miss rather than hunting for one of the three, so the tracker fixing
+its own rows cannot retire the case.
+
 **The denominator did NOT go with it, and must not.** This is the distinction the whole
 block rests on: the owner removed a *bar*, not the *base*. `model_note()` still opens
 "26 of 92 confirmed misses carry a record of what the model decided", and the chart's
