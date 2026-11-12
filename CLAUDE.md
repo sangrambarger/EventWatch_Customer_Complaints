@@ -3467,6 +3467,32 @@ table in `flow_bar()`'s grammar, scoped to confirmed misses for the same reason 
 geography block is: the question is which misses the model's own call started, and a
 complaint where the bulletin reached the customer did not start anywhere.
 
+**The `Not recorded` bar is GONE, on the owner's call of 12-Nov-2026** -- *"this not
+recorded is also not the correct option ... we must clearly show the 2 breakdowns"* --
+and it is right on the chart's own terms as well. At **66 against 6 and 20** that bar
+set the x scale, so the two rows the block exists to show were squeezed into the first
+third of the panel and the longest bar on screen was the one saying nothing had been
+written down. `MODEL_ROWS` is the two RECORDED calls now.
+
+**The denominator did NOT go with it, and must not.** This is the distinction the whole
+block rests on: the owner removed a *bar*, not the *base*. `model_note()` still opens
+"26 of 92 confirmed misses carry a record of what the model decided", and the chart's
+title now names its own population -- *the model's own first call, on the 26 confirmed
+misses where it was recorded*, computed from the frame rather than typed. A chart of 26
+under a page headlined 92 reads as the whole book unless the base is said out loud,
+which is this file's standing fault in other words: **a chart whose segments add to one
+total under a caption naming another.** Removing the bar and the denominator together
+would have made this block unpublishable; removing only the bar is what was asked.
+
+**`audit_pages.py` asserts the partition with the blanks counted SEPARATELY.** It read
+`sum(model_call.values()) == len(missed)`, which held only while the blank row was one
+of the three; with two rendered rows that assert would fail on honest data. It is
+`sum(...) + blank_calls == len(missed)` now -- the proof that the two rows plus the
+unrecorded remainder account for every miss, kept as a check rather than lost with the
+row. Executive Summary went **94 reconciled labels to 93 with "not rendered" unmoved at
+zero**: a lone decrement, which is what proves the label left the registration and the
+gate did not go blind.
+
 **`audit_pages.expectations()` imports `MODEL_ROWS` rather than restating its labels**,
 so a row renamed in `metrics` and not in the audit fails rather than quietly ceasing to
 be checked -- the same contract `driver_of()` carries. Executive Summary went 91

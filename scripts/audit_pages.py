@@ -148,7 +148,13 @@ def expectations(df: pd.DataFrame) -> dict[str, dict[str, int]]:
     value = df["Model Classification"].fillna("").astype(str).str.strip()
     for key, label, _ in MODEL_ROWS:
         model_call[label] = int((missed_flag & value.eq(key)).sum())
-    assert sum(model_call.values()) == len(missed), "model calls do not sum to the misses"
+    # MODEL_ROWS is the two RECORDED calls, so the rendered rows deliberately do not sum
+    # to the miss count -- the blanks are named in the caption and drawn nowhere. The
+    # partition is still asserted here, with the blank counted separately, because that
+    # is what proves the two rows plus the unrecorded remainder account for every miss.
+    blank_calls = int((missed_flag & value.eq("")).sum())
+    assert sum(model_call.values()) + blank_calls == len(missed), \
+        "recorded model calls plus the blanks do not sum to the misses"
 
     from dashboard.taxonomy import countries_on
     country_misses: collections.Counter = collections.Counter()
