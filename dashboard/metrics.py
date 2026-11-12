@@ -2204,11 +2204,17 @@ def model_note(df, frame):
     sub = df.get("Sub-type", pd.Series(dtype=str)).reindex(df.index).fillna("").astype(str).str.strip()
     entry = int((missed & value.eq("") & sub.isin(ENTRY_STAGE)).sum())
     unknown = total - known - entry
-    bits = [f"**{known} of {total} confirmed misses carry a record of what the model "
+    lead = (f"**{known} of {total} confirmed misses carry a record of what the model "
             f"decided.** On another {entry} the event never entered the pipeline — a "
             f"source or keyword gap at the entry stage — so there was no first call to "
-            f"make. The remaining {unknown} were captured and nobody wrote the call "
-            f"down, which is never evidence that the model got it right"]
+            f"make")
+    # The unknown clause is DROPPED at zero rather than printed as "the remaining 0".
+    # It went to zero the day the owner worked the 27-row list, and a sentence naming a
+    # population that is empty reads as a figure a reader has to go and look for.
+    if unknown:
+        lead += (f". The remaining {unknown} were captured and nobody wrote the call "
+                 f"down, which is never evidence that the model got it right")
+    bits = [lead]
     if wrong:
         bits.append(f"Of the {known} that do, the model's own first call was wrong on "
                     f"**{wrong}**")

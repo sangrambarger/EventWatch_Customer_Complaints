@@ -834,6 +834,57 @@ def check_country_iso(df: pd.DataFrame, rep: Report) -> None:
 MODEL_CUTOFF = pd.Timestamp("2026-11-11")
 
 
+def check_model_entry_stage(df: pd.DataFrame, rep: Report) -> None:
+    """A recorded model call contradicts an entry-stage sub-type on the same row.
+
+    `Source Coverage` and `Keyword Update` are the ENTRY-STAGE gaps -- the owner's
+    ruling of 12-Nov-2026, *"source and keyword gaps are the entry stage gaps where the
+    event did not enter the pipeline"*. If nothing entered the pipeline then the models
+    never saw the feed, so there is no first call to record. A row carrying BOTH is
+    saying two things that cannot both be true: the article arrived and was classified,
+    and the article never arrived.
+
+    **Three rows were in that state the first time this ran**, and two of them had been
+    since the original backfill -- a Ford row of 31-Mar-2026 whose own `Comments` read
+    "Initial source blocked + misclassification" (a blocked source is entry-stage, a
+    misclassification is not, so the row sits on both sides of its own sentence), and
+    two GM rows of 03-Aug-2026. Nothing on the dashboard said so: the chart counts the
+    call and the miss-bucket chart counts the sub-type, and each is right about its own
+    column.
+
+    **A warning, not a failure, because which field is wrong is a judgement** -- the
+    same standard `cause_agreement` and `issue_type` are held to. If the model really
+    classified it, the sub-type is wrong and the row is a capture-stage failure; if the
+    feed truly never arrived, the call was read into the row and belongs back at blank.
+    Read the record before rewriting either.
+    """
+    need = {"Model Classification", "Sub-type", "Missed_Flag"}
+    if not need.issubset(df.columns):
+        return
+    # Imported rather than restated, the way `reason_categories` and `country_iso`
+    # already do it: a second copy of the entry-stage set here would drift from the one
+    # `model_note()` splits the blanks on, and the rule would stop matching the caption.
+    try:
+        from dashboard.taxonomy import ENTRY_STAGE
+    except Exception as exc:  # pragma: no cover
+        rep.fail("model_entry_stage",
+                 f"could not read ENTRY_STAGE from dashboard/taxonomy.py: {exc}")
+        return
+    call = df["Model Classification"].fillna("").astype(str).str.strip()
+    sub = df["Sub-type"].fillna("").astype(str).str.strip()
+    flag = df["Missed_Flag"].fillna("").astype(str).str.strip()
+    hit = flag.eq("Yes") & call.isin({"Event", "Non-Event"}) & sub.isin(ENTRY_STAGE)
+    if hit.any():
+        rows = ", ".join(f"CSV row {i + 2}" for i in df.index[hit][:8])
+        rep.warn("model_entry_stage",
+                 f"{int(hit.sum())} confirmed miss(es) record a model call while filed "
+                 f"under an entry-stage sub-type, where nothing reached the models: "
+                 f"{rows}. One of the two fields is wrong -- read the record")
+    else:
+        rep.ok("model_entry_stage",
+               "no confirmed miss records a model call under an entry-stage sub-type")
+
+
 def check_model_classification(df: pd.DataFrame, rep: Report) -> None:
     """Every record raised from the day the column landed must state the model's call.
 
@@ -987,6 +1038,7 @@ def main() -> int:
     check_reason_categories(df, rep)
     check_country_iso(df, rep)
     check_model_classification(df, rep)
+    check_model_entry_stage(df, rep)
     check_issue_type(df, rep)
     check_stale_status(df, rep)
 
