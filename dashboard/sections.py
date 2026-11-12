@@ -850,10 +850,8 @@ def render_model_classification(page):
     if frame.empty or not int(frame["Misses"].sum()):
         st.info("No confirmed miss in the current filter carries a model classification.")
         return
-    recorded = int(frame["Misses"].sum())
     fig = flow_bar(frame, "Classification",
-                   title=f"The model's own first call, on the {recorded} confirmed "
-                         f"misses where it was recorded",
+                   title="Confirmed misses by the model's own first call",
                    x_title="Confirmed misses", scale_col="Misses")
     table = frame.copy()
     with st.expander("Show the numbers"):
