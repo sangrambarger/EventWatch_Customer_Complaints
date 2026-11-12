@@ -3518,6 +3518,29 @@ were in that state -- the Ford row of 31-Mar-2026 the owner added as #27, whose 
 dashboard said so: the model chart counts the call, the miss-bucket chart counts the
 sub-type, and each is right about its own column.
 
+**The owner settled all three on 12-Nov-2026: clear the CALL, keep the sub-type.**
+*"Fix the three rows, keep the current understanding. Don't change them."* So
+`Model Classification` goes back to blank on all three and `Sub-type`, `Root Cause` and
+`Missed_Flag` are untouched. **The established field wins over the newer one** -- the
+sub-type on those rows carries rulings, routing and a miss bucket, and the model call
+was read into the row rather than looked up. It costs the Ford 31-Mar row the `Event`
+the owner had answered for it on the worklist, which is the owner's own call to make and
+is reversible in one edit if the portal says the article was captured after all.
+
+**53 recorded went to 50, and 39 entry-stage to 42** -- the three moved across the line
+rather than leaving the book. `6 wrong + 44 right = 50`, and `50 + 42 = 92` still.
+
+**The rule's PASS branch was DEAD CODE and crashed the first time anything reached it.**
+It called `rep.ok(...)`, which does not exist -- `Report` has `fail`, `warn` and `note`.
+Nothing caught it: the rule fired on the real data from the day it landed, so the live
+gate always took the warning branch, and `selftest.py` only ever runs the BROKEN path by
+construction. `validate.py` raised `AttributeError` the moment the three rows were
+fixed, which is the one run that reaches the other branch. **When a new rule's pass path
+is unreachable on the live data, run it against a frame where it passes before
+committing** -- a branch no gate has executed is a branch nobody should trust, which is
+the same lesson as the two silent no-op checks this file already records, arriving from
+the other side.
+
 **A warning, not a failure, because which field is wrong is a judgement** -- the
 `cause_agreement` standard. If the model really classified it, the sub-type is wrong and
 the row is a capture-stage failure; if the feed never arrived, the call was read into the
