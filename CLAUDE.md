@@ -3530,6 +3530,59 @@ is reversible in one edit if the portal says the article was captured after all.
 **53 recorded went to 50, and 39 entry-stage to 42** -- the three moved across the line
 rather than leaving the book. `6 wrong + 44 right = 50`, and `50 + 42 = 92` still.
 
+**Then the owner asked for the three to be CORRECTED and shown, and only ONE of them
+could be.** *"Follow the rules we established earlier and then correct the three rows and
+show them on the dashboard."* Correcting means moving the `Sub-type` off the entry-stage
+value, because a recorded model call and "nothing entered the pipeline" cannot both be
+true. **Reading the three records first is what stopped two of them being corrected into
+a cause nobody established.**
+
+**Ford, 31-Mar-2026 -- corrected, and every field on the row already agreed.** Its own
+`Comments` read "Initial source blocked + misclassification" and its `Reason` reads
+"Delayed alert / WarRoom created late" against a 25-day delay and `Short Term Fix
+Status = Fixed`. `DRIVERS[("Product", "Captured Late")]` is *"our first usable capture of
+the story came late"*, which is that sentence word for word: the first source was
+blocked, the story was captured later, and the alert followed 25 days on. `Source
+Coverage` says the story never arrived, and it did. Now `Product` / `Captured Late`,
+`Model Classification` `Event`, `Missed_Flag` still **Yes** -- reported late is a miss,
+which is the clause the delivery test exists for.
+
+**It is the FIRST row `Captured Late` has ever carried**, so `export_definitions.py` had
+to run after it: the term was pruned while no record used it and appears now. That is
+both edges of the transition this file already prescribes, and `definitions_export` fails
+in between.
+
+**The two GM rows of 03-Aug-2026 were NOT corrected, and their own `Comments` say why.**
+Both carry `RCA Details` describing a clustering defect, and both rows **say in their own
+text that the RCA belongs to the Nemak article on the same ticket and not to their
+event** -- the EAO-25 shared-sentence fault, recurring on two more rows. So the field a
+correction would read from is known to be about a different event.
+
+What each record actually says points somewhere else again, and both are `Missed_Flag`
+questions rather than sub-type ones:
+
+* **UTAS-Nova fire (China).** EventWatch searched English and Chinese sources on
+  04-Aug-2026 and **found no article confirming the fire**. If nothing was ever found,
+  no model classified anything, so `Event` on that row cannot be right either -- and
+  "no public source existed to report from" is the **HPE SEC precedent**, which is
+  `Process` / `Process Clarification` and not a miss.
+* **Chicago Heights tornado.** A WarRoom **was** published on 27-Jul-2026 and Trialco's
+  site sits inside its geofence. Under the governing test a notification reached GM in
+  time, so the row is at most a scope complaint.
+
+**Both would take a miss off GM's count, which this file already says waits for the
+owner** -- the EAO-26 rule, word for word. They keep their blank model call, so
+`model_entry_stage` stays quiet and nothing on the dashboard asserts a call that the
+record contradicts.
+
+**51 recorded, 41 entry-stage. `6 wrong + 45 right = 51`, and `51 + 41 = 92`.**
+
+**The lesson: "correct the three rows" is an instruction about an END STATE, not a
+licence to write a cause.** One row's own fields settled it in four places; two rows
+carry an RCA they themselves disown. Correcting those two would have put an invented
+cause on the dashboard under the owner's own instruction, which is the worst place for
+one to hide.
+
 **The rule's PASS branch was DEAD CODE and crashed the first time anything reached it.**
 It called `rep.ok(...)`, which does not exist -- `Report` has `fail`, `warn` and `note`.
 Nothing caught it: the rule fired on the real data from the day it landed, so the live
