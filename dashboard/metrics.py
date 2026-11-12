@@ -19,7 +19,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from dashboard.styles import BLUE_RAMP, CAT_SLATE, ROOT_COLOURS, UNKNOWN_OWNER, esc
-from dashboard.taxonomy import GLOBAL, CAUSE_WHY, CATEGORY_MEANING, NEEDS_REVIEW, PLAIN_SUBTYPE, RECORD_WHY, ROOT_OWNERSHIP, SHORT_CAUSE, SHORT_OWNED, driver_of, failure_label, labels_for, owner_pills, plural, reason_category, record_why, short_cause, shorten, countries_on, country_names
+from dashboard.taxonomy import ENTRY_STAGE, GLOBAL, CAUSE_WHY, CATEGORY_MEANING, NEEDS_REVIEW, PLAIN_SUBTYPE, RECORD_WHY, ROOT_OWNERSHIP, SHORT_CAUSE, SHORT_OWNED, driver_of, failure_label, labels_for, owner_pills, plural, reason_category, record_why, short_cause, shorten, countries_on, country_names
 from dashboard.filters import customer_names, names_match
 
 
@@ -2201,9 +2201,14 @@ def model_note(df, frame):
     known = int((missed & value.ne("")).sum())
     wrong = int((missed & value.eq("Non-Event")).sum())
     double = int((missed & value.eq("Non-Event") & root.eq("People")).sum())
+    sub = df.get("Sub-type", pd.Series(dtype=str)).reindex(df.index).fillna("").astype(str).str.strip()
+    entry = int((missed & value.eq("") & sub.isin(ENTRY_STAGE)).sum())
+    unknown = total - known - entry
     bits = [f"**{known} of {total} confirmed misses carry a record of what the model "
-            f"decided.** The other {total - known} have none, and a blank is nobody "
-            f"writing it down rather than the model getting it right"]
+            f"decided.** On another {entry} the event never entered the pipeline — a "
+            f"source or keyword gap at the entry stage — so there was no first call to "
+            f"make. The remaining {unknown} were captured and nobody wrote the call "
+            f"down, which is never evidence that the model got it right"]
     if wrong:
         bits.append(f"Of the {known} that do, the model's own first call was wrong on "
                     f"**{wrong}**")
