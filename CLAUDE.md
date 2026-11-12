@@ -3577,6 +3577,45 @@ record contradicts.
 
 **51 recorded, 41 entry-stage. `6 wrong + 45 right = 51`, and `51 + 41 = 92`.**
 
+**The owner settled both GM rows on 12-Nov-2026, and neither is a miss.**
+
+* **UTAS-Nova fire** -- *"not available on the public domain if no article was
+  available"*. Nothing can be reported from a source that does not exist, so this is the
+  **HPE SEC precedent** in full: `Process` / `Process Clarification`, **Inquiry**,
+  `Missed_Flag` **No**, routing following the Root Cause to EventWatch Ops, focus
+  `Other Control Automation`. `Short Term Fix Status` goes `RCA Shared` to
+  `Clarification Provided`, because what went back was a search result and a monitoring
+  story. **The model call stays blank and that is now correct by construction** -- the
+  row leaves the miss book, and the model block draws confirmed misses only.
+* **Chicago Heights tornado** -- *"an analyst error if the wrong site was included in the
+  WarRoom"*. The bulletin reached GM on 27-Jul-2026, so nothing was missed; what the
+  record carries is Trialco's site being inside the published geofence with no reported
+  damage. `People` / `Review`, `Missed_Flag` **No**, which lands it in
+  `Wrong sites called impacted` beside the **Winter Storm Fern geofencing** row, the same
+  shape under the same owner. **It is an over-inclusion, so the label still holds** --
+  this file warns that the day an UNDER-call lands in that group the label is a lie and
+  the group needs splitting, and this is not that day.
+
+**Both rows had their `RCA Details` REWRITTEN, which is the point rather than tidying.**
+Each carried the Nemak clustering text, and each row's own `Comments` already said that
+text belonged to a different event on the same ticket. Correcting the fields and leaving
+the borrowed RCA would have left the record contradicting itself on the card -- the
+EAO-13 rule -- and the stale half is the one a reader meets first. Both now carry their
+own finding, taken from their own `Comments` rather than written here, and both end with
+an explicit supersession sentence.
+
+**Baseline on 12-Nov-2026:**
+
+```
+139 emails     = 110 complaints + 29 inquiries
+110 complaints =  90 confirmed misses + 20 process issues
+ 90 misses     =  50 Product + 40 Analyst + 0 Process
+```
+
+Model classification over those 90: **51 recorded (6 wrong, 45 right) + 39 entry-stage**.
+The delivered-but-wrong block goes 19 records to 20, and `Wrong sites called impacted` is
+now its largest group at four.
+
 **The lesson: "correct the three rows" is an instruction about an END STATE, not a
 licence to write a cause.** One row's own fields settled it in four places; two rows
 carry an RCA they themselves disown. Correcting those two would have put an invented
