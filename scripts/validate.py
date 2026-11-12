@@ -881,8 +881,14 @@ def check_model_entry_stage(df: pd.DataFrame, rep: Report) -> None:
                  f"under an entry-stage sub-type, where nothing reached the models: "
                  f"{rows}. One of the two fields is wrong -- read the record")
     else:
-        rep.ok("model_entry_stage",
-               "no confirmed miss records a model call under an entry-stage sub-type")
+        # `rep.note`, not `rep.ok` -- there is no `ok`. The clean branch was DEAD CODE
+        # from the day this rule landed, because the rule fired on the real data and
+        # `selftest.py` only ever runs the BROKEN path. It raised AttributeError the
+        # first time the three rows were fixed, which is the one run that reaches it.
+        # A branch no gate has ever executed is a branch nobody should trust: when a
+        # new rule's pass path is unreachable on the live data, run it against a frame
+        # where it passes before committing.
+        rep.note("no confirmed miss records a model call under an entry-stage sub-type")
 
 
 def check_model_classification(df: pd.DataFrame, rep: Report) -> None:
