@@ -205,6 +205,11 @@ SHORT_CAUSE = {
     "Published Late": "notified late",
     "Captured Late": "notified late",
     "Prioritization": "notified late",
+    # `Review Backlog` deliberately does NOT share "notified late" with the three
+    # above. `root_drivers()` groups on the term, so sharing a wording would merge it
+    # into their bar -- and the whole point of the value is that systemic review
+    # capacity is countable on its own rather than hidden inside a lateness total.
+    "Review Backlog": "the queue never reached it",
     "Tagging": "wrong industry tag",
     "Industry selection": "wrong industry tag",
     "Supplier Selection Miss": "a supplier was left off the WarRoom",
@@ -242,6 +247,7 @@ CAUSE_WHY = {
     "Published Late": "it went out after the window to act",
     "Captured Late": "our first usable capture came too late",
     "Prioritization": "held behind other work, and went out late",
+    "Review Backlog": "queued for review, and capacity never reached it",
     "Tagging": "a missing or wrong industry tag",
     "Industry selection": "a missing or wrong industry tag",
     "Supplier Selection Miss": "on file, and left off the selection",
@@ -508,6 +514,14 @@ DRIVERS = {
     # supplier geocoding is the Data team's, tenant and entity linkage is Platform's.
     ("Product", "Incorrect Geocode"): ("Incorrect Geocode", "The site's own coordinates put it inside the affected area"),
     ("Product", "Clustering / Duplication Defect"): ("Clustering / Duplication Defect", "Stories grouped, split or duplicated wrongly"),
+    # Added 17-Nov-2026 on the owner's call, for EAO-61. The story was captured within
+    # minutes and surfaced to analysts, and nobody reached it for eight days because the
+    # reworking queue runs at around 300 stories. That is Product-rooted: the constraint
+    # is the volume the platform surfaces against the capacity available to review it,
+    # not a decision a person took. `Published Late` is the People-side neighbour and its
+    # Definitions row was narrowed in the same change so the two cannot both claim a row.
+    ("Product", "Review Backlog"): ("Review Backlog",
+     "Captured and queued, but no capacity to review it"),
     ("Product", "Model Classification Defect"): ("Model Miss", "The model classified the story wrongly"),
 }
 
