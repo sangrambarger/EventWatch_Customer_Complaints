@@ -614,8 +614,8 @@
         ],
         [
           "Published Late",
-          "The event was available to analysts in time for review and a person had it, but publication or escalation occurred materially late because of delayed analysis, research, or operational handling of that item. Where no one reached it at all because review capacity was exhausted, the category is Review Backlog.",
-          "Detailed cause/handling category. The story reached a person in time; what was late was the decision to raise it. Use Alerting Gap where the item never reached the analyst, and Captured Late where our own first usable capture came late. Use Review Backlog where the item was never reached at all because review capacity was exhausted, rather than a decision being taken on it late."
+          "The event was available to analysts in time for review and a person had it, but publication or escalation occurred materially late because of delayed analysis, research, or operational handling OF THAT ITEM. Where the delay came from capacity rather than from the handling of the item itself, the category is Review Backlog.",
+          "Detailed cause/handling category. The story reached a person in time; what was late was the decision to raise it. Use Alerting Gap where the item never reached the analyst, and Captured Late where our own first usable capture came late. Use Review Backlog where the delay came from capacity rather than from this item, whether nobody reached it or an analyst identified it and could not publish it in time for the workload."
         ],
         [
           "Deliberate Rule",
@@ -664,8 +664,8 @@
         ],
         [
           "Review Backlog",
-          "The story was captured and surfaced to analysts in time, and was not reviewed before the customer raised it because review capacity was exhausted: sustained news volume against available analyst bandwidth left it waiting in the reworking queue. The failure is systemic throughput rather than a judgement taken on the item itself.",
-          "Detailed cause/handling category. Product-rooted, because the constraint is the volume the platform surfaces against the capacity available to review it, not a decision a person took about the story. Use Published Late where a person had the item and the decision to raise it was late. Use Alerting Gap where the item never reached the analyst queue at all. Use Captured Late where our own first usable capture came late."
+          "The story was captured and surfaced to analysts in time, and was not published before the customer raised it because capacity was exhausted: sustained news volume against available analyst bandwidth meant it waited, whether it was never reached at all or was identified as reportable and held behind other events being notified. The failure is systemic throughput rather than a judgement taken on the item itself.",
+          "Detailed cause/handling category. Product-rooted, because the constraint is the volume the platform surfaces against the capacity available to review and publish it, not a decision a person took about the story. It covers an item nobody reached and an item an analyst identified as reportable and could not publish in time for the workload. Use Published Late where the delay was in handling that item, such as analysis or research on it. Use Alerting Gap where the item never reached the analyst queue at all. Use Captured Late where our own first usable capture came late."
         ]
       ]
     },
