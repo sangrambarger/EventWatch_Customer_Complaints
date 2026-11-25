@@ -327,13 +327,23 @@ def break_model_classification(csv: Path, xlsx: Path) -> None:
     past the cutoff and clears the column -- because a fixture that depends on the
     tracker already holding such a row is a fixture the tracker can retire, which is how
     `resolution_dates` came to raise "no Pending row to break".
+
+    It must NOT pick an ENTRY_STAGE row. Since 25-Nov-2026 the rule skips those -- a
+    source or keyword gap means nothing entered the pipeline, so no model made a first
+    call and the blank is correct -- and the first row of the file is as likely as any
+    to be one, which would make this fixture silently stop testing anything.
     """
+    if str(REPO) not in sys.path:
+        sys.path.insert(0, str(REPO))
+    from dashboard.taxonomy import ENTRY_STAGE
+
     lines = csv_lines(csv)
     cols = next(csv_module.reader([lines[0]]))
     date_i, call_i = cols.index("Email/JIRA Date"), cols.index("Model Classification")
+    sub_i = cols.index("Sub-type")
     for n, line in enumerate(lines[1:], start=1):
         row = next(csv_module.reader([line]))
-        if len(row) != len(cols):
+        if len(row) != len(cols) or row[sub_i] in ENTRY_STAGE:
             continue
         row[date_i], row[call_i] = "30-Nov-2026", ""
         out = io.StringIO()

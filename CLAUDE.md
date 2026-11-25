@@ -3688,6 +3688,20 @@ than a count, and fails outright on a value that is neither call. It catches the
 reached the tracker some other way, or one staged blank while its ticket was open and
 never revisited once it answered.
 
+**An ENTRY_STAGE row is NOT asked, on the owner's ruling of 25-Nov-2026: "for not
+captured there would be no model classification".** `Source Coverage` and `Keyword
+Update` mean nothing entered the pipeline, so no model ever made a first call and the
+blank is correct **by construction** rather than unanswered. Warning on one asks a
+question that has no answer and can never be cleared, so the worklist grows with every
+source gap and a reader learns to ignore the rule -- **eight of the thirteen rows it
+named were in exactly that state**, and the warning now reads 5. The rule **imports
+`ENTRY_STAGE`** rather than restating it, so the two halves cannot disagree:
+`model_entry_stage` fires when such a row DOES carry a call, and this one stops asking
+such a row for one. `selftest.py`'s fixture had to learn the same thing -- it takes the
+first row whose column count matches, which is as likely as any to be entry-stage, and
+would then have stopped testing anything silently. **Narrowing a rule means re-reading
+the fixture that proves it.**
+
 **The cutoff is the design, not a softening.** 111 of the 139 rows predate the column and
 most will never be settled -- their tickets are closed and the portal's own log does not
 reach back -- so a failure-level rule would either block every commit or demand a
