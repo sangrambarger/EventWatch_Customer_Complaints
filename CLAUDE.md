@@ -199,10 +199,14 @@ and both turned out to be keyword gaps in the same bankruptcy algorithm, a week 
 **The staging default is `Keyword Update`, not `Source Coverage`, on a bankruptcy,
 insolvency or utility miss** -- changed on the owner's call after the old default went
 0 for 3 (EAO-41, EAO-42, EAO-52, all three a keyword gap in the algorithm). **Its record
-since is five right and one wrong**: those three, plus both EAO-54 rows, against EAO-53.
-It is a good default and it is not a law -- this line said it had been right every time
-it was tested, which stopped being true the moment EAO-53 closed, and a rule that cannot
-record its own exception is a rule nobody can check.
+since is five right and two wrong**: those three, plus both EAO-54 rows, against EAO-53
+and the BorgWarner / Tecmaplast insolvency of 18-Nov-2026, where the owner established
+that the vendor had been asked to add the sources -- the EAO-53 shape exactly. It is a
+good default and it is not a law -- this line said it had been right every time it was
+tested, which stopped being true the moment EAO-53 closed, and a rule that cannot record
+its own exception is a rule nobody can check. **Both exceptions are source gaps caught
+the same way**, by somebody asking whether the carrying outlet is monitored rather than
+reading non-capture as a cause.
 
 **`Source Coverage` means the story never arrived at all**, so reach for it only where
 the evidence says the feed was not received. Two cases are what that evidence looks
