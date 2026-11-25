@@ -913,6 +913,18 @@ def check_model_classification(df: pd.DataFrame, rep: Report) -> None:
     is a worklist. `append_row.py` is the hard gate -- it refuses a payload that omits
     the field entirely -- and this is what catches a row that reached the tracker some
     other way, or one staged with "" before the ticket answered and never revisited.
+
+    **An ENTRY_STAGE row is skipped, on the owner's ruling of 25-Nov-2026: "for not
+    captured there would be no model classification".** `Source Coverage` and
+    `Keyword Update` mean nothing entered the pipeline, so no model ever made a first
+    call and the blank is correct BY CONSTRUCTION rather than unanswered. Warning on
+    one asks a question that has no answer and can never be cleared -- which is a
+    worklist that grows with every source gap and teaches a reader to ignore the rule.
+    Eight of the thirteen rows it named were in exactly that state.
+
+    It is the same set `check_model_entry_stage` uses, IMPORTED rather than restated,
+    so the two halves of the rule cannot disagree: that one fires when such a row DOES
+    carry a call, this one stops asking such a row for one.
     """
     if "Model Classification" not in df.columns or "Email/JIRA Date" not in df.columns:
         return
@@ -926,19 +938,30 @@ def check_model_classification(df: pd.DataFrame, rep: Report) -> None:
                  f"a third word for it would need a Definitions row and would make the "
                  f"column unreadable against the rows that predate it")
         return
+    try:
+        from dashboard.taxonomy import ENTRY_STAGE
+    except Exception as exc:  # pragma: no cover
+        rep.fail("model_classification",
+                 f"could not read ENTRY_STAGE from dashboard/taxonomy.py: {exc}")
+        return
+    sub = df.get("Sub-type", pd.Series("", index=df.index)).fillna("").astype(str)
     recent = dates.notna() & (dates >= MODEL_CUTOFF)
-    open_rows = [i + 2 for i in df.index[recent & call.eq("")]]
+    open_rows = [i + 2 for i in df.index[recent & call.eq("") & ~sub.isin(ENTRY_STAGE)]]
+    settled = int((recent & call.eq("") & sub.isin(ENTRY_STAGE)).sum())
     if open_rows:
         rep.warn("model_classification",
                  f"{len(open_rows)} record(s) raised on or after "
                  f"{MODEL_CUTOFF:%d-%b-%Y} do not state what the model called the feed "
                  f"first, at CSV row(s) {open_rows[:6]}. Read it off the ticket or the "
                  f"Not Impactful log and set Event or Non-Event; leave it blank only "
-                 f"where the record genuinely does not say who made the call")
+                 f"where the record genuinely does not say who made the call "
+                 f"({settled} entry-stage row(s) are not asked: nothing entered the "
+                 f"pipeline, so no model made a first call)")
         return
     known = int((call != "").sum())
     rep.note(f"Model Classification is stated on {known} record(s); every record raised "
-             f"on or after {MODEL_CUTOFF:%d-%b-%Y} answers it")
+             f"on or after {MODEL_CUTOFF:%d-%b-%Y} that could have one answers it "
+             f"({settled} entry-stage row(s) correctly carry none)")
 
 
 def check_issue_type(df: pd.DataFrame, rep: Report) -> None:
