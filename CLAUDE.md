@@ -675,6 +675,29 @@ builds the line. The long plain label is still what the tables print -- at 46 ch
 it is a paragraph under a 28px number in a box a third of the panel wide, and Root cause
 is one click away for the full taxonomy.
 
+**Every popup ends with the records behind its own figure**, on the owner's ask of
+26-Nov-2026: a table of date, ticket, customer, event title and what the record says
+went wrong, directly under the stat cards. The seven record-bearing cards carry it
+(the trend card is a rate over two windows and has no record set), from 14 rows on the
+platform card to 153 on the email card, in a 320px box that scrolls.
+
+**Every column is read off the record, and the last one is `what_happened()`** -- the
+first sentence of `RCA Details` falling back to `Comments`, staging preamble stripped,
+which is the same accessor the delivered-but-wrong pills already print. Nothing here is
+a summary written by hand, so a row cannot go stale when a ticket moves, and a reader
+who asks "which 14" gets the tickets rather than a number to trust.
+
+**The date is formatted, never `str()`d.** `data.py` parses `Email/JIRA Date` into a
+Timestamp, so the obvious `str(row.get(...))` printed `2026-11-24 00:00:00` -- a
+midnight nobody wrote down, in a column a reader compares against a ticket. `_date_text()`
+renders the tracker's own `%d-%b-%Y`, and the sort reads the parsed column rather than
+re-parsing it with a format string it no longer matches. **Both faults were caught by
+screenshotting one panel**, which is what a screenshot is for here; neither is visible
+to any of the four gates, because a correctly-rendered wrong string reconciles fine.
+
+**It prints `plural()`, not `record(s)`** -- the rule this file already states for
+`miss(es)`, broken in the first cut of a block written the same afternoon.
+
 **No popup prints a number that has to be remembered.** Card 6's late bucket read
 "18 hours to 25 days", a figure typed from a reading of the twelve `Reported late`
 rows, which is the fault this file exists to prevent. It says "Published, but not in
@@ -997,11 +1020,26 @@ built from, not the sum of the strings in it.
    worked` was the same fault on the clustering group: the Nemak RCA records the
    reporting team accepting the cluster at review, so a person was there.
 
-   **`Lost before an analyst` is the card's own eyebrow and it is left as it stands,
-   deliberately.** On the three model rows an analyst did see the story, so the label
-   is loose in the same direction -- but the eight cards are what the VP asked for and
-   are not changed without the owner saying so. It is named here rather than quietly
-   edited or quietly ignored.
+   **`Lost before an analyst` is now `Failed in the system`, on the owner's correction
+   of 26-Nov-2026, and this file had already named the fault and then declined to fix
+   it.** The note here used to say the label was loose in the same direction as the
+   middle card's foot -- an analyst DID see several of these stories -- and left it, on
+   the ground that the eight cards are what the VP asked for. The owner settled it on
+   EAO-58: *even if the story was marked non-event by the model, an analyst also viewed
+   it,* so any wording saying it never reached a person is wrong. The card, its popup
+   title, its chain line and its lead all moved together, because the claim had reached
+   four places and this file already refuses a wrong sentence left standing on one panel
+   while two others carry it.
+
+   **What the stage actually means is first-failure, not absence**, so the lead reads
+   *We had the story. A person may well have seen it; the FIRST failure was the
+   platform's.* and the card's foot reads *the first failure was ours, not a person's
+   call.* The partition is untouched -- `_miss_parts()` still splits on the same rows --
+   which is what made this a wording change rather than an arithmetic one.
+
+   **The lesson: naming a label as loose in a file nobody reads at a VP review is not
+   fixing it.** The old note is quoted above rather than deleted, because the failure
+   was the decision to leave it, not the wording.
 
    **A card's eyebrow is its popup's title.** The dialog is headed with the words on
    the card the reader clicked; a panel headed something else reads as the wrong panel.
@@ -3665,6 +3703,36 @@ an explicit supersession sentence.
 Model classification over those 90: **51 recorded (6 wrong, 45 right) + 39 entry-stage**.
 The delivered-but-wrong block goes 19 records to 20, and `Wrong sites called impacted` is
 now its largest group at four.
+
+**EAO-67 is `People` / `Supplier Selection Miss`, not `People` / `Review`, on the owner's
+correction of 26-Nov-2026**: *the analyst notified the event but erred to identify the
+impacted supplier and the WarRoom was not created.* It had been filed `Review`, which is
+this file's own definition of a look not taken -- and the analyst here did look, published
+the event, and then picked the wrong supplier. The ticket corroborates it: it asks why the
+alert **and its associated WarRoom** were not published, and requests supplier-mapping
+validation.
+
+**It is the EAO-15 shape exactly, so `Missed_Flag` stays Yes.** Leaving a supplier off a
+*published* WarRoom is not a miss; leaving one off so completely that **no WarRoom exists**
+is, because nothing reached the customer. `Reason` moved to `Missed WarRoom`,
+`Standard Automation Focus` to `Entity & Supplier Resolution`, and `Automation Opportunity`
+to supplier-site validation at WarRoom creation -- the Bombardier rule that the remedy
+follows the cause. `RCA Details` and `Comments` were rewritten **together** with an explicit
+supersession sentence, per EAO-13.
+
+**The failure that produced it is worth more than the row.** `Review` is the label a
+People-rooted miss falls into when nobody asks WHICH step the analyst got wrong, and this
+file already carries the same warning about `Mapping` collecting every "nothing reached
+them". **Before filing `Review`, check whether the event was published at all** -- if it
+was, the analyst looked, and the miss is in what they did next.
+
+**Baseline on 26-Nov-2026:**
+
+```
+153 emails     = 122 complaints + 31 inquiries
+122 complaints =  99 confirmed misses + 23 process issues
+ 99 misses     =  58 Product + 41 Analyst + 0 Process
+```
 
 **The lesson: "correct the three rows" is an instruction about an END STATE, not a
 licence to write a cause.** One row's own fields settled it in four places; two rows

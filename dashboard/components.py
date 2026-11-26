@@ -574,6 +574,34 @@ def detail_panel(card):
             + "</div>" for s in block["items"])
         out.append(f"<div class='pop-stats' style='--cols:{block['cols']}'>{cells}</div>")
 
+    # The records behind the panel, on the owner's instruction, directly under the
+    # breakdown. A stat card says `7 the analyst overlooked it` and a reader who wants
+    # to take that to a customer call has nowhere to go -- the tickets are not on the
+    # panel and the figure cannot be checked. These are those rows: ticket, title and
+    # the record's own cause line from `what_happened()`.
+    #
+    # **Every record is listed and the box scrolls**, rather than a top N with nothing
+    # on screen saying the list ended early -- the silent head this dashboard refuses
+    # everywhere else. The count above the box is the full count, so a reader can see
+    # at once whether it matches the figure the panel leads with.
+    #
+    # Dates and tickets wear tabular figures so they line up down the column, and the
+    # ticket is monospace, the same treatment the record grid gives those two columns.
+    recs = card.get("records") or []
+    if recs:
+        out.append("<div class='pop-rule'></div>"
+                   f"<div class='pop-recs-head'>All {plural(len(recs), 'record')} behind this figure</div>"
+                   "<div class='pop-recs-wrap'><table class='pop-recs'>"
+                   "<thead><tr><th>Date</th><th>Ticket</th><th>Customer</th>"
+                   "<th>Event</th><th>What the record says went wrong</th></tr></thead><tbody>")
+        for r in recs:
+            out.append(f"<tr><td class='pop-rd'>{esc(r['date'])}</td>"
+                       f"<td class='pop-rk'>{esc(r['ticket'])}</td>"
+                       f"<td>{esc(r['customer'])}</td>"
+                       f"<td>{esc(r['title'])}</td>"
+                       f"<td class='pop-rr'>{esc(r['rca'])}</td></tr>")
+        out.append("</tbody></table></div>")
+
     # The monthly bars, on the one panel about movement. Each carries its own base,
     # because a rate quoted bare invites a reader to lean on a month that will move.
     if card.get("bars"):
@@ -632,13 +660,13 @@ MONTH_PARTS = (
 )
 # The three stage labels and colours of `rate_bar()` are the nested RINGS' own, so a
 # reader meets no new word and no new hue in that block -- only the rate. `Never
-# reached us` and `Lost before an analyst` are two steps of BLUE_RAMP and `An analyst
+# reached us` and `Failed in the system` are two steps of BLUE_RAMP and `An analyst
 # saw it` is the People hue, exactly as `inbox_rings()` paints them. It sits here
 # beside MONTH_PARTS rather than in `metrics`, because a segment colour is a drawing
 # decision and `metrics` does arithmetic: putting it there would have had the module
 # that computes a total also choose how it looks.
 RATE_PARTS = (("Never reached us", BLUE_RAMP[4]),
-              ("Lost before an analyst", BLUE_RAMP[3]),
+              ("Failed in the system", BLUE_RAMP[3]),
               ("An analyst saw it", ROOT_COLOURS["People"]))
 
 MONTH_NAMES = {"Wrong": "Reported, but wrong", "Product": "Product miss", "Analyst": "Analyst miss",

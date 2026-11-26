@@ -111,6 +111,26 @@ h1,h2,h3,h4,h5,h6,p,span,div,label{color:var(--ink)!important}.page-hero,.sectio
 .pop-sv{font-size:28px;font-weight:900;line-height:1;font-variant-numeric:tabular-nums}
 .pop-sl{font-size:12.5px;font-weight:600;line-height:1.35;margin-top:6px}
 .pop-sn{font-size:10.5px;color:var(--muted)!important;line-height:1.35;margin-top:6px}
+/* The records behind a panel, on the owner's instruction. EVERY row is listed and the
+   box scrolls -- a top N would be the silent head this dashboard refuses everywhere
+   else, and the count printed above the box is the full one so a reader can check it
+   against the figure the panel leads with. 320px holds about nine rows on the medium
+   dialog, which is enough to read as a list rather than a fragment. */
+.pop-recs-head{font-size:11.5px;font-weight:700;letter-spacing:.02em;color:var(--muted)!important;
+  margin:0 0 8px}
+.pop-recs-wrap{max-height:320px;overflow:auto;border:1px solid var(--line);border-radius:8px;
+  background:var(--panel2)!important}
+.pop-recs{width:100%;border-collapse:collapse;font-size:11.5px;line-height:1.45}
+.pop-recs th{position:sticky;top:0;z-index:1;background:var(--panel2)!important;text-align:left;
+  font-size:10.5px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;
+  color:var(--muted)!important;padding:8px 10px;border-bottom:1px solid var(--line)}
+.pop-recs td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+.pop-recs tr:last-child td{border-bottom:0}
+.pop-recs tr:hover td{background:rgba(255,255,255,.03)}
+.pop-rd{white-space:nowrap;font-variant-numeric:tabular-nums;color:var(--muted)!important}
+.pop-rk{white-space:nowrap;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  font-variant-numeric:tabular-nums}
+.pop-rr{color:var(--muted)!important}
 .pop-bars{display:flex;flex-direction:column;gap:8px}
 .pop-bar{display:flex;align-items:center;gap:11px}
 .pop-bname{font-size:12px;color:var(--muted)!important;width:30px;flex:none}
