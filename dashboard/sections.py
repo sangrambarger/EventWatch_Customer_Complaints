@@ -23,8 +23,8 @@ import streamlit as st
 from dashboard.styles import CAT_SLATE, ROOT_COLOURS, esc
 from dashboard.taxonomy import ROOT_OWNERSHIP, name_subtypes, plural
 from dashboard.filters import customer_names, filter_note, names_match
-from dashboard.metrics import MISS_BUCKETS, account_failures, bulletin_errors, month_causes, account_headline, count_table, customer_totals, driver_table, event_type_flow, miss_by_customer, miss_categories, miss_colours, monthly_breakdown, monthly_note, monthly_table, nature_table, owner_accounts, owner_insight, root_drivers, root_frame, root_recent_note, root_summary, model_split, model_note, subtype_matrix, takeaway, trend_windows, country_flow, country_insight, country_note, country_titles, country_totals
-from dashboard.components import GEO_WINDOWS, add_rule, add_section, chart, country_map, downloads, driver_bar, fault_pills, excel_bar_table, flow_bar, grouped_bar, heatmap, kpis, monthly_stack, page_header, proportion_bar, ranked_bar, stacked_bar, styled_table
+from dashboard.metrics import MISS_BUCKETS, account_failures, bulletin_errors, month_causes, account_headline, count_table, customer_totals, driver_table, event_type_flow, miss_rate_by_event_type, miss_rate_note, miss_by_customer, miss_categories, miss_colours, monthly_breakdown, monthly_note, monthly_table, nature_table, owner_accounts, owner_insight, root_drivers, root_frame, root_recent_note, root_summary, model_split, model_note, subtype_matrix, takeaway, trend_windows, country_flow, country_insight, country_note, country_titles, country_totals
+from dashboard.components import GEO_WINDOWS, add_rule, add_section, chart, country_map, downloads, driver_bar, fault_pills, excel_bar_table, flow_bar, grouped_bar, heatmap, kpis, monthly_stack, page_header, proportion_bar, ranked_bar, rate_bar, stacked_bar, styled_table
 
 
 
@@ -621,6 +621,43 @@ def render_customers(page, key="customers", account=True):
         downloads(accounts, "customers_impacted", f_cust)
     if account:
         render_account_view(page, key=key)
+
+
+def render_event_type_rates(page):
+    """Which kinds of event we are WORST at, and where each one's misses stopped.
+
+    The block below this one ranks the same categories by miss COUNT. That answers
+    "what do we see a lot of" and cannot answer "what are we worst at": Factory Fire
+    is 12 of 19 and Bankruptcy 15 of 17, so on a count ranking the worse category sits
+    lower and reads as mid-table.
+
+    **The split is what makes it actionable rather than a league table.** Bankruptcy
+    and Cyber Attack sit within ten points of each other and are the opposite problem
+    -- the bankruptcies almost never entered the pipeline, which source and keyword
+    work moves, while the cyber misses were mostly seen by an analyst, which no source
+    budget touches. A rate on its own would rank them together and point the money at
+    the wrong one.
+
+    Every bar prints its own base on the end, and a type under `THIN_TYPE` emails is
+    ranked below the rest rather than dropped -- nothing is hidden, and a 1-of-1 at
+    100% does not sit above Bankruptcy on the page a VP opens.
+    """
+    add_section("Which events we are worst at", "", "#8ab4f8")
+    frame = miss_rate_by_event_type(page)
+    if frame.empty:
+        st.info("No email in the current filter carries an event type.")
+        return
+    fig = rate_bar(frame, x_title="Share of that type's emails that were a confirmed miss")
+    table = frame.drop(columns=["Thin"]).copy()
+    table["Miss rate"] = [f"{v * 100:.0f}%" for v in table.pop("Rate")]
+    with st.expander("Show the numbers"):
+        excel_bar_table(table, "Event type", value_col="Misses",
+                        extras=[c for c in table.columns if c not in ("Event type", "Misses")],
+                        label_head="Event type", value_head="Confirmed misses",
+                        variant="roomy", total_row=False,
+                        classes={"Event type": "nowrap"},
+                        caption=miss_rate_note(frame))
+    downloads(table, "event_type_rates", fig)
 
 
 def render_event_types(page):

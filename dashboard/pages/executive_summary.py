@@ -35,7 +35,7 @@ import streamlit as st
 from dashboard.filters import filter_note
 from dashboard.metrics import card_details, inbox_rings, inbox_totals, trend_windows
 from dashboard.components import add_rule, add_section, clickable_kpis, detail_panel, nested_donut, page_header
-from dashboard.sections import render_bulletin_errors, render_customers, render_event_types, render_geography, render_model_classification, render_monthly_breakdown, render_root_cause
+from dashboard.sections import render_bulletin_errors, render_customers, render_event_type_rates, render_event_types, render_geography, render_model_classification, render_monthly_breakdown, render_root_cause
 
 
 
@@ -214,6 +214,13 @@ def render(df, filtered, selected_page):
     # cannot have drifted. The key matters: one piece of session state shared between
     # two pages would have an account picked here picked again over there.
     render_geography(page, key="summary")
+
+    add_rule()
+    # WHICH kinds of event we are worst at, directly above the same categories by
+    # volume. Two questions, deliberately drawn in two grammars: this one's x axis is a
+    # percentage with its base on every bar, the one below is counts. Drawing them
+    # alike is what made the pair of ranked bars this page used to carry unreadable.
+    render_event_type_rates(page)
 
     add_rule()
     render_event_types(page)
