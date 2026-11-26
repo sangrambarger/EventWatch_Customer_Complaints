@@ -630,6 +630,17 @@ MONTH_PARTS = (
     ("Process", ROOT_COLOURS["Process"], "The workflow or the guideline itself was at fault"),
     ("Wrong", CAT_SLATE, "Delivered in time, and the scope or the detail was wrong"),
 )
+# The three stage labels and colours of `rate_bar()` are the nested RINGS' own, so a
+# reader meets no new word and no new hue in that block -- only the rate. `Never
+# reached us` and `Lost before an analyst` are two steps of BLUE_RAMP and `An analyst
+# saw it` is the People hue, exactly as `inbox_rings()` paints them. It sits here
+# beside MONTH_PARTS rather than in `metrics`, because a segment colour is a drawing
+# decision and `metrics` does arithmetic: putting it there would have had the module
+# that computes a total also choose how it looks.
+RATE_PARTS = (("Never reached us", BLUE_RAMP[4]),
+              ("Lost before an analyst", BLUE_RAMP[3]),
+              ("An analyst saw it", ROOT_COLOURS["People"]))
+
 MONTH_NAMES = {"Wrong": "Reported, but wrong", "Product": "Product miss", "Analyst": "Analyst miss",
                "Process": "Process miss"}
 # A leadership panel does not print "9 product miss". The legend keeps the singular,
@@ -933,6 +944,75 @@ def _on_fill(colour):
     chan = [c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4 for c in (r, g, b)]
     lum = 0.2126 * chan[0] + 0.7152 * chan[1] + 0.0722 * chan[2]
     return "#f3f4f6" if (lum + 0.05) / 0.062 < 0.945 / (lum + 0.05) else "#1b1f26"
+
+
+def rate_bar(frame, title="", x_title="Share of that type's emails that were a miss"):
+    """Miss RATE per event type, split by where the miss stopped.
+
+    The chart beneath this one is the same categories by COUNT, which is a different
+    question: that one says what we see a lot of, this one says what we are worst at.
+    They are deliberately not drawn in the same grammar, because two ranked bars of one
+    population side by side is the exact block the owner said confused them -- here the
+    x axis is a PERCENTAGE and the axis title says whose.
+
+    **Every bar carries its own base on the end**, as `15 of 17`, so the question a
+    rate always raises is answered on the row rather than in a caption a reader has to
+    hold. That is the same device the KPI cards use when they print `86 of 127` instead
+    of a bare 68%.
+
+    Colours and segment names are the nested rings' own, so nothing new is taught here
+    except the rate itself.
+    """
+    if frame is None or frame.empty:
+        st.info("Chart cannot be rendered because required fields are missing: Event type.")
+        return None
+    rows = list(frame["Event type"].astype(str))
+    # The floor is measured on the SHARE, because that is what the bar draws. A segment
+    # under about four and a half points is a few pixels wide and plotly clips the digit
+    # rather than dropping it, which reads as a stray mark -- the same fault recorded
+    # against the country bar, in the units this chart happens to use.
+    floor = 0.045
+    fig = go.Figure()
+    for part, colour in RATE_PARTS:
+        if part not in frame.columns:
+            continue
+        counts = [int(v) for v in frame[part]]
+        shares = [c / max(int(e), 1) for c, e in zip(counts, frame["Emails"])]
+        if not any(counts):
+            continue
+        fig.add_bar(
+            y=rows, x=shares, orientation="h", name=part,
+            marker=dict(color=colour, line=dict(width=0)),
+            text=[str(c) if sh >= floor else "" for c, sh in zip(counts, shares)],
+            textposition="inside", insidetextanchor="middle",
+            textfont=dict(size=12, color=_on_fill(colour)),
+            customdata=counts,
+            hovertemplate="%{customdata} of this type's emails — "
+                          + esc(part.lower()) + "<extra></extra>")
+    # The base on the end of every bar, and the thin flag beside it. A type under
+    # THIN_TYPE emails is still drawn in full and still ranked, below the rule -- the
+    # alternative is the silent `top=N` this dashboard refuses everywhere else.
+    ends = [f"  {int(m)} of {int(e)}" + ("  · few emails" if bool(t) else "")
+            for m, e, t in zip(frame["Misses"], frame["Emails"], frame["Thin"])]
+    fig.add_scatter(y=rows, x=[float(r) for r in frame["Rate"]], mode="text", text=ends,
+                    textposition="middle right", cliponaxis=False,
+                    textfont=dict(size=12, color="#9aa4b2"),
+                    showlegend=False, hoverinfo="skip")
+    fig.update_layout(
+        barmode="stack", template="plotly_dark", plot_bgcolor="#1b1f26",
+        paper_bgcolor="#1b1f26", font=dict(color="#f3f4f6", size=13),
+        title=dict(text=title, y=1.0, yanchor="top", yref="container", pad=dict(t=10)),
+        margin=dict(l=20, r=150, t=92, b=34), legend_title_text="",
+        legend=dict(orientation="h", yanchor="bottom", y=1.0, x=0, traceorder="normal"),
+        uniformtext=dict(minsize=9, mode="hide"), hovermode="y unified",
+        height=max(340, min(1180, len(rows) * 30 + 150)))
+    fig.update_yaxes(autorange="reversed", showgrid=False, ticksuffix="  ")
+    # Fixed 0-1, never autoscaled: a rate axis that stops at the worst row makes 88%
+    # look like the whole bar and a reader cannot see how much room is left.
+    fig.update_xaxes(range=[0, 1], tickformat=".0%", title_text=x_title,
+                     showgrid=True, gridcolor="#2a2f3a", zeroline=False)
+    st.plotly_chart(fig, width="stretch", config={"displaylogo": False})
+    return fig
 
 
 def flow_bar(frame, label_col, title="", x_title="Customer complaints", top=None,

@@ -1866,6 +1866,91 @@ def inbox_rings(t):
 THIN_MONTH_TREND = 5
 
 
+# A type under this many emails has a rate one record can move by 20 points or more,
+# so it is RANKED BELOW the solid ones rather than dropped. Nothing is hidden -- every
+# event type draws, with its own base printed on the end of its bar -- but a 1-of-1 at
+# 100% must not sit above Bankruptcy at 15 of 17 on the page a VP reads first. Same
+# threshold `THIN_MONTH` applies to a month's rate, for the same reason.
+THIN_TYPE = 5
+
+def miss_rate_by_event_type(df, thin=THIN_TYPE):
+    """How often each kind of event is missed, and WHERE those misses stopped.
+
+    The event-type block below this one ranks by miss COUNT, which answers "what do we
+    see a lot of". It cannot answer "what are we worst at": Factory Fire is 12 misses
+    of 19 emails and Bankruptcy is 15 of 17, so the worse category sits lower on a
+    chart sorted by count and reads as mid-table.
+
+    **The split is the point, not the rate on its own.** Bankruptcy and Cyber Attack
+    run at almost the same rate and are the opposite problem -- the bankruptcies
+    overwhelmingly never entered the pipeline, which source and keyword work moves,
+    while the cyber misses were largely seen by an analyst, which no amount of source
+    money touches. A rate alone would have ranked them together and pointed the budget
+    at the wrong one.
+
+    The three stages are `_miss_parts()`, the same partition the eight cards and the
+    nested rings use, so a segment here cannot disagree with the card above it and the
+    three always sum to that type's miss count however the taxonomy grows.
+    """
+    cols = ["Event type", "Emails", "Misses", "Rate",
+            "Never reached us", "Lost before an analyst", "An analyst saw it", "Thin"]
+    if df.empty or not {"Event type", "Missed_Flag"} <= set(df.columns):
+        return pd.DataFrame(columns=cols)
+    kind = df["Event type"].fillna("Blank").astype(str).str.strip()
+    part = _miss_parts(df)
+    never = part["source"] | part["keyword"]
+    rows = []
+    for value in kind.unique():
+        m = kind == value
+        emails = int(m.sum())
+        if not emails:
+            continue
+        rows.append({
+            "Event type": value, "Emails": emails,
+            "Misses": int((m & part["missed"]).sum()),
+            "Rate": int((m & part["missed"]).sum()) / emails,
+            "Never reached us": int((m & never).sum()),
+            "Lost before an analyst": int((m & part["platform"]).sum()),
+            "An analyst saw it": int((m & part["analyst"]).sum()),
+            "Thin": bool(emails < thin),
+        })
+    out = pd.DataFrame(rows, columns=cols)
+    if out.empty:
+        return out
+    # Thin types last, then worst rate first, then the bigger base first on a tie.
+    return (out.sort_values(["Thin", "Rate", "Emails"], ascending=[True, False, False])
+               .reset_index(drop=True))
+
+
+def miss_rate_note(frame, thin=THIN_TYPE):
+    """One computed sentence: the worst solid type, and what its misses were made of.
+
+    Every figure is read off the frame on screen. A typed figure here would be the
+    fault this file exists to prevent, and this one would go stale the first time a
+    month of bankruptcies landed.
+    """
+    if frame is None or frame.empty:
+        return ""
+    solid = frame[~frame["Thin"]]
+    if solid.empty:
+        return (f"Every event type in this filter carries fewer than {thin} emails, so no "
+                f"rate here is steady enough to rank.")
+    top = solid.iloc[0]
+    never = int(top["Never reached us"])
+    seen = int(top["An analyst saw it"])
+    where = (f"{never} of them never reached us" if never >= seen
+             else f"{seen} of them were seen by an analyst")
+    nthin = int(frame["Thin"].sum())
+    tail = (f" {nthin} type(s) under {thin} emails sit below the rule, with their own base "
+            f"on each bar: one record moves a rate like that by a fifth."
+            if nthin else "")
+    return (f"**{esc(str(top['Event type']))} is the worst of them: "
+            f"{int(top['Misses'])} of {int(top['Emails'])} emails, {top['Rate'] * 100:.0f}%, "
+            f"and {where}.** Each bar is that type's miss rate, split by where the miss "
+            f"stopped, so the three segments add to the rate and the base is printed on "
+            f"the end.{tail}")
+
+
 def event_type_flow(df, top=None):
     """One row per event type, split the way the month chart splits a month.
 

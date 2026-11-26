@@ -1783,6 +1783,52 @@ the pills had been quietly redrawn as plotly.
    **The general rule: a total row is a reconciliation, not a sum.** Where the rows
    double-count on purpose, the foot has to carry the figure the rest of the dashboard
    uses, and the caption has to say why they differ.
+**Which events we are worst at** -- `miss_rate_by_event_type()` and `rate_bar()`, directly
+above the event-type block and deliberately NOT in its grammar. That one ranks by miss
+COUNT and answers "what do we see a lot of"; this one ranks by RATE and answers "what are
+we worst at", which no page could say: Factory Fire is 12 of 19 and Bankruptcy 15 of 17,
+so on a count ranking the worse category sits lower and reads as mid-table. The x axis is
+a percentage and its title names whose, because two ranked bars of one population drawn
+alike is the pair this page already removed once.
+
+**The split is what makes it a decision rather than a league table.** Bankruptcy and Cyber
+Attack sit within ten points of each other and are the opposite problem -- 14 of
+Bankruptcy's 15 misses never entered the pipeline, which source and keyword work moves,
+while 7 of Cyber Attack's 15 were seen by an analyst, which no source budget touches. **A
+rate on its own would rank them together and point the money at the wrong one.** The three
+segments are `_miss_parts()`, the same partition the eight cards and the nested rings use,
+so a segment here cannot disagree with a card above it and the three always sum to that
+type's miss count however the taxonomy grows.
+
+**`RATE_PARTS` lives in `components` beside `MONTH_PARTS`, not in `metrics`.** It is the
+rings' own three labels and three colours -- two steps of `BLUE_RAMP` and the People hue --
+so the block teaches no new word and no new hue, only the rate. A segment colour is a
+drawing decision; putting it in `metrics` would have had the module that computes a total
+also choose how it looks.
+
+**Every bar prints its own base on the end (`15 of 17`), and a type under `THIN_TYPE`
+emails is ranked BELOW the solid ones rather than dropped.** Nothing is hidden -- all
+twenty-eight draw -- but a 1-of-1 at 100% must not sit above Bankruptcy on the page a VP
+opens, and a rate on four emails moves twenty-five points on one record. The bars say
+`· few emails` beside the base. **This is not the silent `top=N` this file refuses**: the
+rows are on screen with their denominators, which is the whole difference.
+
+The x axis is pinned to 0-100% and never autoscaled: an axis that stops at the worst row
+makes 88% look like the whole bar and hides how much room is left. `smoke_app.EXPECTED`
+for the summary went `(10, 7)` to `(11, 8)` -- a matched pair. No audit registration was
+needed: the table is `Event type` against `Misses`, which `expectations()` already computes
+as `miss_types`, so the new table is checked by the expectation that was already there.
+
+**Why an analyst missed is NOT on the dashboard, and the data does not yet support it.**
+The question was asked and the forty-one People-rooted misses were read: the reasons are
+in the prose and they recur -- judged the impact too narrow, skipped a check that exists,
+treated it as already covered, cleared at pace, misapplied a published rule. **A keyword
+scan over `RCA Details` and `Comments` is not a partition**: five records match more than
+one pattern and fourteen match none, so deriving the category would file a quarter of the
+book wrong and silently. Like `Country` and `Model Classification` before it, this is a
+fact about the record that the tracker does not hold, so it is a **stored column decided
+at triage**, not something the app can compute. Do not derive it.
+
 7. **Complaints by event type** -- **one** chart and one table, and they now print the
    same columns. `event_type_flow()` and `flow_bar()`: a row per event type, split the
    way the month chart splits a month -- Product / Analyst / Process / Reported, but
