@@ -1364,6 +1364,57 @@ def _grouped(df, mask, groups, colour, tail_colour=POP_MUTED):
     return [c for _, c in sorted(cards, key=lambda c: -c[0])]
 
 
+def _date_text(value):
+    """The record's own date in the tracker's format -- a parsed frame hands back a
+    Timestamp, and str() on one prints a midnight nobody wrote down."""
+    if value is None or (isinstance(value, float) and pd.isna(value)):
+        return ""
+    stamp = pd.to_datetime(value, errors="coerce")
+    if pd.isna(stamp):
+        return str(value).strip()
+    return stamp.strftime("%d-%b-%Y")
+
+
+def _records(df, mask, limit=None):
+    """The records behind one card: ticket, title, and the record's OWN cause line.
+
+    **The owner's ask, and it is the one thing the panels could not do.** A stat card
+    says `7 the analyst overlooked it` and a reader who wants to take that to a customer
+    call has nowhere to go: the tickets are not on the panel and the figure cannot be
+    checked. This puts the rows under the breakdown, so every number on the panel can be
+    read back to the records that make it.
+
+    `what_happened()` supplies the cause, so the line is the first sentence of the
+    record's own `RCA Details` falling back to `Comments`, with the daily Routine's
+    staging preamble stripped. **Derived, never typed** -- a hand-written summary per
+    record would be a hundred and fifty strings that go stale the day a ticket moves,
+    which is the fault this file exists to prevent, and it is why the same accessor
+    already fills the delivered-but-wrong table.
+
+    Newest first, because a panel opened during a customer call is opened about
+    something recent. A record with no ticket prints a dash rather than a blank, so the
+    column reads as "there is no ticket" rather than as a rendering fault.
+    """
+    if df.empty or mask is None:
+        return []
+    rows = df[mask]
+    if rows.empty:
+        return []
+    if "Email/JIRA Date" in rows.columns:
+        order = pd.to_datetime(rows["Email/JIRA Date"], errors="coerce")
+        rows = rows.assign(_d=order).sort_values("_d", ascending=False, na_position="last")
+    out = []
+    for _, row in rows.iterrows():
+        out.append({
+            "ticket": str(row.get("Jira Key", "") or "").strip() or "\u2014",
+            "date": _date_text(row.get("Email/JIRA Date", "")),
+            "customer": str(row.get("Customer", "") or "").strip(),
+            "title": str(row.get("Event/Bulletin Title", "") or "").strip(),
+            "rca": what_happened(row),
+        })
+    return out[:limit] if limit else out
+
+
 def card_details(df):
     """One payload per Executive Summary card, in card order.
 
@@ -1424,6 +1475,7 @@ def card_details(df):
         foot_right = "An email naming two accounts counts for both."
     cards.append({
         "key": "emails", "eyebrow": "Customer emails", "accent": blue,
+        "records": _records(df, pd.Series(True, index=df.index)),
         "question": "Who writes in?",
         "chain": [(f"{total} customer emails", True)],
         "hero": f"{total}",
@@ -1439,6 +1491,7 @@ def card_details(df):
                    "Scope, impact, visibility or follow-up", POP_MUTED)]
     cards.append({
         "key": "complaints", "eyebrow": "Complaints", "accent": red,
+        "records": _records(df, issue.eq("Complaint")),
         "question": "What did the complaints turn out to be?",
         "chain": [(chain_emails, False), (chain_complaints, True)],
         "hero": f"{complaints}", "base": f"of {total} emails",
@@ -1453,11 +1506,12 @@ def card_details(df):
     # 3 -- where the story stopped. The one panel that names an owner per card.
     stages = [_stat(never, "Never reached us at all",
                     f"no monitored source {source} · keywords missed it {keyword}", blue),
-              _stat(platform, "Lost before an analyst", named_causes(df, part["platform"]), blue),
+              _stat(platform, "Failed in the system", named_causes(df, part["platform"]), blue),
               _stat(analyst, "An analyst saw it", named_causes(df, part["analyst"]), red)]
     recent = _recent_shape(df, part)
     cards.append({
         "key": "misses", "eyebrow": "Confirmed misses", "accent": blue,
+        "records": _records(df, part["missed"]),
         "question": "Where did the story stop?",
         "chain": [(chain_emails, False), (chain_complaints, False), (chain_misses, True)],
         "hero": f"{missed}", "base": f"of {complaints} complaints",
@@ -1478,6 +1532,7 @@ def card_details(df):
     wrong = _grouped(df, issue.eq("Complaint") & ~part["missed"], WRONG_GROUPS, amber)
     cards.append({
         "key": "notamiss", "eyebrow": "Complaints, not a miss", "accent": amber,
+        "records": _records(df, issue.eq("Complaint") & ~part["missed"]),
         "question": "We reported it. What was wrong?",
         "chain": [(chain_emails, False), (chain_complaints, False),
                   (f"{not_a_miss} reported, but wrong", True)],
@@ -1494,6 +1549,7 @@ def card_details(df):
            _stat(keyword, "Our keywords missed it", "Product widens the terms", blue)]
     cards.append({
         "key": "nevercaptured", "eyebrow": "Never reached us", "accent": blue,
+        "records": _records(df, part["source"] | part["keyword"]),
         "question": "Why did we never find these?",
         "chain": [(chain_complaints, False), (chain_misses, False),
                   (f"{never} never reached us", True)],
@@ -1509,6 +1565,7 @@ def card_details(df):
     actions = _grouped(df, part["analyst"], ANALYST_ACTIONS, red)
     cards.append({
         "key": "overlooked", "eyebrow": "An analyst saw it", "accent": red,
+        "records": _records(df, part["analyst"]),
         "question": "An analyst had it. What did they do?",
         "chain": [(chain_complaints, False), (chain_misses, False),
                   (f"{analyst} an analyst had", True)],
@@ -1527,12 +1584,13 @@ def card_details(df):
     # The three stages are a partition by construction; the row now prints all three.
     lost = _grouped(df, part["platform"], LOST_GROUPS, blue)
     cards.append({
-        "key": "lostinside", "eyebrow": "Lost before an analyst", "accent": blue,
+        "key": "lostinside", "eyebrow": "Failed in the system", "accent": blue,
+        "records": _records(df, part["platform"]),
         "question": "We had the story. What happened to it?",
         "chain": [(chain_complaints, False), (chain_misses, False),
-                  (f"{platform} lost before an analyst", True)],
+                  (f"{platform} failed in the system", True)],
         "hero": f"{platform}", "base": f"of {missed} misses<br>{pct(platform, missed)}",
-        "lead": "We had the story, and the first error was the platform's.",
+        "lead": "We had the story. A person may well have seen it; the FIRST failure was the platform's.",
         "blocks": [_block(lost, cols=2, partition=True)],
         "proof": _equation(lost, platform) if lost else None,
         "foot_left": _equation(lost, platform) if lost else "",
@@ -1851,7 +1909,7 @@ def inbox_rings(t):
             "inner": [("Failed in the system", t["never"] + t["lost"], BLUE_RAMP[2]),
                       ("A person had it", t["seen"], RING_ANALYST_DEEP)],
             "outer": [("Never reached us", t["never"], BLUE_RAMP[4]),
-                      ("Lost before an analyst", t["lost"], BLUE_RAMP[3]),
+                      ("Failed in the system", t["lost"], BLUE_RAMP[3]),
                       ("An analyst saw it", t["seen"], ROOT_COLOURS["People"])],
             "equation": (f"{t['missed']} misses = {t['never'] + t['lost']} failed in "
                          f"the system + {t['seen']} a person had it, and the "
@@ -1893,7 +1951,7 @@ def miss_rate_by_event_type(df, thin=THIN_TYPE):
     three always sum to that type's miss count however the taxonomy grows.
     """
     cols = ["Event type", "Emails", "Misses", "Rate",
-            "Never reached us", "Lost before an analyst", "An analyst saw it", "Thin"]
+            "Never reached us", "Failed in the system", "An analyst saw it", "Thin"]
     if df.empty or not {"Event type", "Missed_Flag"} <= set(df.columns):
         return pd.DataFrame(columns=cols)
     kind = df["Event type"].fillna("Blank").astype(str).str.strip()
@@ -1910,7 +1968,7 @@ def miss_rate_by_event_type(df, thin=THIN_TYPE):
             "Misses": int((m & part["missed"]).sum()),
             "Rate": int((m & part["missed"]).sum()) / emails,
             "Never reached us": int((m & never).sum()),
-            "Lost before an analyst": int((m & part["platform"]).sum()),
+            "Failed in the system": int((m & part["platform"]).sum()),
             "An analyst saw it": int((m & part["analyst"]).sum()),
             "Thin": bool(emails < thin),
         })
