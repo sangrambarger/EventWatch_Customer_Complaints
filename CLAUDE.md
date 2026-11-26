@@ -3734,6 +3734,72 @@ was, the analyst looked, and the miss is in what they did next.
  99 misses     =  58 Product + 41 Analyst + 0 Process
 ```
 
+**EAO-65 is the worked example of a row answered on the WRONG YEAR, and it sat as an
+Inquiry for seventeen days because of it.** Ford wrote on 09-Nov-2026 that the Mexican
+farmer protests were never published, citing an Everstream write-up of protests that
+began 26-Oct-**2025**. EventWatch had published those seven times -- a bulletin on
+16-Oct-2025, a WarRoom on the 28th and five updates through 02-Nov-2025 -- so the row
+was filed `Process` / `Process Clarification`, **Inquiry**, `Missed_Flag` **No**, and
+every word of that answer was true. On 18-Nov the customer supplied their reference
+URL and it is a UnoTV report on a national blockade of 25 highways in October
+**2026**. **A publication history that answers the question is not evidence that it
+answered the right question** -- check which event the customer is describing before
+reading a bulletin list as a refutation.
+
+**The RCA settles it and the owner applied it on 26-Nov-2026**: *the feed algorithms
+captured relevant reports, the AI classification models incorrectly categorized the
+planned blockades as Not Impactful, and that decision was not corrected during
+human-in-the-loop review.* So `Product` / `Model Classification Defect`, **Complaint**,
+`Missed_Flag` **Yes**, `Model Classification` **Non-Event**, routing and focus following
+the cause to `Product & Platform` and `Classification & Impact Validation`, which is
+what the other three rows on that sub-type already carry.
+
+**Review also failed here and the row is NOT filed under it**, which is the Eason & Co
+and EAO-51 precedent word for word: a record carries the failure that STOPPED delivery,
+and the model's call was the first error. `RCA Details` and `Comments` were rewritten
+together with an explicit supersession sentence, per EAO-13.
+
+**The cause came from the owner pasting the RCA, and that is the only way it could
+have.** The document is a Jira attachment, which this environment cannot read, and the
+row had carried the right answer as a *guess* in its own `Comments` for days -- "an RCA
+is written where something failed, so this row is likely to move to a Complaint" --
+while staying filed as an Inquiry. **A likely reading left in the prose is not a
+classification**, and a row that argues with its own fields is the state this file
+refuses; the honest move was to leave it and ask, and the ask is what closed it.
+
+**EAO-77 is staged with TWO open questions rather than one**, which is the shape the
+`Pending` convention exists for and is worth naming because the usual staged row has
+only one. Ford raised the Gauteng flooding of 25-Nov-2026 on the 26th; the ticket is
+Open with no comments. The cause is open in the ordinary way -- staged `Product` /
+`Keyword Update` because The Citizen is a mainstream outlet and EAO-48 shows South
+African sources are monitored, so a source gap is the less likely capture bucket, and
+the carrying-outlet question settles it. **But whether anything was OWED is open too**:
+Ford's own ticket records that no manufacturing or supplier shutdown is confirmed in
+the source they cite, and the severe-weather guidance notifies on confirmed impact,
+which is the ground the Midwest row turned on. `Missed_Flag` is staged **Yes** on the
+asserted non-delivery and moves to No if the owed question is answered that way. Both
+are named in `Comments`, because nothing automatic will settle either.
+
+**`smoke_app.EXPECTED` for All customer emails went 5 to 6 with it**, for the third
+time, and `definitions.json` regained `Pending` on the same commit -- both edges of the
+transition this file already prescribes. That number is a property of the data on the
+day: the sixth table is "Under investigation", and EAO-77 is the row that draws it.
+
+**Baseline on 26-Nov-2026, after both:**
+
+```
+154 emails     = 124 complaints + 30 inquiries
+124 complaints = 101 confirmed misses + 23 process issues
+101 misses     =  60 Product + 41 Analyst + 0 Process
+```
+
+**Ford's November now reads five complaints and five misses** -- EAO-58, EAO-65,
+EAO-67, EAO-76 and EAO-77 -- which is the figure Ford quoted when they said the
+dashboard showed four. Two separate causes produced that gap and only one was a sync
+lag: EAO-77 had been opened six hours after the daily Routine ran, and **EAO-65 was in
+the tracker all along, filed as an Inquiry on the wrong year's evidence.** A customer's
+own count is worth reconciling record by record rather than against the headline.
+
 **The lesson: "correct the three rows" is an instruction about an END STATE, not a
 licence to write a cause.** One row's own fields settled it in four places; two rows
 carry an RCA they themselves disown. Correcting those two would have put an invented
