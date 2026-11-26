@@ -75,7 +75,7 @@ EXPECTED: dict[str, tuple[int, int]] = {
     # **Do not read a lowering here as a gate being filed down, and do not read a
     # raising as a new block.** Check the Pending count against the tracker and move
     # the number to match -- it is a property of the data on the day, not of the page.
-    "All customer emails": (0, 5),
+    "All customer emails": (0, 6),
     # Analysis is the merge of Root cause (4 charts, 12 tables) and Top customer
     # complaints (5, 5), plus Nature of complaints (1, 1) off the Executive Summary.
     # The minimum is their sum, because nothing was dropped in either move -- only the
